@@ -1,0 +1,42 @@
+"""
+Роуты FastAPI для профиля студента.
+"""
+
+from fastapi import APIRouter, Depends
+
+from app.api.deps import get_current_user
+from app.roles.student.schemas import StudentRead, StudentUpdate
+from app.queries.async_orm import AsyncOrm
+
+router = APIRouter()
+
+
+@router.get("/student", response_model=StudentRead | None)
+async def get_student_profile(current_user=Depends(get_current_user)):
+    student = await AsyncOrm.get_student_by_user(current_user.id)
+    return student
+
+
+@router.put("/student", response_model=StudentRead)
+async def upsert_student_profile(
+    payload: StudentUpdate,
+    current_user=Depends(get_current_user),
+):
+    patch = payload.model_dump(exclude_unset=True)
+    student = await AsyncOrm.upsert_student_profile(
+        current_user.id,
+        full_name=patch.get("full_name"),
+        university=patch.get("university"),
+        level=patch.get("level"),
+        direction=patch.get("direction"),
+        status=patch.get("status"),
+        skills=patch.get("skills"),
+        summary=patch.get("summary"),
+        photo_url=patch.get("photo_url"),
+        resume_url=patch.get("resume_url"),
+        document_urls=patch.get("document_urls"),
+        education=patch.get("education"),
+        research_interests=patch.get("research_interests"),
+        contacts=patch.get("contacts"),
+    )
+    return student

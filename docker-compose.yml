@@ -1,0 +1,111 @@
+services:
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: labportal_nginx
+    env_file:
+      - .env
+    ports:
+      - "${NGINX_PORT}:${NGINX_PORT}"
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./nginx/nginx.conf.template:/etc/nginx/nginx.conf.template:ro
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - BACKEND_URL=${BACKEND_URL}
+    container_name: labportal_frontend
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
+    expose:
+      - "${FRONTEND_PORT}"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: labportal_backend
+    env_file:
+      - .env
+    expose:
+      - "${BACKEND_PORT}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${BACKEND_PORT}/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 2
+      start_period: 3s
+    networks:
+      - app-network
+    develop:
+      watch:
+        - action: sync
+          path: ./backend
+          target: /app
+    volumes:
+      - ./backend:/app
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: labportal_db
+    restart: always
+    shm_size: 128mb
+    env_file:
+      - .env
+    expose:
+      - "5432"
+    ports:
+      - "${DB_PORT_HOST}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: labportal_minio
+    env_file:
+      - .env
+    command: server /data --console-address ":${MINIO_CONSOLE_PORT}"
+    ports:
+      - "9000:9000"
+      - "${MINIO_CONSOLE_PORT}:${MINIO_CONSOLE_PORT}"
+    volumes:
+      - minio_data:/data
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  minio_data:
