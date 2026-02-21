@@ -268,6 +268,17 @@ class SyncOrm:
             return user
 
     @staticmethod
+    def update_user_avatar(user_id: int, photo_url: Optional[str]) -> models.User:
+        with session_factory() as session:
+            user = session.get(models.User, user_id)
+            if not user:
+                raise ValueError("User not found")
+            user.photo_url = photo_url
+            session.commit()
+            session.refresh(user)
+            return user
+
+    @staticmethod
     def verify_email_by_token(token: str) -> Optional[models.User]:
         return None
 

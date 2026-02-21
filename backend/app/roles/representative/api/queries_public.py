@@ -11,6 +11,7 @@ from app.roles.representative.schemas import (
     OrganizationQueryBase,
     OrganizationShort,
     OrganizationLaboratoryShort,
+    OrganizationTaskSolutionRead,
     EmployeeRead,
     VacancyOrganizationRead,
 )
@@ -26,6 +27,7 @@ class QueryDetails(OrganizationQueryBase):
     organization_id: Optional[int] = None
     created_at: datetime
     organization: Optional[OrganizationShort] = None
+    linked_task_solution: Optional[OrganizationTaskSolutionRead] = None
     laboratories: List[OrganizationLaboratoryShort] = []
     employees: List[EmployeeRead] = []
     vacancies: List[VacancyOrganizationRead] = []
@@ -96,7 +98,7 @@ async def get_query_details(public_id: str):
         title=query.title,
         task_description=query.task_description,
         completed_examples=query.completed_examples,
-        article_links=query.article_links or [],
+        grant_info=query.grant_info,
         budget=query.budget,
         deadline=query.deadline,
         status=query.status,
@@ -105,6 +107,7 @@ async def get_query_details(public_id: str):
         organization_id=query.organization_id,
         created_at=query.created_at,
         organization=org_short,
+        linked_task_solution=query.linked_task_solution,
         laboratories=labs,
         employees=list(query.employees or []),
         vacancies=vacancies,

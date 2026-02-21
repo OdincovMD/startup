@@ -1,9 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import EmployeeModal from "./profile/EmployeeModal";
 
+const RESPONSE_STATUS_LABELS = { new: "Новый", accepted: "Принят", rejected: "Отклонен" };
+
 export default function Vacancies() {
+  const { auth } = useAuth();
   const [vacancies, setVacancies] = useState([]);
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -11,6 +15,9 @@ export default function Vacancies() {
   const [error, setError] = useState(null);
   const [employeePreview, setEmployeePreview] = useState(null);
   const [showEmployeePublications, setShowEmployeePublications] = useState(false);
+  const [myResponse, setMyResponse] = useState(null);
+  const [respondLoading, setRespondLoading] = useState(false);
+  const [respondError, setRespondError] = useState(null);
   const { publicId } = useParams();
   const navigate = useNavigate();
   const selectedId = useMemo(() => (publicId ? String(publicId) : null), [publicId]);
@@ -51,6 +58,37 @@ export default function Vacancies() {
     loadDetails();
   }, [selectedId]);
 
+  useEffect(() => {
+    if (!selectedId) {
+      setMyResponse(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await apiRequest(`/vacancies/public/${selectedId}/my-response`).catch(() => ({ has_response: false }));
+        if (!cancelled) setMyResponse(data || { has_response: false });
+      } catch {
+        if (!cancelled) setMyResponse({ has_response: false });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedId, auth?.token]);
+
+  const handleRespond = async () => {
+    if (!selectedId || respondLoading) return;
+    setRespondError(null);
+    setRespondLoading(true);
+    try {
+      const data = await apiRequest(`/vacancies/public/${selectedId}/respond`, { method: "POST" });
+      setMyResponse({ has_response: true, id: data.id, status: data.status });
+    } catch (e) {
+      setRespondError(e.message || "Не удалось отправить отклик");
+    } finally {
+      setRespondLoading(false);
+    }
+  };
+
   const openVacancy = (publicIdValue) => {
     navigate(`/vacancies/${publicIdValue}`);
   };
@@ -83,13 +121,30 @@ export default function Vacancies() {
             <p>Опубликованные вакансии с описанием, связанными лабораториями и контактами.</p>
           </div>
         )}
-        {loading && !selectedId && <p className="muted">Загружаем вакансии...</p>}
+        {loading && !selectedId && (
+          <div className="org-cards-grid labs-skeleton-grid" aria-busy="true" role="status" aria-label="Загрузка">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <article key={i} className="org-card-modern">
+                <div className="org-card-modern__media">
+                  <div className="skeleton" aria-hidden="true" style={{ width: "100%", aspectRatio: 1 }} />
+                </div>
+                <div className="org-card-modern__body">
+                  <div className="skeleton" aria-hidden="true" style={{ height: "1.125rem", width: "80%" }} />
+                  <div className="skeleton" aria-hidden="true" style={{ height: "0.875rem" }} />
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
         {error && <p className="error">{error}</p>}
 
         {!loading && !error && !selectedId && (
           <div className="org-cards-grid">
             {vacancies.length === 0 ? (
-              <p className="lab-empty">Опубликованные вакансии пока не добавлены.</p>
+              <div className="lab-empty-block org-empty-block">
+                <p className="lab-empty">Опубликованные вакансии пока не добавлены.</p>
+                <p className="lab-empty-hint">Организации публикуют вакансии в разделе «Профиль».</p>
+              </div>
             ) : (
               vacancies.map((vacancy) => (
                 <article
@@ -154,12 +209,18 @@ export default function Vacancies() {
                     </div>
                     {(vacancy.requirements || vacancy.description) && (
                       <p className="org-card-modern__description" title={vacancy.requirements || vacancy.description}>
-                        {vacancy.requirements || vacancy.description}
+                        {(vacancy.requirements || vacancy.description || "").length > 140
+                          ? `${(vacancy.requirements || vacancy.description || "").slice(0, 140)}…`
+                          : (vacancy.requirements || vacancy.description || "")}
                       </p>
                     )}
-                    {vacancy.contact_employee && (
+                    {(vacancy.contact_employee || vacancy.contact_email || vacancy.contact_phone) && (
                       <div className="org-detail-card__chips org-card-modern__chips">
-                        <span className="org-detail-chip">Контакт: {vacancy.contact_employee.full_name}</span>
+                        <span className="org-detail-chip">
+                          Контакт: {vacancy.contact_employee
+                            ? vacancy.contact_employee.full_name
+                            : [vacancy.contact_email, vacancy.contact_phone].filter(Boolean).join(" · ")}
+                        </span>
                       </div>
                     )}
                     {vacancy.public_id && (
@@ -299,6 +360,54 @@ export default function Vacancies() {
                         </div>
                       </div>
                     )}
+                    {!details.contact_employee && (details.contact_email || details.contact_phone) && (
+                      <div className="org-detail-section org-detail-section--inline">
+                        <h2 className="org-detail-section__title">Контакт</h2>
+                        <p className="org-detail-hero__description">
+                          {details.contact_email && (
+                            <span>Email: <a href={`mailto:${details.contact_email}`} className="org-detail-hero__link">{details.contact_email}</a></span>
+                          )}
+                          {details.contact_email && details.contact_phone && " · "}
+                          {details.contact_phone && <span>Телефон: {details.contact_phone}</span>}
+                        </p>
+                      </div>
+                    )}
+                    <div className="org-detail-section org-detail-section--inline org-detail-section--response">
+                      <h2 className="org-detail-section__title">Отклик на вакансию</h2>
+                      <div className="org-detail-card org-detail-card--response">
+                        <div className="org-detail-card__body">
+                          {myResponse === null ? (
+                            <p className="org-detail-card__text org-detail-card__text--muted">Загрузка…</p>
+                          ) : !auth ? (
+                            <p className="org-detail-card__text">
+                              <Link to={`/login?returnUrl=${encodeURIComponent(`/vacancies/${selectedId}`)}`} className="org-detail-hero__link">
+                                Войти, чтобы откликнуться
+                              </Link>
+                            </p>
+                          ) : myResponse?.has_response ? (
+                            <p className="org-detail-card__text">
+                              Вы откликнулись. Статус: <span className="org-detail-chip org-detail-chip--status">{RESPONSE_STATUS_LABELS[myResponse.status] ?? myResponse.status}</span>
+                            </p>
+                          ) : (
+                            <>
+                              {respondError && (
+                                <div className="auth-alert auth-alert-error" role="alert" style={{ marginBottom: "0.75rem" }}>
+                                  {respondError}
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                className="primary-btn"
+                                onClick={handleRespond}
+                                disabled={respondLoading}
+                              >
+                                {respondLoading ? "Отправка…" : "Откликнуться"}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

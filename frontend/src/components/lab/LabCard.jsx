@@ -54,10 +54,17 @@ export default function LabCard({ lab, labImages, onOpen, onOrgClick, navigate }
               Независимая лаборатория
             </span>
           )}
+          {lab.head_employee && (
+            <span className="org-card-modern__meta-item org-card-modern__meta-item--head">
+              Руководитель: {lab.head_employee.full_name}
+            </span>
+          )}
         </div>
         {(lab.description || lab.activities) && (
           <p className="org-card-modern__description" title={lab.description || lab.activities}>
-            {lab.description || lab.activities}
+            {(lab.description || lab.activities).length > 140
+              ? `${(lab.description || lab.activities).slice(0, 140)}…`
+              : (lab.description || lab.activities)}
           </p>
         )}
         {(lab.employees || []).length > 0 && (

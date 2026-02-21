@@ -13,7 +13,7 @@ from app.storage.s3 import upload_bytes
 
 router = APIRouter(prefix="/storage", tags=["storage"])
 
-ALLOWED_CATEGORIES = {"equipment", "laboratory", "employee", "organization", "researcher", "student"}
+ALLOWED_CATEGORIES = {"equipment", "laboratory", "employee", "organization", "researcher", "student", "user"}
 ALLOWED_MIME_PREFIXES = ("image/",)
 ALLOWED_MIME_TYPES = {
     "application/pdf",

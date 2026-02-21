@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { isValidEmail, formatPhoneRU, normalizeWebsiteInput } from "../../utils/validation";
+import { isValidEmail, formatPhoneRU } from "../../utils/validation";
 
 export default function PersonalProfileSection({
   profile,
@@ -12,13 +12,15 @@ export default function PersonalProfileSection({
   const contacts = profile?.contacts || {};
   const [emailError, setEmailError] = useState(null);
 
+  const contactEmail = contacts.email || profile?.mail || "";
+
   const handleEmailChange = (value) => {
     onContactsChange("email", value);
     setEmailError(null);
   };
 
   const handleEmailBlur = () => {
-    const email = (contacts.email || "").trim();
+    const email = contactEmail.trim();
     if (email && !isValidEmail(email)) {
       setEmailError("Введите корректный email");
     } else {
@@ -31,15 +33,8 @@ export default function PersonalProfileSection({
     onContactsChange("phone", formatted);
   };
 
-  const handleWebsiteBlur = () => {
-    const website = (contacts.website || "").trim();
-    if (website) {
-      onContactsChange("website", normalizeWebsiteInput(website));
-    }
-  };
-
   const handleSave = () => {
-    const email = (contacts.email || "").trim();
+    const email = contactEmail.trim();
     if (email && !isValidEmail(email)) {
       setEmailError("Введите корректный email");
       return;
@@ -49,7 +44,7 @@ export default function PersonalProfileSection({
   };
 
   return (
-    <div className="profile-section">
+    <div className="profile-section profile-section--no-border">
       {!hideTitle && <h3 className="profile-section-title">Личные данные</h3>}
       <p className="profile-section-desc">ФИО и контакты для связи с вами</p>
       <div className="profile-form">
@@ -66,7 +61,7 @@ export default function PersonalProfileSection({
             Email для связи
             <input
               type="email"
-              value={contacts.email || ""}
+              value={contactEmail}
               onChange={(e) => handleEmailChange(e.target.value)}
               onBlur={handleEmailBlur}
               placeholder="email@example.com"
@@ -100,17 +95,6 @@ export default function PersonalProfileSection({
               onChange={(e) => onContactsChange("telegram", e.target.value)}
               placeholder="@username"
             />
-          </label>
-          <label>
-            Сайт
-            <input
-              type="url"
-              value={contacts.website || ""}
-              onChange={(e) => onContactsChange("website", e.target.value)}
-              onBlur={handleWebsiteBlur}
-              placeholder="example.com или https://..."
-            />
-            <span className="profile-field-hint">Будет отображаться как ссылка</span>
           </label>
         </div>
         <button

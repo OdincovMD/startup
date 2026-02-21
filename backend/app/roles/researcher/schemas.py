@@ -5,7 +5,7 @@ Pydantic-схемы для роли исследователя.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 
 from pydantic import BaseModel, Field
 
@@ -21,9 +21,8 @@ class PublicationItem(BaseModel):
 
 class ResearcherBase(BaseModel):
     full_name: str
-    positions: Optional[List[str]] = Field(None, validation_alias="position")
+    position: Optional[str] = None
     academic_degree: Optional[str] = None
-    photo_url: Optional[str] = None
     research_interests: Optional[List[str]] = None
     education: Optional[List[str]] = None
     publications: Optional[List[PublicationItem]] = None
@@ -31,10 +30,9 @@ class ResearcherBase(BaseModel):
     hindex_scopus: Optional[int] = None
     hindex_rsci: Optional[int] = None
     hindex_openalex: Optional[int] = None
-    contacts: Optional[Dict[str, Any]] = None
     job_search_status: Optional[str] = None
-    desired_positions: Optional[List[str]] = None
-    employment_type_preference: Optional[List[str]] = None
+    desired_positions: Optional[str] = None
+    employment_type_preference: Optional[str] = None
     preferred_region: Optional[str] = None
     availability_date: Optional[str] = None
     salary_expectation: Optional[str] = None
@@ -56,9 +54,8 @@ class ResearcherRead(ORMModel, ResearcherBase):
 
 class ResearcherUpdate(BaseModel):
     full_name: Optional[str] = None
-    positions: Optional[List[str]] = None
+    position: Optional[str] = None
     academic_degree: Optional[str] = None
-    photo_url: Optional[str] = None
     research_interests: Optional[List[str]] = None
     education: Optional[List[str]] = None
     publications: Optional[List[PublicationItem]] = None
@@ -66,10 +63,9 @@ class ResearcherUpdate(BaseModel):
     hindex_scopus: Optional[int] = None
     hindex_rsci: Optional[int] = None
     hindex_openalex: Optional[int] = None
-    contacts: Optional[Dict[str, Any]] = None
     job_search_status: Optional[str] = None
-    desired_positions: Optional[List[str]] = None
-    employment_type_preference: Optional[List[str]] = None
+    desired_positions: Optional[str] = None
+    employment_type_preference: Optional[str] = None
     preferred_region: Optional[str] = None
     availability_date: Optional[str] = None
     salary_expectation: Optional[str] = None

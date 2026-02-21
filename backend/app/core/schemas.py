@@ -54,6 +54,7 @@ class UserRead(ORMModel, UserBase):
     email_verified: bool
     created_at: datetime
     full_name: Optional[str] = None
+    photo_url: Optional[str] = None
     orcid: Optional[str] = None
     openalex_id: Optional[str] = None
     contacts: Optional[Dict[str, Any]] = None
@@ -79,6 +80,7 @@ def user_to_read(user) -> UserRead:
         email_verified=user.email_verified,
         created_at=user.created_at,
         full_name=user.full_name,
+        photo_url=user.photo_url,
         orcid=user.orcid,
         openalex_id=user.openalex_id,
         contacts=user.contacts,
@@ -93,6 +95,10 @@ class UserRoleUpdate(BaseModel):
 class UserProfileUpdate(BaseModel):
     full_name: Optional[str] = None
     contacts: Optional[Dict[str, Any]] = None
+
+
+class UserAvatarUpdate(BaseModel):
+    photo_url: Optional[str] = None
 
 
 class SetPasswordRequest(BaseModel):

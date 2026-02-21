@@ -37,9 +37,8 @@ class SyncOrm:
     def upsert_researcher_profile(
         user_id: int,
         full_name: Optional[str] = None,
-        positions: Optional[List[str]] = None,
+        position: Optional[str] = None,
         academic_degree: Optional[str] = None,
-        photo_url: Optional[str] = None,
         research_interests: Optional[List[str]] = None,
         education: Optional[List[str]] = None,
         publications: Optional[List] = None,
@@ -47,10 +46,9 @@ class SyncOrm:
         hindex_scopus: Optional[int] = None,
         hindex_rsci: Optional[int] = None,
         hindex_openalex: Optional[int] = None,
-        contacts: Optional[dict] = None,
         job_search_status: Optional[str] = None,
-        desired_positions: Optional[List[str]] = None,
-        employment_type_preference: Optional[List[str]] = None,
+        desired_positions: Optional[str] = None,
+        employment_type_preference: Optional[str] = None,
         preferred_region: Optional[str] = None,
         availability_date: Optional[str] = None,
         salary_expectation: Optional[str] = None,
@@ -66,9 +64,8 @@ class SyncOrm:
                 researcher = models.Researcher(
                     user_id=user_id,
                     full_name=full_name or "Исследователь",
-                    position=positions or [],
+                    position=position,
                     academic_degree=academic_degree,
-                    photo_url=photo_url,
                     research_interests=research_interests or [],
                     education=education or [],
                     publications=publications or [],
@@ -76,10 +73,9 @@ class SyncOrm:
                     hindex_scopus=hindex_scopus,
                     hindex_rsci=hindex_rsci,
                     hindex_openalex=hindex_openalex,
-                    contacts=contacts or {},
                     job_search_status=job_search_status,
-                    desired_positions=desired_positions or [],
-                    employment_type_preference=employment_type_preference or [],
+                    desired_positions=desired_positions,
+                    employment_type_preference=employment_type_preference,
                     preferred_region=preferred_region,
                     availability_date=availability_date,
                     salary_expectation=salary_expectation,
@@ -92,12 +88,10 @@ class SyncOrm:
             else:
                 if full_name is not None:
                     researcher.full_name = full_name
-                if positions is not None:
-                    researcher.position = positions
+                if position is not None:
+                    researcher.position = position
                 if academic_degree is not None:
                     researcher.academic_degree = academic_degree
-                if photo_url is not None:
-                    researcher.photo_url = photo_url
                 if research_interests is not None:
                     researcher.research_interests = research_interests
                 if education is not None:
@@ -112,8 +106,6 @@ class SyncOrm:
                     researcher.hindex_rsci = hindex_rsci
                 if hindex_openalex is not None:
                     researcher.hindex_openalex = hindex_openalex
-                if contacts is not None:
-                    researcher.contacts = contacts
                 if job_search_status is not None:
                     researcher.job_search_status = job_search_status
                 if desired_positions is not None:
@@ -132,7 +124,6 @@ class SyncOrm:
                     researcher.resume_url = resume_url
                 if document_urls is not None:
                     researcher.document_urls = document_urls
-            # laboratory_ids removed: labs are added only via LabJoinRequest approval
             try:
                 session.commit()
             except SQLAlchemyError:

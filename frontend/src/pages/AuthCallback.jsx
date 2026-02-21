@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 export default function AuthCallback() {
@@ -32,9 +32,9 @@ export default function AuthCallback() {
           <div className="auth-card-modern">
             <h1>Ошибка входа</h1>
             <p className="auth-subtitle">{error}</p>
-            <a href="/login" className="auth-btn-primary" style={{ display: "block", textAlign: "center" }}>
+            <Link to="/login" className="primary-btn auth-btn-primary" style={{ display: "inline-block", textAlign: "center", width: "100%", boxSizing: "border-box" }}>
               Вернуться на страницу входа
-            </a>
+            </Link>
           </div>
         </div>
       </main>

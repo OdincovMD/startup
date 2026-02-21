@@ -9,6 +9,7 @@ import {
   OrgSharedVacanciesTab,
 } from "./org";
 import JoinRequestsIncomingTab from "./JoinRequestsIncomingTab";
+import VacancyResponsesIncomingTab from "./VacancyResponsesIncomingTab";
 
 export default function OrganizationProfileSection({
   title = "Профиль организации",
@@ -29,6 +30,7 @@ export default function OrganizationProfileSection({
   handleLabDraft,
   orgEmployees,
   toggleLabEmployee,
+  setLabHead,
   toggleLabEquipment,
   toggleLabTaskSolution,
   handleLabFiles,
@@ -101,14 +103,7 @@ export default function OrganizationProfileSection({
   uploadEmployeePhoto,
   employeeDraftPositionInput,
   setEmployeeDraftPositionInput,
-  employeeDraftInterestsInput,
-  setEmployeeDraftInterestsInput,
-  addInterestPreset,
-  researchInterestOptions,
   toggleEmployeeLab,
-  newLabDraft,
-  setNewLabDraft,
-  createLabFromStaff,
   addEducation,
   removeEducation,
   showDraftPublications,
@@ -124,8 +119,6 @@ export default function OrganizationProfileSection({
   handleEmployeeEditChange,
   employeeEditPositionInput,
   setEmployeeEditPositionInput,
-  employeeEditInterestsInput,
-  setEmployeeEditInterestsInput,
   showEditPublications,
   setShowEditPublications,
   employeeEditPublicationList,
@@ -151,66 +144,13 @@ export default function OrganizationProfileSection({
   onError,
 }) {
   return (
-    <div className="profile-section">
+    <div className="profile-section profile-section--no-border">
       {!hideTitle && <h3 className="profile-section-title">{title}</h3>}
-      <p className="profile-section-desc">Лаборатории, оборудование, вакансии и запросы</p>
-      <div className="profile-tabs">
-        {showProfileTab && (
-          <button
-            className={orgTab === "profile" ? "tab-btn active" : "tab-btn"}
-            onClick={() => setOrgTab("profile")}
-          >
-            Профиль
-          </button>
-        )}
-        <button
-          className={orgTab === "labs" ? "tab-btn active" : "tab-btn"}
-          onClick={() => setOrgTab("labs")}
-        >
-          Лаборатории
-        </button>
-        <button
-          className={orgTab === "equipment" ? "tab-btn active" : "tab-btn"}
-          onClick={() => setOrgTab("equipment")}
-        >
-          Оборудование
-        </button>
-        <button
-          className={orgTab === "staff" ? "tab-btn active" : "tab-btn"}
-          onClick={() => setOrgTab("staff")}
-        >
-          Сотрудники
-        </button>
-        <button
-          className={orgTab === "tasks" ? "tab-btn active" : "tab-btn"}
-          onClick={() => setOrgTab("tasks")}
-        >
-          Задачи
-        </button>
-        <button
-          className={orgTab === "queries" ? "tab-btn active" : "tab-btn"}
-          onClick={() => setOrgTab("queries")}
-        >
-          Запросы
-        </button>
-        <button
-          className={orgTab === "vacancies" ? "tab-btn active" : "tab-btn"}
-          onClick={() => setOrgTab("vacancies")}
-        >
-          Вакансии
-        </button>
-        {(roleKey === "lab_admin" || roleKey === "lab_representative") && (
-          <button
-            className={orgTab === "join-requests" ? "tab-btn active" : "tab-btn"}
-            onClick={() => setOrgTab("join-requests")}
-          >
-            Запросы на присоединение
-          </button>
-        )}
-      </div>
-
+      <div className="org-section-content">
       {showProfileTab && orgTab === "profile" && (
-        <OrgProfileTab
+        <>
+          <p className="profile-tab-desc">Название, описание и контакты организации. Опубликуйте профиль, чтобы он был виден на платформе.</p>
+          <OrgProfileTab
           orgProfile={orgProfile}
           handleOrgChange={handleOrgChange}
           uploadOrgAvatar={uploadOrgAvatar}
@@ -221,9 +161,12 @@ export default function OrganizationProfileSection({
           onAvatarInputRefReady={onOrgAvatarInputRefReady}
           onOrgRorLinked={onOrgRorLinked}
         />
+        </>
       )}
 
       {orgTab === "labs" && (
+        <>
+          <p className="profile-tab-desc">Добавляйте лаборатории, привязывайте к ним оборудование, задачи и сотрудников.</p>
         <OrgSharedLaboratoriesTab
           labDraft={labDraft}
           handleLabDraft={handleLabDraft}
@@ -233,6 +176,7 @@ export default function OrganizationProfileSection({
           toggleLabTaskSolution={toggleLabTaskSolution}
           orgEmployees={orgEmployees}
           toggleLabEmployee={toggleLabEmployee}
+          setLabHead={setLabHead}
           handleLabFiles={handleLabFiles}
           removeDraftImage={removeDraftImage}
           splitMedia={splitMedia}
@@ -254,9 +198,12 @@ export default function OrganizationProfileSection({
           saving={saving}
           onFileInputRefsReady={onOrgLabFileInputRefsReady}
         />
+        </>
       )}
 
       {orgTab === "equipment" && (
+        <>
+          <p className="profile-tab-desc">Опишите оборудование и привяжите его к лабораториям.</p>
         <OrgSharedEquipmentTab
           equipmentDraft={equipmentDraft}
           handleEquipmentDraft={handleEquipmentDraft}
@@ -282,9 +229,11 @@ export default function OrganizationProfileSection({
           saving={saving}
           onFileInputRefsReady={onOrgEquipmentFileInputRefsReady}
         />
+        </>
       )}
 
       {orgTab === "staff" && (
+        <>
         <OrgSharedStaffTab
           employeeDraft={employeeDraft}
           handleEmployeeDraftChange={handleEmployeeDraftChange}
@@ -292,15 +241,8 @@ export default function OrganizationProfileSection({
           uploadEmployeePhoto={uploadEmployeePhoto}
           employeeDraftPositionInput={employeeDraftPositionInput}
           setEmployeeDraftPositionInput={setEmployeeDraftPositionInput}
-          employeeDraftInterestsInput={employeeDraftInterestsInput}
-          setEmployeeDraftInterestsInput={setEmployeeDraftInterestsInput}
-          researchInterestOptions={researchInterestOptions}
-          addInterestPreset={addInterestPreset}
           orgLabs={orgLabs}
           toggleEmployeeLab={toggleEmployeeLab}
-          newLabDraft={newLabDraft}
-          setNewLabDraft={setNewLabDraft}
-          createLabFromStaff={createLabFromStaff}
           addEducation={addEducation}
           removeEducation={removeEducation}
           showDraftPublications={showDraftPublications}
@@ -315,8 +257,6 @@ export default function OrganizationProfileSection({
           handleEmployeeEditChange={handleEmployeeEditChange}
           employeeEditPositionInput={employeeEditPositionInput}
           setEmployeeEditPositionInput={setEmployeeEditPositionInput}
-          employeeEditInterestsInput={employeeEditInterestsInput}
-          setEmployeeEditInterestsInput={setEmployeeEditInterestsInput}
           showEditPublications={showEditPublications}
           setShowEditPublications={setShowEditPublications}
           updateEmployee={updateEmployee}
@@ -333,9 +273,11 @@ export default function OrganizationProfileSection({
           saving={saving}
           onFileInputRefsReady={onOrgStaffFileInputRefsReady}
         />
+        </>
       )}
 
       {orgTab === "tasks" && (
+        <>
         <OrgSharedTasksTab
           taskDraft={taskDraft}
           setTaskDraft={setTaskDraft}
@@ -352,9 +294,11 @@ export default function OrganizationProfileSection({
           deleteTask={deleteTask}
           saving={saving}
         />
+        </>
       )}
 
       {orgTab === "queries" && (
+        <>
         <OrgSharedQueriesTab
           queryDraft={queryDraft}
           setQueryDraft={setQueryDraft}
@@ -375,9 +319,12 @@ export default function OrganizationProfileSection({
           toggleQueryPublish={toggleQueryPublish}
           saving={saving}
         />
+        </>
       )}
 
       {orgTab === "vacancies" && (
+        <>
+          <p className="profile-tab-desc">Добавляйте позиции и связывайте их с лабораториями и запросами.</p>
         <OrgSharedVacanciesTab
           vacancyDraft={vacancyDraft}
           setVacancyDraft={setVacancyDraft}
@@ -396,11 +343,16 @@ export default function OrganizationProfileSection({
           toggleVacancyPublish={toggleVacancyPublish}
           saving={saving}
         />
+        </>
       )}
 
       {orgTab === "join-requests" && (
         <JoinRequestsIncomingTab roleKey={roleKey} onError={onError} />
       )}
+      {orgTab === "vacancy-responses" && (
+        <VacancyResponsesIncomingTab onError={onError} />
+      )}
+      </div>
     </div>
   );
 }

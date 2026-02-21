@@ -92,11 +92,11 @@ export default function Login() {
             </div>
 
             <button
-              className="auth-btn-primary"
+              className="primary-btn auth-btn-primary"
               type="submit"
               disabled={loading}
             >
-              {loading ? "Вход..." : "Войти"}
+              {loading ? "Вход…" : "Войти"}
             </button>
 
             <div className="auth-divider">или</div>

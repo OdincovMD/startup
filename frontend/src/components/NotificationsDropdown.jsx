@@ -1,5 +1,6 @@
 /**
- * Иконка уведомлений с бейджем и выпадающим списком.
+ * Иконка уведомлений с бейджем и выпадающей панелью.
+ * Стиль в духе проекта: карточка, список-карточки, типография profile-list.
  */
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -14,31 +15,39 @@ const TYPE_LABELS = {
   org_join_approved: "Заявка в организацию принята",
   org_join_rejected: "Заявка в организацию отклонена",
   org_join_left: "Лаборатория покинула организацию",
+  vacancy_response_created: "Отклик на вакансию",
 };
 
 function formatNotification(n) {
   const label = TYPE_LABELS[n.type] || n.type;
   const d = n.data || {};
   if (n.type === "lab_join_request_created") {
-    return `${label}: ${d.researcher_full_name || ""} → ${d.lab_name || ""}`;
+    return `${d.researcher_full_name || "Исследователь"} → ${d.lab_name || "лаборатория"}`;
   }
   if (n.type === "lab_join_approved" || n.type === "lab_join_rejected") {
-    return `${label}: ${d.lab_name || ""}`;
+    return d.lab_name || "лаборатория";
   }
   if (n.type === "lab_join_removed") {
     const labs = d.lab_names || [];
-    return `${label}: ${labs.join(", ") || "лаборатория"}`;
+    return labs.join(", ") || "лаборатория";
   }
   if (n.type === "org_join_request_created") {
-    return `${label}: ${d.lab_name || ""}`;
+    return d.lab_name || "лаборатория";
   }
   if (n.type === "org_join_left") {
-    return `${label}: ${d.lab_name || ""} → ${d.org_name || ""}`;
+    return `${d.lab_name || ""} → ${d.org_name || ""}`;
   }
   if (n.type === "org_join_approved" || n.type === "org_join_rejected") {
-    return `${label}: ${d.org_name || ""}`;
+    return d.org_name || "организация";
+  }
+  if (n.type === "vacancy_response_created") {
+    return `${d.applicant_name || "Соискатель"} · «${d.vacancy_name || "вакансия"}»`;
   }
   return label;
+}
+
+function getTypeLabel(n) {
+  return TYPE_LABELS[n.type] || n.type;
 }
 
 function formatDate(iso) {
@@ -48,9 +57,9 @@ function formatDate(iso) {
     const now = new Date();
     const diff = now - d;
     if (diff < 60000) return "только что";
-    if (diff < 3600000) return `${Math.floor(diff / 60000)} мин. назад`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)} ч. назад`;
-    return d.toLocaleDateString("ru-RU");
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} мин.`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)} ч.`;
+    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
   } catch {
     return "";
   }
@@ -68,6 +77,8 @@ function getNotificationLink(n) {
     case "org_join_approved":
     case "org_join_rejected":
       return { path: "/profile", tab: "my-requests" };
+    case "vacancy_response_created":
+      return { path: "/profile", tab: "vacancy-responses" };
     default:
       return { path: "/profile" };
   }
@@ -134,45 +145,70 @@ export default function NotificationsDropdown() {
     return () => document.removeEventListener("click", handler);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
   return (
     <div className="notifications-dropdown" ref={ref}>
       <button
         type="button"
         className="notifications-trigger"
         onClick={() => setOpen((o) => !o)}
-        aria-label={`Уведомления${unreadCount ? ` (${unreadCount})` : ""}`}
+        aria-expanded={open}
+        aria-haspopup="true"
+        aria-label={unreadCount ? `Уведомления: ${unreadCount} непрочитанных` : "Уведомления"}
       >
-        <span className="notifications-icon" aria-hidden>🔔</span>
+        <span className="notifications-trigger-icon" aria-hidden>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+        </span>
         {unreadCount > 0 && (
-          <span className="notifications-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>
+          <span className="notifications-badge" aria-hidden>
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
         )}
       </button>
       {open && (
-        <div className="notifications-panel">
-          <div className="notifications-panel-header">Уведомления</div>
-          {loading ? (
-            <div className="notifications-panel-loading">Загрузка…</div>
-          ) : notifications.length === 0 ? (
-            <div className="notifications-panel-empty">Нет уведомлений</div>
-          ) : (
-            <ul className="notifications-list">
-              {notifications.map((n) => (
-                <li
-                  key={n.id}
-                  className={`notifications-item ${n.read_at ? "read" : "unread"} notifications-item--clickable`}
-                  onClick={() => handleNotificationClick(n)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") handleNotificationClick(n);
-                  }}
-                >
-                  <span className="notifications-item-text">{formatNotification(n)}</span>
-                  <span className="notifications-item-date">{formatDate(n.created_at)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+        <div className="notifications-panel" role="dialog" aria-label="Список уведомлений">
+          <div className="notifications-panel-header">
+            <span className="notifications-panel-title">Уведомления</span>
+            {unreadCount > 0 && (
+              <span className="notifications-panel-count">{unreadCount}</span>
+            )}
+          </div>
+          <div className="notifications-panel-body">
+            {loading ? (
+              <div className="notifications-empty">Загрузка…</div>
+            ) : notifications.length === 0 ? (
+              <div className="notifications-empty">Нет новых уведомлений</div>
+            ) : (
+              <ul className="notifications-list" role="list">
+                {notifications.map((n) => (
+                  <li key={n.id} className="notifications-list-item">
+                    <button
+                      type="button"
+                      className={`notifications-item ${n.read_at ? "notifications-item--read" : "notifications-item--unread"}`}
+                      onClick={() => handleNotificationClick(n)}
+                    >
+                      <span className="notifications-item-type">{getTypeLabel(n)}</span>
+                      <span className="notifications-item-text">{formatNotification(n)}</span>
+                      <span className="notifications-item-meta">
+                        <span className="notifications-item-date">{formatDate(n.created_at)}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -179,7 +179,7 @@ export default function Laboratories() {
         {!selectedId && (
           <div className="section-header">
             <h2>Лаборатории</h2>
-            <p>Список научных лабораторий с описаниями, сотрудниками и оборудованием.</p>
+            <p>Научные лаборатории с описаниями, руководителями и командой. Выберите карточку, чтобы открыть детали и вакансии.</p>
           </div>
         )}
         {loading && !selectedId && (
@@ -205,7 +205,10 @@ export default function Laboratories() {
         {!loading && !error && !selectedId && (
           <div className="org-cards-grid">
             {laboratories.length === 0 ? (
-              <p className="lab-empty">Публичные лаборатории пока не добавлены.</p>
+              <div className="lab-empty-block">
+                <p className="lab-empty">Публичные лаборатории пока не добавлены.</p>
+                <p className="lab-empty-hint">Организации и представители лабораторий могут добавлять лаборатории в разделе «Профиль».</p>
+              </div>
             ) : (
               laboratories.map((lab) => (
                 <LabCard
@@ -247,6 +250,13 @@ export default function Laboratories() {
                   details={details}
                   labImages={labImages}
                   onOrgClick={(id) => navigate(`/organizations/${id}`)}
+                  onHeadClick={(head) => {
+                    const emp = details.employees.find((e) => e.id === head.id);
+                    if (emp) {
+                      setEmployeePreview(emp);
+                      setShowEmployeePublications(false);
+                    }
+                  }}
                 />
                 {listImages.length > 1 && (
                   <LabSection
@@ -267,42 +277,55 @@ export default function Laboratories() {
                   empty={details.employees.length === 0}
                 >
                   <div className="org-detail-grid org-detail-grid--employees">
-                    {details.employees.map((employee) => (
-                      <LabDetailCard
-                        key={employee.id}
-                        variant="employee"
-                        clickable
-                        onClick={() => {
-                          setEmployeePreview(employee);
-                          setShowEmployeePublications(false);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
+                    {details.employees.map((employee) => {
+                      const interests = Array.isArray(employee.research_interests) ? employee.research_interests : [];
+                      return (
+                        <LabDetailCard
+                          key={employee.id}
+                          variant="employee"
+                          clickable
+                          onClick={() => {
                             setEmployeePreview(employee);
                             setShowEmployeePublications(false);
-                          }
-                        }}
-                      >
-                        {employee.photo_url ? (
-                          <img className="org-detail-card__avatar" src={employee.photo_url} alt="" />
-                        ) : (
-                          <div className="org-detail-card__avatar-placeholder">
-                            {employee.full_name ? employee.full_name.charAt(0).toUpperCase() : "?"}
-                          </div>
-                        )}
-                        <h3 className="org-detail-card__title">{employee.full_name}</h3>
-                        {employee.academic_degree && (
-                          <p className="org-detail-card__text org-detail-card__text--muted">
-                            {employee.academic_degree}
-                          </p>
-                        )}
-                        {(employee.positions || []).length > 0 && (
-                          <p className="org-detail-card__text">{employee.positions.join(", ")}</p>
-                        )}
-                        <span className="org-detail-card__cta">Профиль →</span>
-                      </LabDetailCard>
-                    ))}
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setEmployeePreview(employee);
+                              setShowEmployeePublications(false);
+                            }
+                          }}
+                        >
+                          {employee.photo_url ? (
+                            <img className="org-detail-card__avatar" src={employee.photo_url} alt="" />
+                          ) : (
+                            <div className="org-detail-card__avatar-placeholder">
+                              {employee.full_name ? employee.full_name.charAt(0).toUpperCase() : "?"}
+                            </div>
+                          )}
+                          <h3 className="org-detail-card__title">{employee.full_name}</h3>
+                          {employee.academic_degree && (
+                            <p className="org-detail-card__text org-detail-card__text--muted">
+                              {employee.academic_degree}
+                            </p>
+                          )}
+                          {(employee.positions || []).length > 0 && (
+                            <p className="org-detail-card__text org-detail-card__text--positions">
+                              {employee.positions.join(", ")}
+                            </p>
+                          )}
+                          {interests.length > 0 && (
+                            <div className="org-detail-card__chips org-detail-card__chips--interests">
+                              {interests.slice(0, 3).map((interest) => (
+                                <span key={interest} className="org-detail-chip">{interest}</span>
+                              ))}
+                              {interests.length > 3 && <span className="org-detail-chip">+{interests.length - 3}</span>}
+                            </div>
+                          )}
+                          <span className="org-detail-card__cta">Профиль →</span>
+                        </LabDetailCard>
+                      );
+                    })}
                   </div>
                 </LabSection>
                 <LabSection
@@ -343,6 +366,42 @@ export default function Laboratories() {
                   </div>
                 </LabSection>
                 <LabSection
+                  title="Решённые задачи"
+                  badge={(details.task_solutions || []).length}
+                  emptyMessage="Решённые задачи не добавлены."
+                  empty={(details.task_solutions || []).length === 0}
+                >
+                  <div className="org-detail-grid">
+                    {(details.task_solutions || []).map((task) => (
+                      <LabDetailCard key={task.id}>
+                        <h3 className="org-detail-card__title">{task.title}</h3>
+                        {(task.task_description || task.solution_description) && (
+                          <p className="org-detail-card__text" title={task.task_description || task.solution_description}>
+                            {(task.task_description || task.solution_description || "").length > 120
+                              ? `${(task.task_description || task.solution_description || "").slice(0, 120)}…`
+                              : (task.task_description || task.solution_description || "")}
+                          </p>
+                        )}
+                        <div className="org-detail-card__meta">
+                          {task.solution_deadline && <span>Сроки: {task.solution_deadline}</span>}
+                          {task.grant_info && <span>Грант: {task.grant_info}</span>}
+                          {task.cost && <span>Стоимость: {task.cost}</span>}
+                        </div>
+                        {(task.laboratories || []).length > 0 && (
+                          <div className="org-detail-card__chips">
+                            {(task.laboratories || []).slice(0, 3).map((lab) => (
+                              <span key={lab.id} className="org-detail-chip">{lab.name}</span>
+                            ))}
+                            {(task.laboratories || []).length > 3 && (
+                              <span className="org-detail-chip">+{(task.laboratories || []).length - 3}</span>
+                            )}
+                          </div>
+                        )}
+                      </LabDetailCard>
+                    ))}
+                  </div>
+                </LabSection>
+                <LabSection
                   title="Запросы"
                   badge={(details.queries || []).length}
                   emptyMessage="Запросы не добавлены."
@@ -350,42 +409,49 @@ export default function Laboratories() {
                 >
                   <div className="org-detail-grid">
                     {(details.queries || []).map((query) => (
-                      <LabDetailCard key={query.id}>
+                      <LabDetailCard
+                        key={query.id}
+                        clickable={!!query.public_id}
+                        onClick={() => query.public_id && openQuery(query.public_id)}
+                        onKeyDown={(e) => {
+                          if (query.public_id && (e.key === "Enter" || e.key === " ")) {
+                            e.preventDefault();
+                            openQuery(query.public_id);
+                          }
+                        }}
+                      >
                         <h3 className="org-detail-card__title">{query.title}</h3>
-                        {query.task_description && (
-                          <p className="org-detail-card__text">{query.task_description}</p>
+                        {query.status && (
+                          <span className="org-detail-chip org-detail-chip--status">
+                            {query.status === "active" && "Активный"}
+                            {query.status === "paused" && "На паузе"}
+                            {query.status === "closed" && "Закрыт"}
+                          </span>
                         )}
-                        {query.completed_examples && (
-                          <p className="org-detail-card__text">{query.completed_examples}</p>
+                        {query.task_description && (
+                          <p className="org-detail-card__text" title={query.task_description}>
+                            {query.task_description.length > 120
+                              ? `${query.task_description.slice(0, 120)}…`
+                              : query.task_description}
+                          </p>
                         )}
                         <div className="org-detail-card__meta">
+                          {query.grant_info && <span>Грант: {query.grant_info}</span>}
                           {query.budget && <span>Бюджет: {query.budget}</span>}
                           {query.deadline && <span>Дедлайн: {query.deadline}</span>}
                         </div>
                         {(query.employees || []).length > 0 && (
                           <div className="org-detail-card__chips">
-                            {query.employees.map((emp) => (
+                            {(query.employees || []).slice(0, 3).map((emp) => (
                               <span key={emp.id} className="org-detail-chip">{emp.full_name}</span>
                             ))}
+                            {(query.employees || []).length > 3 && (
+                              <span className="org-detail-chip">+{(query.employees || []).length - 3}</span>
+                            )}
                           </div>
                         )}
                         {query.public_id && (
-                          <button
-                            className="org-detail-card__cta"
-                            type="button"
-                            onClick={() => openQuery(query.public_id)}
-                          >
-                            Открыть запрос →
-                          </button>
-                        )}
-                        {(query.article_links || []).length > 0 && (
-                          <div className="org-detail-card__files">
-                            {query.article_links.map((url, i) => (
-                              <a key={i} href={url} target="_blank" rel="noreferrer">
-                                {url}
-                              </a>
-                            ))}
-                          </div>
+                          <span className="org-detail-card__cta">Открыть запрос →</span>
                         )}
                       </LabDetailCard>
                     ))}

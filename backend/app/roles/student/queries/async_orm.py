@@ -3,7 +3,7 @@ AsyncOrm — асинхронная обёртка над SyncOrm для рол�
 """
 
 import asyncio
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 
 from app import models
 from app.roles.student.queries.sync_orm import SyncOrm
@@ -18,33 +18,23 @@ class AsyncOrm:
     async def upsert_student_profile(
         user_id: int,
         full_name: Optional[str] = None,
-        university: Optional[str] = None,
-        level: Optional[str] = None,
-        direction: Optional[str] = None,
         status: Optional[str] = None,
         skills: Optional[List[str]] = None,
         summary: Optional[str] = None,
-        photo_url: Optional[str] = None,
         resume_url: Optional[str] = None,
         document_urls: Optional[List[str]] = None,
         education: Optional[List[str]] = None,
         research_interests: Optional[List[str]] = None,
-        contacts: Optional[dict] = None,
     ) -> models.Student:
         return await asyncio.to_thread(
             SyncOrm.upsert_student_profile,
             user_id,
             full_name,
-            university,
-            level,
-            direction,
             status,
             skills,
             summary,
-            photo_url,
             resume_url,
             document_urls,
             education,
             research_interests,
-            contacts,
         )

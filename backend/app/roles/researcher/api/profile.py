@@ -34,9 +34,8 @@ async def upsert_researcher_profile(
     researcher = await AsyncOrm.upsert_researcher_profile(
         current_user.id,
         full_name=patch.get("full_name"),
-        positions=patch.get("positions"),
+        position=patch.get("position"),
         academic_degree=patch.get("academic_degree"),
-        photo_url=patch.get("photo_url"),
         research_interests=patch.get("research_interests"),
         education=patch.get("education"),
         publications=patch.get("publications"),
@@ -44,7 +43,6 @@ async def upsert_researcher_profile(
         hindex_scopus=patch.get("hindex_scopus"),
         hindex_rsci=patch.get("hindex_rsci"),
         hindex_openalex=patch.get("hindex_openalex"),
-        contacts=patch.get("contacts"),
         job_search_status=patch.get("job_search_status"),
         desired_positions=patch.get("desired_positions"),
         employment_type_preference=patch.get("employment_type_preference"),

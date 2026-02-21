@@ -1,7 +1,13 @@
 import React, { useState } from "react";
 import { apiRequest } from "../../api/client";
 
-export default function OrgOpenAlexSection({ orgProfile, onOrgRorLinked }) {
+const RorIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+export default function OrgOpenAlexSection({ orgProfile, onOrgRorLinked, compact = false }) {
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -71,67 +77,51 @@ export default function OrgOpenAlexSection({ orgProfile, onOrgRorLinked }) {
   const rorUrl = hasRor ? `https://ror.org/${orgProfile.ror_id}` : null;
 
   return (
-    <div className="profile-section openalex-section" style={{ marginTop: "1.5rem" }}>
-      <h4 className="profile-section-title" style={{ fontSize: "1rem" }}>OpenAlex / ROR</h4>
-      <p className="profile-section-desc" style={{ marginBottom: "0.75rem" }}>
-        ROR ID организации для импорта данных из OpenAlex (название, адрес, сайт, аватар)
-      </p>
+    <div className={`org-ror-section ${compact ? "org-ror-section--compact" : ""}`}>
+      {!compact && (
+        <>
+          <h4 className="profile-form-group-title">OpenAlex / ROR</h4>
+          <p className="profile-section-desc" style={{ marginBottom: "0.75rem" }}>
+            ROR ID организации для импорта данных из OpenAlex (название, адрес, сайт, аватар)
+          </p>
+        </>
+      )}
+      {compact && <div className="org-ror-section__label">OpenAlex / ROR</div>}
       {error && (
-        <div
-          className="auth-alert auth-alert-error"
-          role="alert"
-          style={{ marginBottom: "0.75rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}
-        >
+        <div className="auth-alert auth-alert-error org-ror-error" role="alert">
           <span>{error}</span>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            aria-label="Закрыть"
-            style={{ marginLeft: "0.5rem", background: "none", border: "none", cursor: "pointer", opacity: 0.7, flexShrink: 0 }}
-          >
-            ×
-          </button>
+          <button type="button" onClick={() => setError(null)} aria-label="Закрыть" className="org-ror-error-dismiss">×</button>
         </div>
       )}
       {hasRor ? (
-        <div className="orcid-status orcid-status--connected openalex-status">
-          <div>
+        <div className="org-ror-status org-ror-status--connected">
+          <div className="org-ror-status__row">
+            <RorIcon />
             <span className="orcid-label">ROR ID привязан:</span>{" "}
             <a href={rorUrl} target="_blank" rel="noopener noreferrer" className="orcid-link">
               {orgProfile.ror_id}
             </a>
           </div>
-          <div className="orcid-actions" style={{ marginTop: "0.5rem" }}>
-            <a
-              href={rorUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="profile-btn-outline"
-            >
+          <div className="orcid-actions">
+            <a href={rorUrl} target="_blank" rel="noopener noreferrer" className="profile-btn-outline">
               Открыть в ROR
             </a>
-            <button
-              type="button"
-              className="profile-btn-outline"
-              onClick={handleImport}
-              disabled={importing}
-            >
+            <button type="button" className="profile-btn-outline" onClick={handleImport} disabled={importing}>
               {importing ? "Обновление..." : "Обновить"}
             </button>
-            <button
-              type="button"
-              className="profile-btn-outline"
-              onClick={handleUnlink}
-              disabled={unlinking}
-            >
+            <button type="button" className="profile-btn-outline" onClick={handleUnlink} disabled={unlinking}>
               {unlinking ? "Отвязываем..." : "Отвязать"}
             </button>
           </div>
         </div>
       ) : (
-        <div className="orcid-status orcid-status--disconnected openalex-status">
-          <p>ROR ID не привязан</p>
-          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+        <div className="org-ror-status org-ror-status--disconnected">
+          <p className="org-ror-status__title">
+            <RorIcon />
+            ROR ID не привязан
+          </p>
+          <p className="org-ror-status__hint">Импорт названия, адреса, сайта и аватара из OpenAlex</p>
+          <div className="org-ror-link-row">
             <input
               type="text"
               placeholder="ROR ID или URL (например 0130frc33)"
@@ -145,7 +135,7 @@ export default function OrgOpenAlexSection({ orgProfile, onOrgRorLinked }) {
               onClick={handleLink}
               disabled={linking}
             >
-              {linking ? "Добавляем..." : "Добавить ROR"}
+              {linking ? "Добавляем..." : "Привязать ROR"}
             </button>
           </div>
         </div>

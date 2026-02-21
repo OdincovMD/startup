@@ -350,6 +350,7 @@ class AsyncOrm:
         activities: Optional[str] = None,
         image_urls: Optional[List[str]] = None,
         employee_ids: Optional[List[int]] = None,
+        head_employee_id: Optional[int] = None,
         equipment_ids: Optional[List[int]] = None,
         task_solution_ids: Optional[List[int]] = None,
     ) -> models.OrganizationLaboratory:
@@ -362,6 +363,7 @@ class AsyncOrm:
             activities=activities,
             image_urls=image_urls,
             employee_ids=employee_ids,
+            head_employee_id=head_employee_id,
             equipment_ids=equipment_ids,
             task_solution_ids=task_solution_ids,
         )
@@ -375,6 +377,7 @@ class AsyncOrm:
         activities: Optional[str] = None,
         image_urls: Optional[List[str]] = None,
         employee_ids: Optional[List[int]] = None,
+        head_employee_id: Optional[int] = None,
         equipment_ids: Optional[List[int]] = None,
         task_solution_ids: Optional[List[int]] = None,
     ) -> Optional[models.OrganizationLaboratory]:
@@ -387,6 +390,7 @@ class AsyncOrm:
             activities,
             image_urls,
             employee_ids,
+            head_employee_id,
             equipment_ids,
             task_solution_ids,
         )
@@ -404,6 +408,7 @@ class AsyncOrm:
         activities: Optional[str] = None,
         image_urls: Optional[List[str]] = None,
         employee_ids: Optional[List[int]] = None,
+        head_employee_id: Optional[int] = None,
         equipment_ids: Optional[List[int]] = None,
         task_solution_ids: Optional[List[int]] = None,
     ) -> Optional[models.OrganizationLaboratory]:
@@ -416,6 +421,7 @@ class AsyncOrm:
             activities,
             image_urls,
             employee_ids,
+            head_employee_id,
             equipment_ids,
             task_solution_ids,
         )
@@ -462,10 +468,9 @@ class AsyncOrm:
         creator_user_id: Optional[int] = None,
         task_description: Optional[str] = None,
         solution_description: Optional[str] = None,
-        completed_examples: Optional[str] = None,
         article_links: Optional[List[str]] = None,
-        student_involvement: Optional[str] = None,
-        staff_involvement: Optional[str] = None,
+        solution_deadline: Optional[str] = None,
+        grant_info: Optional[str] = None,
         cost: Optional[str] = None,
         external_solutions: Optional[str] = None,
         laboratory_ids: Optional[List[int]] = None,
@@ -477,10 +482,9 @@ class AsyncOrm:
             creator_user_id=creator_user_id,
             task_description=task_description,
             solution_description=solution_description,
-            completed_examples=completed_examples,
             article_links=article_links,
-            student_involvement=student_involvement,
-            staff_involvement=staff_involvement,
+            solution_deadline=solution_deadline,
+            grant_info=grant_info,
             cost=cost,
             external_solutions=external_solutions,
             laboratory_ids=laboratory_ids,
@@ -493,10 +497,9 @@ class AsyncOrm:
         title: Optional[str] = None,
         task_description: Optional[str] = None,
         solution_description: Optional[str] = None,
-        completed_examples: Optional[str] = None,
         article_links: Optional[List[str]] = None,
-        student_involvement: Optional[str] = None,
-        staff_involvement: Optional[str] = None,
+        solution_deadline: Optional[str] = None,
+        grant_info: Optional[str] = None,
         cost: Optional[str] = None,
         external_solutions: Optional[str] = None,
         laboratory_ids: Optional[List[int]] = None,
@@ -508,10 +511,9 @@ class AsyncOrm:
             title,
             task_description,
             solution_description,
-            completed_examples,
             article_links,
-            student_involvement,
-            staff_involvement,
+            solution_deadline,
+            grant_info,
             cost,
             external_solutions,
             laboratory_ids,
@@ -528,10 +530,9 @@ class AsyncOrm:
         title: Optional[str] = None,
         task_description: Optional[str] = None,
         solution_description: Optional[str] = None,
-        completed_examples: Optional[str] = None,
         article_links: Optional[List[str]] = None,
-        student_involvement: Optional[str] = None,
-        staff_involvement: Optional[str] = None,
+        solution_deadline: Optional[str] = None,
+        grant_info: Optional[str] = None,
         cost: Optional[str] = None,
         external_solutions: Optional[str] = None,
         laboratory_ids: Optional[List[int]] = None,
@@ -543,10 +544,9 @@ class AsyncOrm:
             title,
             task_description,
             solution_description,
-            completed_examples,
             article_links,
-            student_involvement,
-            staff_involvement,
+            solution_deadline,
+            grant_info,
             cost,
             external_solutions,
             laboratory_ids,
@@ -587,7 +587,7 @@ class AsyncOrm:
         creator_user_id: Optional[int] = None,
         task_description: Optional[str] = None,
         completed_examples: Optional[str] = None,
-        article_links: Optional[List[str]] = None,
+        grant_info: Optional[str] = None,
         budget: Optional[str] = None,
         deadline: Optional[str] = None,
         status: Optional[str] = None,
@@ -602,7 +602,7 @@ class AsyncOrm:
             creator_user_id=creator_user_id,
             task_description=task_description,
             completed_examples=completed_examples,
-            article_links=article_links,
+            grant_info=grant_info,
             budget=budget,
             deadline=deadline,
             status=status,
@@ -618,7 +618,7 @@ class AsyncOrm:
         title: Optional[str] = None,
         task_description: Optional[str] = None,
         completed_examples: Optional[str] = None,
-        article_links: Optional[List[str]] = None,
+        grant_info: Optional[str] = None,
         budget: Optional[str] = None,
         deadline: Optional[str] = None,
         status: Optional[str] = None,
@@ -633,7 +633,7 @@ class AsyncOrm:
             title,
             task_description,
             completed_examples,
-            article_links,
+            grant_info,
             budget,
             deadline,
             status,
@@ -683,7 +683,7 @@ class AsyncOrm:
         title: Optional[str] = None,
         task_description: Optional[str] = None,
         completed_examples: Optional[str] = None,
-        article_links: Optional[List[str]] = None,
+        grant_info: Optional[str] = None,
         budget: Optional[str] = None,
         deadline: Optional[str] = None,
         status: Optional[str] = None,
@@ -698,7 +698,7 @@ class AsyncOrm:
             title,
             task_description,
             completed_examples,
-            article_links,
+            grant_info,
             budget,
             deadline,
             status,
@@ -740,6 +740,8 @@ class AsyncOrm:
         query_id: Optional[int] = None,
         laboratory_id: Optional[int] = None,
         contact_employee_id: Optional[int] = None,
+        contact_email: Optional[str] = None,
+        contact_phone: Optional[str] = None,
     ) -> models.VacancyOrganization:
         return await asyncio.to_thread(
             SyncOrm.create_vacancy,
@@ -752,6 +754,8 @@ class AsyncOrm:
             query_id=query_id,
             laboratory_id=laboratory_id,
             contact_employee_id=contact_employee_id,
+            contact_email=contact_email,
+            contact_phone=contact_phone,
         )
 
     @staticmethod
@@ -803,6 +807,9 @@ class AsyncOrm:
         query_id: Optional[int] = None,
         laboratory_id: Optional[int] = None,
         contact_employee_id: Optional[int] = None,
+        contact_email: Optional[str] = None,
+        contact_phone: Optional[str] = None,
+        patch: Optional[dict] = None,
     ) -> Optional[models.VacancyOrganization]:
         return await asyncio.to_thread(
             SyncOrm.update_vacancy,
@@ -815,6 +822,9 @@ class AsyncOrm:
             query_id,
             laboratory_id,
             contact_employee_id,
+            contact_email,
+            contact_phone,
+            patch,
         )
 
     @staticmethod
@@ -845,6 +855,9 @@ class AsyncOrm:
         query_id: Optional[int] = None,
         laboratory_id: Optional[int] = None,
         contact_employee_id: Optional[int] = None,
+        contact_email: Optional[str] = None,
+        contact_phone: Optional[str] = None,
+        patch: Optional[dict] = None,
     ) -> Optional[models.VacancyOrganization]:
         return await asyncio.to_thread(
             SyncOrm.update_vacancy_for_creator,
@@ -857,6 +870,9 @@ class AsyncOrm:
             query_id,
             laboratory_id,
             contact_employee_id,
+            contact_email,
+            contact_phone,
+            patch,
         )
 
     @staticmethod
@@ -876,6 +892,28 @@ class AsyncOrm:
     async def delete_vacancy_for_creator(vacancy_id: int, creator_user_id: int) -> bool:
         return await asyncio.to_thread(
             SyncOrm.delete_vacancy_for_creator, vacancy_id, creator_user_id
+        )
+
+    @staticmethod
+    async def create_vacancy_response(user_id: int, vacancy_id: int) -> models.VacancyResponse:
+        return await asyncio.to_thread(SyncOrm.create_vacancy_response, user_id, vacancy_id)
+
+    @staticmethod
+    async def get_my_response_for_vacancy(user_id: int, vacancy_id: int):
+        return await asyncio.to_thread(SyncOrm.get_my_response_for_vacancy, user_id, vacancy_id)
+
+    @staticmethod
+    async def list_vacancy_responses_for_employer(creator_user_id: int):
+        return await asyncio.to_thread(SyncOrm.list_vacancy_responses_for_employer, creator_user_id)
+
+    @staticmethod
+    async def list_my_vacancy_responses(user_id: int):
+        return await asyncio.to_thread(SyncOrm.list_my_vacancy_responses, user_id)
+
+    @staticmethod
+    async def update_vacancy_response_status(response_id: int, employer_user_id: int, status: str):
+        return await asyncio.to_thread(
+            SyncOrm.update_vacancy_response_status, response_id, employer_user_id, status
         )
 
     @staticmethod

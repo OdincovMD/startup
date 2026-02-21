@@ -1,7 +1,8 @@
 import React from "react";
 
-export default function LabDetailHero({ details, labImages, onOrgClick }) {
+export default function LabDetailHero({ details, labImages, onOrgClick, onHeadClick }) {
   const images = labImages(details.image_urls);
+  const head = details.head_employee;
 
   return (
     <div className="org-detail-hero">
@@ -37,6 +38,46 @@ export default function LabDetailHero({ details, labImages, onOrgClick }) {
             </span>
           )}
         </div>
+        {head && (
+          <>
+            <span className="org-detail-hero__head-label">Руководитель лаборатории</span>
+          <div
+            className="org-detail-hero__head"
+            role={onHeadClick ? "button" : undefined}
+            tabIndex={onHeadClick ? 0 : undefined}
+            onClick={(e) => {
+              if (onHeadClick) {
+                e.preventDefault();
+                onHeadClick(head);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (onHeadClick && (e.key === "Enter" || e.key === " ")) {
+                e.preventDefault();
+                onHeadClick(head);
+              }
+            }}
+          >
+            {head.photo_url ? (
+              <img className="org-detail-hero__head-avatar" src={head.photo_url} alt="" />
+            ) : (
+              <div className="org-detail-hero__head-avatar-placeholder">
+                {head.full_name ? head.full_name.charAt(0).toUpperCase() : "?"}
+              </div>
+            )}
+            <div className="org-detail-hero__head-info">
+              <span className="org-detail-hero__head-name">{head.full_name}</span>
+              {head.academic_degree && (
+                <span className="org-detail-hero__head-degree">{head.academic_degree}</span>
+              )}
+              {(head.positions || []).length > 0 && (
+                <span className="org-detail-hero__head-positions">{head.positions.join(", ")}</span>
+              )}
+              {onHeadClick && <span className="org-detail-hero__head-cta">Профиль →</span>}
+            </div>
+          </div>
+          </>
+        )}
         {details.description && (
           <p className="org-detail-hero__description">{details.description}</p>
         )}

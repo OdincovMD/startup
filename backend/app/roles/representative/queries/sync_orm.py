@@ -14,7 +14,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import session_factory
 from app import models
-from app.core.queries.sync_orm import SyncOrm as CoreSyncOrm
+from app.roles.researcher.queries.sync_orm import SyncOrm as ResearcherSyncOrm
+from app.roles.student.queries.sync_orm import SyncOrm as StudentSyncOrm
 
 
 class SyncOrm:
@@ -933,6 +934,7 @@ class SyncOrm:
                 select(models.OrganizationLaboratory)
                 .options(
                     selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
                     selectinload(models.OrganizationLaboratory.employees),
                     selectinload(models.OrganizationLaboratory.researchers),
                     selectinload(models.OrganizationLaboratory.equipment).selectinload(
@@ -967,6 +969,7 @@ class SyncOrm:
                 select(models.OrganizationLaboratory)
                 .options(
                     selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
                     selectinload(models.OrganizationLaboratory.employees),
                     selectinload(models.OrganizationLaboratory.researchers),
                     selectinload(models.OrganizationLaboratory.equipment).selectinload(
@@ -1002,6 +1005,7 @@ class SyncOrm:
                 select(models.OrganizationLaboratory)
                 .options(
                     selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
                     selectinload(models.OrganizationLaboratory.employees),
                     selectinload(models.OrganizationLaboratory.researchers),
                     selectinload(models.OrganizationLaboratory.equipment).selectinload(
@@ -1041,6 +1045,7 @@ class SyncOrm:
                 select(models.OrganizationLaboratory)
                 .options(
                     selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
                     selectinload(models.OrganizationLaboratory.employees),
                     selectinload(models.OrganizationLaboratory.researchers),
                     selectinload(models.OrganizationLaboratory.equipment).selectinload(
@@ -1074,12 +1079,16 @@ class SyncOrm:
                 select(models.OrganizationLaboratory)
                 .options(
                     selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
                     selectinload(models.OrganizationLaboratory.employees).selectinload(
                         models.Employee.laboratories
                     ),
                     selectinload(models.OrganizationLaboratory.researchers),
                     selectinload(models.OrganizationLaboratory.equipment).selectinload(
                         models.OrganizationEquipment.laboratories
+                    ),
+                    selectinload(models.OrganizationLaboratory.task_solutions).selectinload(
+                        models.OrganizationTaskSolution.laboratories
                     ),
                 )
                 .where(models.OrganizationLaboratory.public_id == public_id)
@@ -1095,6 +1104,7 @@ class SyncOrm:
         activities: Optional[str] = None,
         image_urls: Optional[List[str]] = None,
         employee_ids: Optional[List[int]] = None,
+        head_employee_id: Optional[int] = None,
         equipment_ids: Optional[List[int]] = None,
         task_solution_ids: Optional[List[int]] = None,
     ) -> models.OrganizationLaboratory:
@@ -1111,12 +1121,17 @@ class SyncOrm:
             session.flush()
             if not lab.public_id:
                 lab.public_id = SyncOrm._ensure_unique_lab_public_id(session)
-            if employee_ids is not None:
+            eids = list(employee_ids) if employee_ids is not None else []
+            if head_employee_id is not None:
+                lab.head_employee_id = head_employee_id
+                if head_employee_id not in eids:
+                    eids = list(set(eids) | {head_employee_id})
+            if employee_ids is not None or head_employee_id is not None:
                 if organization_id is not None:
-                    lab.employees = SyncOrm._get_employees_by_ids(session, organization_id, employee_ids)
+                    lab.employees = SyncOrm._get_employees_by_ids(session, organization_id, eids)
                 elif creator_user_id is not None:
                     lab.employees = SyncOrm._get_employees_by_ids_for_creator(
-                        session, creator_user_id, employee_ids
+                        session, creator_user_id, eids
                     )
                 else:
                     lab.employees = []
@@ -1150,6 +1165,7 @@ class SyncOrm:
                 select(models.OrganizationLaboratory)
                 .options(
                     selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
                     selectinload(models.OrganizationLaboratory.employees),
                     selectinload(models.OrganizationLaboratory.researchers),
                     selectinload(models.OrganizationLaboratory.equipment).selectinload(
@@ -1172,6 +1188,7 @@ class SyncOrm:
         activities: Optional[str] = None,
         image_urls: Optional[List[str]] = None,
         employee_ids: Optional[List[int]] = None,
+        head_employee_id: Optional[int] = None,
         equipment_ids: Optional[List[int]] = None,
         task_solution_ids: Optional[List[int]] = None,
     ) -> Optional[models.OrganizationLaboratory]:
@@ -1191,8 +1208,15 @@ class SyncOrm:
                 lab.activities = activities
             if image_urls is not None:
                 lab.image_urls = image_urls
-            if employee_ids is not None:
-                lab.employees = SyncOrm._get_employees_by_ids(session, organization_id, employee_ids)
+            if employee_ids is not None or head_employee_id is not None:
+                eids = list(employee_ids) if employee_ids is not None else [e.id for e in lab.employees]
+                if head_employee_id is not None:
+                    lab.head_employee_id = head_employee_id
+                    if head_employee_id not in eids:
+                        eids = list(set(eids) | {head_employee_id})
+                else:
+                    lab.head_employee_id = None
+                lab.employees = SyncOrm._get_employees_by_ids(session, organization_id, eids)
             if equipment_ids is not None:
                 lab.equipment = SyncOrm._get_equipment_by_ids(session, organization_id, equipment_ids)
             if task_solution_ids is not None:
@@ -1209,6 +1233,7 @@ class SyncOrm:
                 select(models.OrganizationLaboratory)
                 .options(
                     selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
                     selectinload(models.OrganizationLaboratory.employees),
                     selectinload(models.OrganizationLaboratory.researchers),
                     selectinload(models.OrganizationLaboratory.equipment).selectinload(
@@ -1231,6 +1256,7 @@ class SyncOrm:
         activities: Optional[str] = None,
         image_urls: Optional[List[str]] = None,
         employee_ids: Optional[List[int]] = None,
+        head_employee_id: Optional[int] = None,
         equipment_ids: Optional[List[int]] = None,
         task_solution_ids: Optional[List[int]] = None,
     ) -> Optional[models.OrganizationLaboratory]:
@@ -1250,9 +1276,16 @@ class SyncOrm:
                 lab.activities = activities
             if image_urls is not None:
                 lab.image_urls = image_urls
-            if employee_ids is not None:
+            if employee_ids is not None or head_employee_id is not None:
+                eids = list(employee_ids) if employee_ids is not None else [e.id for e in lab.employees]
+                if head_employee_id is not None:
+                    lab.head_employee_id = head_employee_id
+                    if head_employee_id not in eids:
+                        eids = list(set(eids) | {head_employee_id})
+                else:
+                    lab.head_employee_id = None
                 lab.employees = SyncOrm._get_employees_by_ids_for_creator(
-                    session, creator_user_id, employee_ids
+                    session, creator_user_id, eids
                 )
             if equipment_ids is not None:
                 lab.equipment = SyncOrm._get_equipment_by_ids_for_creator(
@@ -1271,6 +1304,7 @@ class SyncOrm:
                 select(models.OrganizationLaboratory)
                 .options(
                     selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
                     selectinload(models.OrganizationLaboratory.employees),
                     selectinload(models.OrganizationLaboratory.researchers),
                     selectinload(models.OrganizationLaboratory.equipment).selectinload(
@@ -1313,6 +1347,7 @@ class SyncOrm:
                 select(models.OrganizationLaboratory)
                 .options(
                     selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
                     selectinload(models.OrganizationLaboratory.employees),
                     selectinload(models.OrganizationLaboratory.researchers),
                     selectinload(models.OrganizationLaboratory.equipment).selectinload(
@@ -1353,6 +1388,7 @@ class SyncOrm:
                 select(models.OrganizationLaboratory)
                 .options(
                     selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
                     selectinload(models.OrganizationLaboratory.employees),
                     selectinload(models.OrganizationLaboratory.researchers),
                     selectinload(models.OrganizationLaboratory.equipment).selectinload(
@@ -1490,10 +1526,9 @@ class SyncOrm:
         creator_user_id: Optional[int] = None,
         task_description: Optional[str] = None,
         solution_description: Optional[str] = None,
-        completed_examples: Optional[str] = None,
         article_links: Optional[List[str]] = None,
-        student_involvement: Optional[str] = None,
-        staff_involvement: Optional[str] = None,
+        solution_deadline: Optional[str] = None,
+        grant_info: Optional[str] = None,
         cost: Optional[str] = None,
         external_solutions: Optional[str] = None,
         laboratory_ids: Optional[List[int]] = None,
@@ -1505,10 +1540,9 @@ class SyncOrm:
                 title=title,
                 task_description=task_description,
                 solution_description=solution_description,
-                completed_examples=completed_examples,
                 article_links=article_links or [],
-                student_involvement=student_involvement,
-                staff_involvement=staff_involvement,
+                solution_deadline=solution_deadline,
+                grant_info=grant_info,
                 cost=cost,
                 external_solutions=external_solutions,
             )
@@ -1539,10 +1573,9 @@ class SyncOrm:
         title: Optional[str] = None,
         task_description: Optional[str] = None,
         solution_description: Optional[str] = None,
-        completed_examples: Optional[str] = None,
         article_links: Optional[List[str]] = None,
-        student_involvement: Optional[str] = None,
-        staff_involvement: Optional[str] = None,
+        solution_deadline: Optional[str] = None,
+        grant_info: Optional[str] = None,
         cost: Optional[str] = None,
         external_solutions: Optional[str] = None,
         laboratory_ids: Optional[List[int]] = None,
@@ -1561,14 +1594,12 @@ class SyncOrm:
                 task.task_description = task_description
             if solution_description is not None:
                 task.solution_description = solution_description
-            if completed_examples is not None:
-                task.completed_examples = completed_examples
             if article_links is not None:
                 task.article_links = article_links
-            if student_involvement is not None:
-                task.student_involvement = student_involvement
-            if staff_involvement is not None:
-                task.staff_involvement = staff_involvement
+            if solution_deadline is not None:
+                task.solution_deadline = solution_deadline
+            if grant_info is not None:
+                task.grant_info = grant_info
             if cost is not None:
                 task.cost = cost
             if external_solutions is not None:
@@ -1612,10 +1643,9 @@ class SyncOrm:
         title: Optional[str] = None,
         task_description: Optional[str] = None,
         solution_description: Optional[str] = None,
-        completed_examples: Optional[str] = None,
         article_links: Optional[List[str]] = None,
-        student_involvement: Optional[str] = None,
-        staff_involvement: Optional[str] = None,
+        solution_deadline: Optional[str] = None,
+        grant_info: Optional[str] = None,
         cost: Optional[str] = None,
         external_solutions: Optional[str] = None,
         laboratory_ids: Optional[List[int]] = None,
@@ -1634,14 +1664,12 @@ class SyncOrm:
                 task.task_description = task_description
             if solution_description is not None:
                 task.solution_description = solution_description
-            if completed_examples is not None:
-                task.completed_examples = completed_examples
             if article_links is not None:
                 task.article_links = article_links
-            if student_involvement is not None:
-                task.student_involvement = student_involvement
-            if staff_involvement is not None:
-                task.staff_involvement = staff_involvement
+            if solution_deadline is not None:
+                task.solution_deadline = solution_deadline
+            if grant_info is not None:
+                task.grant_info = grant_info
             if cost is not None:
                 task.cost = cost
             if external_solutions is not None:
@@ -1900,7 +1928,7 @@ class SyncOrm:
         creator_user_id: Optional[int] = None,
         task_description: Optional[str] = None,
         completed_examples: Optional[str] = None,
-        article_links: Optional[List[str]] = None,
+        grant_info: Optional[str] = None,
         budget: Optional[str] = None,
         deadline: Optional[str] = None,
         status: Optional[str] = None,
@@ -1915,7 +1943,7 @@ class SyncOrm:
                 title=title,
                 task_description=task_description,
                 completed_examples=completed_examples,
-                article_links=article_links,
+                grant_info=grant_info,
                 budget=budget,
                 deadline=deadline,
                 linked_task_solution_id=linked_task_solution_id,
@@ -1970,7 +1998,7 @@ class SyncOrm:
         title: Optional[str] = None,
         task_description: Optional[str] = None,
         completed_examples: Optional[str] = None,
-        article_links: Optional[List[str]] = None,
+        grant_info: Optional[str] = None,
         budget: Optional[str] = None,
         deadline: Optional[str] = None,
         status: Optional[str] = None,
@@ -1992,8 +2020,8 @@ class SyncOrm:
                 query.task_description = task_description
             if completed_examples is not None:
                 query.completed_examples = completed_examples
-            if article_links is not None:
-                query.article_links = article_links
+            if grant_info is not None:
+                query.grant_info = grant_info
             if budget is not None:
                 query.budget = budget
             if deadline is not None:
@@ -2109,7 +2137,7 @@ class SyncOrm:
         title: Optional[str] = None,
         task_description: Optional[str] = None,
         completed_examples: Optional[str] = None,
-        article_links: Optional[List[str]] = None,
+        grant_info: Optional[str] = None,
         budget: Optional[str] = None,
         deadline: Optional[str] = None,
         status: Optional[str] = None,
@@ -2131,8 +2159,8 @@ class SyncOrm:
                 query.task_description = task_description
             if completed_examples is not None:
                 query.completed_examples = completed_examples
-            if article_links is not None:
-                query.article_links = article_links
+            if grant_info is not None:
+                query.grant_info = grant_info
             if budget is not None:
                 query.budget = budget
             if deadline is not None:
@@ -2257,6 +2285,8 @@ class SyncOrm:
         query_id: Optional[int] = None,
         laboratory_id: Optional[int] = None,
         contact_employee_id: Optional[int] = None,
+        contact_email: Optional[str] = None,
+        contact_phone: Optional[str] = None,
     ) -> models.VacancyOrganization:
         with session_factory() as session:
             vacancy = models.VacancyOrganization(
@@ -2265,6 +2295,8 @@ class SyncOrm:
                 query_id=query_id,
                 laboratory_id=laboratory_id,
                 contact_employee_id=contact_employee_id,
+                contact_email=contact_email,
+                contact_phone=contact_phone,
                 name=name,
                 requirements=requirements,
                 description=description,
@@ -2460,6 +2492,9 @@ class SyncOrm:
         query_id: Optional[int] = None,
         laboratory_id: Optional[int] = None,
         contact_employee_id: Optional[int] = None,
+        contact_email: Optional[str] = None,
+        contact_phone: Optional[str] = None,
+        patch: Optional[dict] = None,
     ) -> Optional[models.VacancyOrganization]:
         with session_factory() as session:
             stmt = select(models.VacancyOrganization).where(
@@ -2483,13 +2518,19 @@ class SyncOrm:
                 vacancy.laboratory_id = laboratory_id
             if contact_employee_id is not None:
                 vacancy.contact_employee_id = contact_employee_id
+            if contact_email is not None:
+                vacancy.contact_email = contact_email
+            if contact_phone is not None:
+                vacancy.contact_phone = contact_phone
+            if patch:
+                for key in ("query_id", "laboratory_id", "contact_employee_id", "contact_email", "contact_phone"):
+                    if key in patch:
+                        setattr(vacancy, key, patch[key])
             try:
                 session.commit()
             except SQLAlchemyError:
                 session.rollback()
                 raise
-            # Вернём вакансию с предзагруженными связями,
-            # чтобы FastAPI не пытался лениво догружать их вне сессии.
             stmt = (
                 select(models.VacancyOrganization)
                 .options(
@@ -2571,6 +2612,9 @@ class SyncOrm:
         query_id: Optional[int] = None,
         laboratory_id: Optional[int] = None,
         contact_employee_id: Optional[int] = None,
+        contact_email: Optional[str] = None,
+        contact_phone: Optional[str] = None,
+        patch: Optional[dict] = None,
     ) -> Optional[models.VacancyOrganization]:
         with session_factory() as session:
             stmt = select(models.VacancyOrganization).where(
@@ -2594,6 +2638,14 @@ class SyncOrm:
                 vacancy.laboratory_id = laboratory_id
             if contact_employee_id is not None:
                 vacancy.contact_employee_id = contact_employee_id
+            if contact_email is not None:
+                vacancy.contact_email = contact_email
+            if contact_phone is not None:
+                vacancy.contact_phone = contact_phone
+            if patch:
+                for key in ("query_id", "laboratory_id", "contact_employee_id", "contact_email", "contact_phone"):
+                    if key in patch:
+                        setattr(vacancy, key, patch[key])
             try:
                 session.commit()
             except SQLAlchemyError:
@@ -2665,6 +2717,164 @@ class SyncOrm:
                 raise
             return True
 
+    # =========================
+    #   VACANCY RESPONSES
+    # =========================
+
+    @staticmethod
+    def create_vacancy_response(user_id: int, vacancy_id: int) -> models.VacancyResponse:
+        with session_factory() as session:
+            vacancy = session.get(
+                models.VacancyOrganization,
+                vacancy_id,
+                options=[selectinload(models.VacancyOrganization.creator)],
+            )
+            if not vacancy:
+                raise ValueError("Вакансия не найдена")
+            if not getattr(vacancy, "is_published", False):
+                raise ValueError("Вакансия не опубликована")
+            if vacancy.creator_user_id == user_id:
+                raise ValueError("Нельзя откликнуться на свою вакансию")
+            existing = session.scalars(
+                select(models.VacancyResponse).where(
+                    models.VacancyResponse.user_id == user_id,
+                    models.VacancyResponse.vacancy_id == vacancy_id,
+                )
+            ).first()
+            if existing:
+                raise ValueError("Вы уже откликнулись на эту вакансию")
+            resp = models.VacancyResponse(user_id=user_id, vacancy_id=vacancy_id, status="new")
+            session.add(resp)
+            try:
+                session.commit()
+                session.refresh(resp)
+            except SQLAlchemyError:
+                session.rollback()
+                raise
+            return resp
+
+    @staticmethod
+    def get_my_response_for_vacancy(user_id: int, vacancy_id: int) -> Optional[models.VacancyResponse]:
+        with session_factory() as session:
+            stmt = select(models.VacancyResponse).where(
+                models.VacancyResponse.user_id == user_id,
+                models.VacancyResponse.vacancy_id == vacancy_id,
+            )
+            return session.scalars(stmt).first()
+
+    @staticmethod
+    def list_vacancy_responses_for_employer(creator_user_id: int) -> List[dict]:
+        with session_factory() as session:
+            stmt = (
+                select(models.VacancyResponse)
+                .options(
+                    selectinload(models.VacancyResponse.user),
+                    selectinload(models.VacancyResponse.vacancy),
+                )
+                .join(models.VacancyOrganization, models.VacancyResponse.vacancy_id == models.VacancyOrganization.id)
+                .where(models.VacancyOrganization.creator_user_id == creator_user_id)
+                .order_by(models.VacancyResponse.created_at.desc())
+            )
+            rows = list(session.scalars(stmt).unique().all())
+            out = []
+            for r in rows:
+                applicant_name = getattr(r.user, "full_name", None) or getattr(r.user, "mail", "") or "?"
+                preview_parts = []
+                researcher = ResearcherSyncOrm.get_researcher_by_user(r.user_id)
+                if researcher:
+                    if getattr(researcher, "research_interests", None):
+                        preview_parts.append("Направления: " + ", ".join((researcher.research_interests or [])[:3]))
+                    if getattr(researcher, "education", None) and isinstance(researcher.education, list):
+                        preview_parts.append("Образование: " + (researcher.education[0].get("institution", "") if researcher.education else ""))
+                else:
+                    student = StudentSyncOrm.get_student_by_user(r.user_id)
+                    if student:
+                        preview_parts.append("Студент")
+                        if getattr(student, "direction", None):
+                            preview_parts.append(student.direction or "")
+                applicant_preview = "; ".join(preview_parts) if preview_parts else None
+                out.append({
+                    "id": r.id,
+                    "user_id": r.user_id,
+                    "vacancy_id": r.vacancy_id,
+                    "status": r.status,
+                    "created_at": r.created_at,
+                    "updated_at": r.updated_at,
+                    "vacancy_name": r.vacancy.name if r.vacancy else None,
+                    "vacancy_public_id": getattr(r.vacancy, "public_id", None) if r.vacancy else None,
+                    "applicant_name": applicant_name,
+                    "applicant_preview": applicant_preview or None,
+                })
+            return out
+
+    @staticmethod
+    def list_my_vacancy_responses(user_id: int) -> List[dict]:
+        with session_factory() as session:
+            stmt = (
+                select(models.VacancyResponse)
+                .options(selectinload(models.VacancyResponse.vacancy))
+                .where(models.VacancyResponse.user_id == user_id)
+                .order_by(models.VacancyResponse.created_at.desc())
+            )
+            rows = list(session.scalars(stmt).unique().all())
+            return [
+                {
+                    "id": r.id,
+                    "user_id": r.user_id,
+                    "vacancy_id": r.vacancy_id,
+                    "status": r.status,
+                    "created_at": r.created_at,
+                    "updated_at": r.updated_at,
+                    "vacancy_name": r.vacancy.name if r.vacancy else None,
+                    "vacancy_public_id": getattr(r.vacancy, "public_id", None) if r.vacancy else None,
+                    "applicant_name": None,
+                    "applicant_preview": None,
+                }
+                for r in rows
+            ]
+
+    @staticmethod
+    def update_vacancy_response_status(
+        response_id: int, employer_user_id: int, status: str
+    ) -> Optional[dict]:
+        allowed = ("new", "accepted", "rejected")
+        if status not in allowed:
+            return None
+        with session_factory() as session:
+            stmt = (
+                select(models.VacancyResponse)
+                .options(
+                    selectinload(models.VacancyResponse.user),
+                    selectinload(models.VacancyResponse.vacancy),
+                )
+                .where(models.VacancyResponse.id == response_id)
+                .join(models.VacancyOrganization, models.VacancyResponse.vacancy_id == models.VacancyOrganization.id)
+                .where(models.VacancyOrganization.creator_user_id == employer_user_id)
+            )
+            resp = session.scalars(stmt).unique().first()
+            if not resp:
+                return None
+            resp.status = status
+            try:
+                session.commit()
+                session.refresh(resp)
+            except SQLAlchemyError:
+                session.rollback()
+                raise
+            applicant_name = getattr(resp.user, "full_name", None) or getattr(resp.user, "mail", "") or "?"
+            return {
+                "id": resp.id,
+                "user_id": resp.user_id,
+                "vacancy_id": resp.vacancy_id,
+                "status": resp.status,
+                "created_at": resp.created_at,
+                "updated_at": resp.updated_at,
+                "vacancy_name": resp.vacancy.name if resp.vacancy else None,
+                "vacancy_public_id": getattr(resp.vacancy, "public_id", None) if resp.vacancy else None,
+                "applicant_name": applicant_name,
+                "applicant_preview": None,
+            }
+
     @staticmethod
     def count_platform_stats() -> dict:
         """Счётчики для главной страницы: лаборатории, вакансии, организации, интересы сотрудников."""
@@ -2694,15 +2904,18 @@ class SyncOrm:
             for ri in rows:
                 if not ri or not isinstance(ri, (list, tuple)):
                     continue
-                for item in ri:
-                    if isinstance(item, str) and item.strip() and item.strip() not in seen:
-                        seen.add(item.strip())
-                        interests.append(item.strip())
+            for item in ri:
+                if isinstance(item, str) and item.strip() and item.strip() not in seen:
+                    seen.add(item.strip())
+                    interests.append(item.strip())
+            responses_count = session.scalar(
+                select(func.count()).select_from(models.VacancyResponse)
+            ) or 0
             return {
                 "laboratories": labs_count,
                 "vacancies": vac_count,
                 "organizations": orgs_count,
-                "responses": 0,
+                "responses": responses_count,
                 "research_interests": interests,
             }
 
@@ -2721,9 +2934,9 @@ class SyncOrm:
             ).first()
             if existing:
                 if existing.status == "approved":
-                    raise ValueError("Already a member of this laboratory")
+                    raise ValueError("Вы уже являетесь участником этой лаборатории")
                 if existing.status == "pending":
-                    raise ValueError("Request already pending")
+                    raise ValueError("Заявка в эту лабораторию уже отправлена и ожидает рассмотрения")
                 existing.status = "pending"
                 session.commit()
                 session.refresh(existing)
@@ -2930,9 +3143,9 @@ class SyncOrm:
             ).first()
             if existing:
                 if existing.status == "approved":
-                    raise ValueError("Laboratory already in this organization")
+                    raise ValueError("Лаборатория уже привязана к этой организации")
                 if existing.status == "pending":
-                    raise ValueError("Request already pending")
+                    raise ValueError("Заявка на привязку к этой организации уже отправлена и ожидает рассмотрения")
                 existing.status = "pending"
                 session.commit()
                 session.refresh(existing)

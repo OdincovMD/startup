@@ -115,11 +115,11 @@ export default function RegisterOrcid() {
             </div>
 
             <button
-              className="auth-btn-primary"
+              className="primary-btn auth-btn-primary"
               type="submit"
               disabled={loading}
             >
-              {loading ? "Создаём аккаунт..." : "Завершить регистрацию"}
+              {loading ? "Создаём аккаунт…" : "Завершить регистрацию"}
             </button>
           </form>
 

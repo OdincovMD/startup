@@ -60,6 +60,8 @@ class VacancyOrganizationBase(BaseModel):
     query_id: Optional[int] = None
     laboratory_id: Optional[int] = None
     contact_employee_id: Optional[int] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
     name: str
     requirements: Optional[str] = None
     description: Optional[str] = None
@@ -85,11 +87,34 @@ class VacancyOrganizationUpdate(BaseModel):
     query_id: Optional[int] = None
     laboratory_id: Optional[int] = None
     contact_employee_id: Optional[int] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
     name: Optional[str] = None
     requirements: Optional[str] = None
     description: Optional[str] = None
     employment_type: Optional[str] = None
     is_published: Optional[bool] = None
+
+
+# =========================
+#     VACANCY RESPONSES
+# =========================
+
+class VacancyResponseStatusUpdate(BaseModel):
+    status: str  # "new" | "accepted" | "rejected"
+
+
+class VacancyResponseRead(ORMModel):
+    id: int
+    user_id: int
+    vacancy_id: int
+    status: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    vacancy_name: Optional[str] = None
+    vacancy_public_id: Optional[str] = None
+    applicant_name: Optional[str] = None
+    applicant_preview: Optional[str] = None
 
 
 # =========================
@@ -137,6 +162,7 @@ class OrganizationLaboratoryBase(BaseModel):
 class OrganizationLaboratoryCreate(OrganizationLaboratoryBase):
     organization_id: Optional[int] = None
     employee_ids: Optional[List[int]] = None
+    head_employee_id: Optional[int] = None
     equipment_ids: Optional[List[int]] = None
     task_solution_ids: Optional[List[int]] = None
 
@@ -160,6 +186,8 @@ class OrganizationLaboratoryRead(ORMModel, OrganizationLaboratoryBase):
     public_id: Optional[str] = None
     created_at: datetime
     organization_id: Optional[int] = None
+    head_employee_id: Optional[int] = None
+    head_employee: Optional[EmployeeShort] = None
     employees: Optional[List[EmployeeShort]] = None
     researchers: Optional[List[ResearcherShort]] = None
     equipment: Optional[List[OrganizationEquipmentRead]] = None
@@ -192,9 +220,11 @@ class LaboratoryDetails(ORMModel, OrganizationLaboratoryBase):
     public_id: Optional[str] = None
     created_at: datetime
     organization: Optional[OrganizationShort] = None
+    head_employee: Optional[EmployeeShort] = None
     employees: List["EmployeeRead"] = []
     researchers: List[ResearcherShort] = []
     equipment: List[OrganizationEquipmentRead] = []
+    task_solutions: List["OrganizationTaskSolutionRead"] = []
     queries: List["OrganizationQueryRead"] = []
     vacancies: List[VacancyOrganizationRead] = []
 
@@ -205,6 +235,7 @@ class OrganizationLaboratoryUpdate(BaseModel):
     activities: Optional[str] = None
     image_urls: Optional[List[str]] = None
     employee_ids: Optional[List[int]] = None
+    head_employee_id: Optional[int] = None
     is_published: Optional[bool] = None
     equipment_ids: Optional[List[int]] = None
     task_solution_ids: Optional[List[int]] = None
@@ -218,10 +249,9 @@ class OrganizationTaskSolutionBase(BaseModel):
     title: str
     task_description: Optional[str] = None
     solution_description: Optional[str] = None
-    completed_examples: Optional[str] = None
     article_links: Optional[List[str]] = None
-    student_involvement: Optional[str] = None
-    staff_involvement: Optional[str] = None
+    solution_deadline: Optional[str] = None
+    grant_info: Optional[str] = None
     cost: Optional[str] = None
     external_solutions: Optional[str] = None
 
@@ -242,10 +272,9 @@ class OrganizationTaskSolutionUpdate(BaseModel):
     title: Optional[str] = None
     task_description: Optional[str] = None
     solution_description: Optional[str] = None
-    completed_examples: Optional[str] = None
     article_links: Optional[List[str]] = None
-    student_involvement: Optional[str] = None
-    staff_involvement: Optional[str] = None
+    solution_deadline: Optional[str] = None
+    grant_info: Optional[str] = None
     cost: Optional[str] = None
     external_solutions: Optional[str] = None
     laboratory_ids: Optional[List[int]] = None
@@ -259,7 +288,7 @@ class OrganizationQueryBase(BaseModel):
     title: str
     task_description: Optional[str] = None
     completed_examples: Optional[str] = None
-    article_links: Optional[List[str]] = None
+    grant_info: Optional[str] = None
     budget: Optional[str] = None
     deadline: Optional[str] = None
     status: Optional[str] = "active"
@@ -288,7 +317,7 @@ class OrganizationQueryUpdate(BaseModel):
     title: Optional[str] = None
     task_description: Optional[str] = None
     completed_examples: Optional[str] = None
-    article_links: Optional[List[str]] = None
+    grant_info: Optional[str] = None
     budget: Optional[str] = None
     deadline: Optional[str] = None
     status: Optional[str] = None

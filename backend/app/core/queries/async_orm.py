@@ -91,6 +91,10 @@ class AsyncOrm:
         )
 
     @staticmethod
+    async def update_user_avatar(user_id: int, photo_url: Optional[str]) -> models.User:
+        return await asyncio.to_thread(SyncOrm.update_user_avatar, user_id, photo_url)
+
+    @staticmethod
     async def verify_password(password: str, hashed: str) -> bool:
         return await asyncio.to_thread(SyncOrm.verify_password, password, hashed)
 

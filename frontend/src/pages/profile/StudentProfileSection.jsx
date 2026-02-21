@@ -1,5 +1,4 @@
 import React, { useRef, useState } from "react";
-import { isValidEmail, formatPhoneRU } from "../../utils/validation";
 
 const fileNameFromUrl = (url) => {
   try {
@@ -11,332 +10,266 @@ const fileNameFromUrl = (url) => {
   }
 };
 
+function TagInput({ value = [], onChange, placeholder, id }) {
+  const [inputValue, setInputValue] = useState("");
+
+  const handleKeyDown = (e) => {
+    if (e.key === "," || e.key === "Enter") {
+      e.preventDefault();
+      addTag();
+    } else if (e.key === "Backspace" && !inputValue && value.length > 0) {
+      onChange(value.slice(0, -1));
+    }
+  };
+
+  const addTag = () => {
+    const trimmed = inputValue.trim().replace(/,+$/, "").trim();
+    if (trimmed && !value.includes(trimmed)) {
+      onChange([...value, trimmed]);
+    }
+    setInputValue("");
+  };
+
+  const handleBlur = () => {
+    if (inputValue.trim()) {
+      addTag();
+    }
+  };
+
+  const removeTag = (index) => {
+    onChange(value.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="tag-input-container">
+      <div className="tag-input-tags">
+        {value.map((tag, index) => (
+          <span key={`${tag}-${index}`} className="tag-input-tag">
+            {tag}
+            <button
+              type="button"
+              className="tag-input-tag-remove"
+              onClick={() => removeTag(index)}
+              aria-label={`Удалить ${tag}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          id={id}
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
+          placeholder={value.length === 0 ? placeholder : ""}
+          className="tag-input-field"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function StudentProfileSection({
   title = "Профиль студента",
   hideTitle = false,
   studentProfile,
   handleStudentChange,
   saveStudent,
-  uploadStudentPhoto,
   uploadStudentResume,
   uploadStudentDocument,
   removeStudentDocument,
-  researchInterestOptions,
   saving,
   uploading,
   onFileInputRefsReady,
 }) {
   const educationInputRef = useRef(null);
-  const photoInputRef = useRef(null);
   const resumeInputRef = useRef(null);
   const documentInputRef = useRef(null);
+  const [educationExpanded, setEducationExpanded] = useState(false);
 
   React.useEffect(() => {
-    onFileInputRefsReady?.([photoInputRef, resumeInputRef, documentInputRef]);
+    onFileInputRefsReady?.([resumeInputRef, documentInputRef]);
   }, [onFileInputRefsReady]);
-  const [emailError, setEmailError] = useState(null);
-
-  const parseList = (raw) =>
-    (raw || "")
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
 
   const p = studentProfile || {};
-  const contacts = p.contacts || {};
-
-  const handleEmailChange = (value) => {
-    handleStudentChange("contacts", { ...contacts, email: value });
-    setEmailError(null);
-  };
-
-  const handleEmailBlur = () => {
-    const email = (contacts.email || "").trim();
-    if (email && !isValidEmail(email)) {
-      setEmailError("Введите корректный email");
-    } else {
-      setEmailError(null);
-    }
-  };
-
-  const handlePhoneChange = (value) => {
-    handleStudentChange("contacts", { ...contacts, phone: formatPhoneRU(value) });
-  };
 
   const handleSave = () => {
-    const email = (contacts.email || "").trim();
-    if (email && !isValidEmail(email)) {
-      setEmailError("Введите корректный email");
-      return;
-    }
-    setEmailError(null);
     saveStudent();
   };
 
   return (
-    <div className="profile-section">
+    <div className="profile-section profile-section--no-border">
       {!hideTitle && <h3 className="profile-section-title">{title}</h3>}
       <p className="profile-section-desc">Информация о вас как о студенте</p>
-      <div className="profile-form">
-        <label>
-          Фото
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept="image/*"
-            onChange={(e) => uploadStudentPhoto?.(e.target.files?.[0])}
-            disabled={uploading || saving}
-          />
-        </label>
-        {p.photo_url && (
-          <div className="employee-photo">
-            <img src={p.photo_url} alt="Фото" />
-            <button
-              className="file-remove"
-              onClick={() => handleStudentChange("photo_url", "")}
-            >
-              ×
-            </button>
-          </div>
-        )}
 
-        <label>
-          Университет
-          <input
-            value={p.university || ""}
-            onChange={(e) => handleStudentChange("university", e.target.value)}
-            placeholder="МГТУ, МФТИ и т.д."
-          />
-        </label>
-        <label>
-          Уровень
-          <input
-            value={p.level || ""}
-            onChange={(e) => handleStudentChange("level", e.target.value)}
-            placeholder="Бакалавр, магистр"
-          />
-        </label>
-        <label>
-          Направление
-          <input
-            value={p.direction || ""}
-            onChange={(e) => handleStudentChange("direction", e.target.value)}
-            placeholder="Биоинформатика"
-          />
-        </label>
-        <label>
-          Статус
-          <input
-            value={p.status || ""}
-            onChange={(e) => handleStudentChange("status", e.target.value)}
-            placeholder="Ищу стажировку"
-          />
-        </label>
-        <label>
-          Навыки (через запятую)
-          <input
-            value={(p.skills || []).join(", ")}
-            onChange={(e) =>
-              handleStudentChange(
-                "skills",
-                parseList(e.target.value)
-              )
-            }
-            placeholder="Python, ML, SQL"
-          />
-          <span className="profile-field-hint">Перечислите навыки через запятую</span>
-        </label>
-        <label>
-          Описание
-          <textarea
-            rows={4}
-            value={p.summary || ""}
-            onChange={(e) => handleStudentChange("summary", e.target.value)}
-            placeholder="Краткий профиль"
-          />
-        </label>
-
-        <label>
-          Научные интересы (через запятую)
-          <input
-            value={(p.research_interests || []).join(", ")}
-            onChange={(e) =>
-              handleStudentChange("research_interests", parseList(e.target.value))
-            }
-            list="student-interests"
-            placeholder="Материаловедение, биоинформатика"
-          />
-          <span className="profile-field-hint">Перечислите через запятую или выберите из кнопок ниже</span>
-        </label>
-        <datalist id="student-interests">
-          {researchInterestOptions?.map((item) => (
-            <option key={item} value={item} />
-          ))}
-        </datalist>
-        {researchInterestOptions?.length > 0 && (
-          <div className="interest-options">
-            {researchInterestOptions.map((item) => (
-              <button
-                key={item}
-                type="button"
-                className="ghost-btn"
-                onClick={() => {
-                  const current = p.research_interests || [];
-                  const next = current.includes(item)
-                    ? current.filter((x) => x !== item)
-                    : [...current, item];
-                  handleStudentChange("research_interests", next);
-                }}
-              >
-                + {item}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="profile-form">
-          <div className="profile-label">Образование</div>
-          <div className="inline-form">
+      <div className="profile-form profile-form--grouped">
+        <div className="profile-form-group">
+          <div className="profile-form-group-title">Основная информация</div>
+          <label>
+            Статус
             <input
-              ref={educationInputRef}
-              placeholder="Университет, факультет, год"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  const v = e.currentTarget.value.trim();
-                  if (v) {
-                    handleStudentChange("education", [...(p.education || []), v]);
-                    e.currentTarget.value = "";
-                  }
-                }
-              }}
+              value={p.status || ""}
+              onChange={(e) => handleStudentChange("status", e.target.value)}
+              placeholder="Ищу стажировку, открыт к предложениям..."
             />
-            <button
-              className="ghost-btn"
-              onClick={() => {
-                const v = educationInputRef.current?.value?.trim();
-                if (v) {
-                  handleStudentChange("education", [...(p.education || []), v]);
-                  educationInputRef.current.value = "";
-                }
-              }}
-            >
-              Добавить
-            </button>
-          </div>
-          {(p.education || []).map((item, index) => (
-            <div key={`edu-${index}`} className="file-item">
-              <span>{item}</span>
+          </label>
+          <label>
+            Описание
+            <textarea
+              rows={4}
+              value={p.summary || ""}
+              onChange={(e) => handleStudentChange("summary", e.target.value)}
+              placeholder="Расскажите о себе, своих целях и интересах"
+            />
+          </label>
+        </div>
+
+        <div className="profile-form-group">
+          <button
+            type="button"
+            className="collapsible-header"
+            onClick={() => setEducationExpanded(!educationExpanded)}
+            aria-expanded={educationExpanded}
+          >
+            <span>Образование ({(p.education || []).length})</span>
+            <span className={`collapsible-arrow ${educationExpanded ? "expanded" : ""}`}>▼</span>
+          </button>
+          {educationExpanded && (
+            <div className="collapsible-content">
+              <div className="inline-form">
+                <input
+                  ref={educationInputRef}
+                  placeholder="Университет, факультет, специальность, год выпуска"
+                  className="education-input"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const v = e.currentTarget.value.trim();
+                      if (v) {
+                        handleStudentChange("education", [...(p.education || []), v]);
+                        e.currentTarget.value = "";
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => {
+                    const v = educationInputRef.current?.value?.trim();
+                    if (v) {
+                      handleStudentChange("education", [...(p.education || []), v]);
+                      educationInputRef.current.value = "";
+                    }
+                  }}
+                >
+                  Добавить
+                </button>
+              </div>
+              <span className="profile-field-hint">Введите информацию об образовании и нажмите Enter или кнопку "Добавить"</span>
+              {(p.education || []).length > 0 && (
+                <div className="education-list">
+                  {(p.education || []).map((item, index) => (
+                    <div key={`edu-${index}`} className="education-item">
+                      <span>{item}</span>
+                      <button
+                        type="button"
+                        className="file-remove"
+                        onClick={() =>
+                          handleStudentChange(
+                            "education",
+                            (p.education || []).filter((_, i) => i !== index)
+                          )
+                        }
+                        aria-label="Удалить"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="profile-form-group">
+          <div className="profile-form-group-title">Компетенции</div>
+          <label htmlFor="skills-input">
+            Навыки
+            <TagInput
+              id="skills-input"
+              value={p.skills || []}
+              onChange={(skills) => handleStudentChange("skills", skills)}
+              placeholder="Введите навык и нажмите запятую или Enter"
+            />
+            <span className="profile-field-hint">Python, ML, SQL и т.д. — введите и нажмите запятую</span>
+          </label>
+          <label htmlFor="interests-input">
+            Научные интересы
+            <TagInput
+              id="interests-input"
+              value={p.research_interests || []}
+              onChange={(interests) => handleStudentChange("research_interests", interests)}
+              placeholder="Введите интерес и нажмите запятую или Enter"
+            />
+            <span className="profile-field-hint">Биоинформатика, машинное обучение и т.д.</span>
+          </label>
+        </div>
+
+        <div className="profile-form-group">
+          <div className="profile-form-group-title">Резюме и документы</div>
+          <label>
+            Резюме / CV
+            <input
+              ref={resumeInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.txt"
+              onChange={(e) => uploadStudentResume?.(e.target.files?.[0])}
+              disabled={uploading || saving}
+            />
+          </label>
+          {p.resume_url && (
+            <div className="file-item">
+              <a href={p.resume_url} target="_blank" rel="noopener noreferrer">
+                {fileNameFromUrl(p.resume_url)}
+              </a>
               <button
+                type="button"
                 className="file-remove"
-                onClick={() =>
-                  handleStudentChange(
-                    "education",
-                    (p.education || []).filter((_, i) => i !== index)
-                  )
-                }
+                onClick={() => handleStudentChange("resume_url", "")}
+              >
+                ×
+              </button>
+            </div>
+          )}
+          <label>
+            Дополнительные документы (сертификаты, грамоты и т.д.)
+            <input
+              ref={documentInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+              onChange={(e) => uploadStudentDocument?.(e.target.files?.[0])}
+              disabled={uploading || saving}
+            />
+          </label>
+          {(p.document_urls || []).map((url, index) => (
+            <div key={`doc-${index}`} className="file-item">
+              <a href={url} target="_blank" rel="noopener noreferrer">
+                {fileNameFromUrl(url)}
+              </a>
+              <button
+                type="button"
+                className="file-remove"
+                onClick={() => removeStudentDocument?.(index)}
               >
                 ×
               </button>
             </div>
           ))}
         </div>
-
-        <div className="profile-form">
-          <div className="profile-label">Контакты</div>
-          <label>
-            Email
-            <input
-              type="email"
-              value={contacts.email || ""}
-              onChange={(e) => handleEmailChange(e.target.value)}
-              onBlur={handleEmailBlur}
-              placeholder="email@example.com"
-              autoComplete="email"
-              className={emailError ? "error" : ""}
-              aria-invalid={!!emailError}
-              aria-describedby={emailError ? "student-email-error" : undefined}
-            />
-            {emailError && (
-              <span id="student-email-error" className="profile-field-error">
-                {emailError}
-              </span>
-            )}
-          </label>
-          <label>
-            Телефон
-            <input
-              type="tel"
-              value={contacts.phone ? formatPhoneRU(contacts.phone) : ""}
-              onChange={(e) => handlePhoneChange(e.target.value)}
-              placeholder="+7 (999) 123-45-67"
-              autoComplete="tel"
-              maxLength={18}
-            />
-            <span className="profile-field-hint">Формат: +7 (999) 123-45-67</span>
-          </label>
-          <label>
-            Telegram
-            <input
-              value={contacts.telegram || ""}
-              onChange={(e) =>
-                handleStudentChange("contacts", {
-                  ...contacts,
-                  telegram: e.target.value,
-                })
-              }
-              placeholder="@username"
-            />
-          </label>
-        </div>
-
-        <h4>Резюме и документы</h4>
-        <label>
-          Резюме / CV
-          <input
-            ref={resumeInputRef}
-            type="file"
-            accept=".pdf,.doc,.docx,.txt"
-            onChange={(e) => uploadStudentResume?.(e.target.files?.[0])}
-            disabled={uploading || saving}
-          />
-        </label>
-        {p.resume_url && (
-          <div className="file-item">
-            <a href={p.resume_url} target="_blank" rel="noopener noreferrer">
-              {fileNameFromUrl(p.resume_url)}
-            </a>
-            <button
-              className="file-remove"
-              onClick={() => handleStudentChange("resume_url", "")}
-            >
-              ×
-            </button>
-          </div>
-        )}
-        <label>
-          Дополнительные документы (сертификаты, грамоты и т.д.)
-          <input
-            ref={documentInputRef}
-            type="file"
-            accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-            onChange={(e) => uploadStudentDocument?.(e.target.files?.[0])}
-            disabled={uploading || saving}
-          />
-        </label>
-        {(p.document_urls || []).map((url, index) => (
-          <div key={`doc-${index}`} className="file-item">
-            <a href={url} target="_blank" rel="noopener noreferrer">
-              {fileNameFromUrl(url)}
-            </a>
-            <button
-              className="file-remove"
-              onClick={() => removeStudentDocument?.(index)}
-            >
-              ×
-            </button>
-          </div>
-        ))}
 
         <button className="primary-btn" onClick={handleSave} disabled={saving}>
           {saving ? "Сохраняем..." : "Сохранить"}

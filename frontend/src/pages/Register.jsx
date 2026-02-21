@@ -78,11 +78,11 @@ export default function Register() {
             </div>
 
             <button
-              className="auth-btn-primary"
+              className="primary-btn auth-btn-primary"
               type="submit"
               disabled={loading}
             >
-              {loading ? "Создаём аккаунт..." : "Создать аккаунт"}
+              {loading ? "Создаём аккаунт…" : "Создать аккаунт"}
             </button>
           </form>
 

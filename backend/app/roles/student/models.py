@@ -14,23 +14,17 @@ class Student(BaseModel):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
     full_name = Column(String(255), nullable=False)
-    university = Column(String(255), nullable=True)
-    level = Column(String(100), nullable=True)
-    direction = Column(String(255), nullable=True)
     status = Column(String(100), nullable=True)
     skills = Column(JSON, nullable=True)
     summary = Column(Text, nullable=True)
-    photo_url = Column(String(500), nullable=True)
     resume_url = Column(String(500), nullable=True)
     document_urls = Column(JSON, nullable=True)
     education = Column(JSON, nullable=True)
     research_interests = Column(JSON, nullable=True)
-    contacts = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="student_profile")
 
     __table_args__ = (
         Index("idx_student_user", "user_id"),
-        Index("idx_student_university", "university"),
     )

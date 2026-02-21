@@ -45,6 +45,7 @@ class User(BaseModel):
     role_id = Column(Integer, ForeignKey("roles.id", ondelete="RESTRICT"), nullable=False)
     organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True)
     full_name = Column(String(255), nullable=True)
+    photo_url = Column(String(500), nullable=True)
     contacts = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

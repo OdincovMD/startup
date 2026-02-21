@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -7,11 +7,12 @@ import StudentProfileSection from "./profile/StudentProfileSection";
 import ResearcherProfileSection from "./profile/ResearcherProfileSection";
 import OrganizationProfileSection from "./profile/OrganizationProfileSection";
 import MyJoinRequestsSection from "./profile/MyJoinRequestsSection";
+import MyVacancyResponsesSection from "./profile/MyVacancyResponsesSection";
 import JoinRequestsIncomingTab from "./profile/JoinRequestsIncomingTab";
 import GalleryModal from "./profile/GalleryModal";
 import EmployeeModal from "./profile/EmployeeModal";
 import PersonalProfileSection from "./profile/PersonalProfileSection";
-import ProfileCollapsibleCard from "../components/ProfileCollapsibleCard";
+import ProfileSidebar from "./profile/ProfileSidebar";
 
 const RESEARCH_INTEREST_OPTIONS = [
   "Материаловедение",
@@ -65,6 +66,7 @@ export default function Profile() {
     activities: "",
     image_urls: [],
     employee_ids: [],
+    head_employee_id: null,
     equipment_ids: [],
     task_solution_ids: [],
   });
@@ -76,10 +78,9 @@ export default function Profile() {
     title: "",
     task_description: "",
     solution_description: "",
-    completed_examples: "",
     article_links: [],
-    student_involvement: "",
-    staff_involvement: "",
+    solution_deadline: "",
+    grant_info: "",
     cost: "",
     external_solutions: "",
     laboratory_ids: [],
@@ -90,7 +91,7 @@ export default function Profile() {
     title: "",
     task_description: "",
     completed_examples: "",
-    article_links: [],
+    grant_info: "",
     budget: "",
     deadline: "",
     status: "active",
@@ -108,6 +109,8 @@ export default function Profile() {
     query_id: null,
     laboratory_id: null,
     contact_employee_id: null,
+    contact_email: "",
+    contact_phone: "",
   });
   const [editingVacancyId, setEditingVacancyId] = useState(null);
   const [vacancyEdit, setVacancyEdit] = useState(null);
@@ -128,31 +131,21 @@ export default function Profile() {
   });
   const [employeeEditId, setEmployeeEditId] = useState(null);
   const [employeeEdit, setEmployeeEdit] = useState(null);
-  const [employeeDraftInterestsInput, setEmployeeDraftInterestsInput] = useState("");
-  const [employeeEditInterestsInput, setEmployeeEditInterestsInput] = useState("");
   const [employeeDraftPositionInput, setEmployeeDraftPositionInput] = useState("");
   const [employeeEditPositionInput, setEmployeeEditPositionInput] = useState("");
   const [employeePreview, setEmployeePreview] = useState(null);
   const [showDraftPublications, setShowDraftPublications] = useState(false);
   const [showEditPublications, setShowEditPublications] = useState(false);
   const [showEmployeePublications, setShowEmployeePublications] = useState(false);
-  const [newLabDraft, setNewLabDraft] = useState({
-    name: "",
-    activities: "",
-    description: "",
-  });
   const [uploading, setUploading] = useState(false);
   const [gallery, setGallery] = useState({ open: false, images: [], index: 0 });
   const [galleryZoom, setGalleryZoom] = useState(1);
   const [orgTab, setOrgTab] = useState("profile");
+  const profileContentRef = useRef(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [orcidError, setOrcidError] = useState(null);
-  const [expandedPersonal, setExpandedPersonal] = useState(true);
-  const [expandedRoleSection, setExpandedRoleSection] = useState(false);
-  const [expandedMyRequests, setExpandedMyRequests] = useState(false);
-  const roleSectionRef = React.useRef(null);
   const researcherFileInputRefs = React.useRef([]);
   const studentFileInputRefs = React.useRef([]);
   const orgAvatarInputRef = React.useRef(null);
@@ -165,18 +158,31 @@ export default function Profile() {
     (refs?.current ?? refs)?.forEach((r) => r?.current && (r.current.value = ""));
   };
 
-  useEffect(() => {
-    if (expandedRoleSection && roleSectionRef.current) {
-      roleSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [expandedRoleSection]);
-
   const clearError = () => setError(null);
+
   const roleKey = useMemo(() => {
     if (!profile?.role_id) return null;
     const byId = roles.find((role) => Number(role.id) === Number(profile.role_id));
     return byId?.name ?? null;
   }, [profile, roles]);
+
+  const ALLOWED_SECTIONS_BY_ROLE = {
+    lab_admin: ["summary", "personal", "organization"],
+    lab_representative: ["summary", "personal", "organization", "my-requests"],
+    student: ["summary", "personal", "student", "my-vacancy-responses"],
+    researcher: ["summary", "personal", "researcher", "my-requests", "my-vacancy-responses"],
+  };
+
+  const profileSection = (() => {
+    const fromUrl = searchParams.get("section");
+    const allowed = roleKey ? (ALLOWED_SECTIONS_BY_ROLE[roleKey] || ["summary"]) : ["summary"];
+    if (fromUrl && allowed.includes(fromUrl)) return fromUrl;
+    return allowed[0] || "summary";
+  })();
+
+  const setProfileSection = (section) => {
+    setSearchParams({ section }, { replace: true });
+  };
 
   const roleName = useMemo(() => {
     if (!profile?.role_id) return "—";
@@ -194,9 +200,10 @@ export default function Profile() {
   }, [roleKey, orgTab]);
 
   useEffect(() => {
-    setExpandedRoleSection(false);
-    setExpandedPersonal(true);
-  }, [roleKey]);
+    if (profileSection === "organization" && profileContentRef.current) {
+      profileContentRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [profileSection, orgTab]);
 
   const roleLabelByName = (name) => {
     const r = roles.find((x) => x.name === name);
@@ -252,9 +259,12 @@ export default function Profile() {
     const tab = searchParams.get("tab");
     if (tab === "join-requests") {
       setOrgTab("join-requests");
-      setExpandedRoleSection(true);
+      setSearchParams({ section: "organization" }, { replace: true });
+    } else if (tab === "vacancy-responses") {
+      setOrgTab("vacancy-responses");
+      setSearchParams({ section: "organization" }, { replace: true });
     } else if (tab === "my-requests") {
-      setExpandedMyRequests(true);
+      setSearchParams({ section: "my-requests" }, { replace: true });
     }
   }, [searchParams]);
 
@@ -367,8 +377,6 @@ export default function Profile() {
         body: JSON.stringify(payload),
       });
       setProfile(data);
-      setExpandedPersonal(false);
-      setExpandedRoleSection(true);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -466,12 +474,17 @@ export default function Profile() {
       .filter(Boolean);
 
   const addInterestPreset = (value, isEdit = false) => {
-    const setter = isEdit ? setEmployeeEditInterestsInput : setEmployeeDraftInterestsInput;
-    setter((prev) => {
-      const list = parseInterests(prev);
-      if (list.includes(value)) return prev;
-      return list.length ? `${prev}, ${value}` : value;
-    });
+    if (isEdit && employeeEdit) {
+      const list = employeeEdit.research_interests || [];
+      if (list.includes(value)) return;
+      handleEmployeeEditChange("research_interests", [...list, value]);
+    } else {
+      setEmployeeDraft((prev) => {
+        const list = prev.research_interests || [];
+        if (list.includes(value)) return prev;
+        return { ...prev, research_interests: [...list, value] };
+      });
+    }
   };
 
 
@@ -488,6 +501,42 @@ export default function Profile() {
         body: formData,
       });
       setOrgProfile((prev) => ({ ...(prev || {}), avatar_url: response.public_url }));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
+
+  const uploadUserAvatar = async (file) => {
+    if (!file) return;
+    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+      setError("Допустимые форматы: JPEG, PNG, WebP, GIF");
+      return;
+    }
+    if (file.size > MAX_AVATAR_SIZE) {
+      setError("Максимальный размер файла — 5 МБ");
+      return;
+    }
+    setUploading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("category", "user");
+      formData.append("file", file);
+      const response = await apiRequest("/storage/upload", {
+        method: "POST",
+        body: formData,
+      });
+      await apiRequest("/users/me/avatar", {
+        method: "PUT",
+        body: JSON.stringify({ photo_url: response.public_url }),
+      });
+      const updatedUser = await apiRequest("/users/me");
+      setProfile(updatedUser);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -757,33 +806,6 @@ export default function Profile() {
     }));
   };
 
-  const createLabFromStaff = async () => {
-    if (!newLabDraft.name.trim()) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const created = await apiRequest("/profile/organization/laboratories", {
-        method: "POST",
-        body: JSON.stringify({
-          name: newLabDraft.name.trim(),
-          activities: newLabDraft.activities.trim(),
-          description: newLabDraft.description.trim(),
-          image_urls: [],
-        }),
-      });
-      setOrgLabs((prev) => [created, ...prev]);
-      setEmployeeDraft((prev) => ({
-        ...prev,
-        laboratory_ids: [...(prev.laboratory_ids || []), created.id],
-      }));
-      setNewLabDraft({ name: "", activities: "", description: "" });
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const uploadImage = async (file, category) => {
     setUploading(true);
     setError(null);
@@ -849,6 +871,7 @@ export default function Profile() {
       activities: item.activities || "",
       image_urls: item.image_urls || [],
       employee_ids: (item.employees || []).map((employee) => employee.id),
+      head_employee_id: item.head_employee_id ?? item.head_employee?.id ?? null,
       equipment_ids: (item.equipment || []).map((equipment) => equipment.id),
       task_solution_ids: (item.task_solutions || []).map((task) => task.id),
     });
@@ -882,7 +905,8 @@ export default function Profile() {
         } else {
           next.add(employeeId);
         }
-        return { ...prev, employee_ids: Array.from(next) };
+        const head = next.has(prev.head_employee_id) ? prev.head_employee_id : null;
+        return { ...prev, employee_ids: Array.from(next), head_employee_id: head };
       });
       return;
     }
@@ -893,7 +917,26 @@ export default function Profile() {
       } else {
         next.add(employeeId);
       }
-      return { ...prev, employee_ids: Array.from(next) };
+      const head = next.has(prev.head_employee_id) ? prev.head_employee_id : null;
+      return { ...prev, employee_ids: Array.from(next), head_employee_id: head };
+    });
+  };
+
+  const setLabHead = (employeeId, isEdit = false) => {
+    const nextHead = employeeId ?? null;
+    if (isEdit) {
+      setLabEdit((prev) => {
+        if (!prev) return prev;
+        const eids = new Set(prev.employee_ids || []);
+        if (nextHead != null) eids.add(nextHead);
+        return { ...prev, head_employee_id: nextHead, employee_ids: Array.from(eids) };
+      });
+      return;
+    }
+    setLabDraft((prev) => {
+      const eids = new Set(prev.employee_ids || []);
+      if (nextHead != null) eids.add(nextHead);
+      return { ...prev, head_employee_id: nextHead, employee_ids: Array.from(eids) };
     });
   };
 
@@ -994,6 +1037,7 @@ export default function Profile() {
         activities: labEdit.activities.trim(),
         image_urls: labEdit.image_urls || [],
         employee_ids: labEdit.employee_ids || [],
+        head_employee_id: labEdit.head_employee_id != null ? labEdit.head_employee_id : null,
         equipment_ids: labEdit.equipment_ids || [],
         task_solution_ids: labEdit.task_solution_ids || [],
       };
@@ -1020,7 +1064,7 @@ export default function Profile() {
         positions: parsePositions(employeeDraftPositionInput),
         academic_degree: employeeDraft.academic_degree.trim(),
         photo_url: employeeDraft.photo_url || null,
-        research_interests: parseInterests(employeeDraftInterestsInput),
+        research_interests: employeeDraft.research_interests || [],
         laboratory_ids: employeeDraft.laboratory_ids || [],
         education: employeeDraft.education || [],
         publications: employeeDraft.publications || [],
@@ -1045,6 +1089,7 @@ export default function Profile() {
         positions: [],
         academic_degree: "",
         photo_url: "",
+        research_interests: [],
         laboratory_ids: [],
         education: [],
         publications: [],
@@ -1054,7 +1099,6 @@ export default function Profile() {
         hindex_openalex: null,
         contacts: { email: "", phone: "", website: "", telegram: "" },
       });
-      setEmployeeDraftInterestsInput("");
       setEmployeeDraftPositionInput("");
       setShowDraftPublications(false);
     } catch (e) {
@@ -1071,6 +1115,7 @@ export default function Profile() {
       positions: normalizePositions(employee.positions),
       academic_degree: employee.academic_degree || "",
       photo_url: employee.photo_url || "",
+      research_interests: employee.research_interests || [],
       laboratory_ids: (employee.laboratories || []).map((lab) => lab.id),
       education: employee.education || [],
       publications: employee.publications || [],
@@ -1080,7 +1125,6 @@ export default function Profile() {
       hindex_openalex: employee.hindex_openalex ?? "",
       contacts: employee.contacts || { email: "", phone: "", website: "", telegram: "" },
     });
-    setEmployeeEditInterestsInput((employee.research_interests || []).join(", "));
     setEmployeeEditPositionInput(normalizePositions(employee.positions).join(", "));
     setShowEditPublications(false);
   };
@@ -1088,7 +1132,6 @@ export default function Profile() {
   const cancelEditEmployee = () => {
     setEmployeeEditId(null);
     setEmployeeEdit(null);
-    setEmployeeEditInterestsInput("");
     setEmployeeEditPositionInput("");
   };
 
@@ -1102,7 +1145,7 @@ export default function Profile() {
         positions: parsePositions(employeeEditPositionInput),
         academic_degree: employeeEdit.academic_degree.trim(),
         photo_url: employeeEdit.photo_url || null,
-        research_interests: parseInterests(employeeEditInterestsInput),
+        research_interests: employeeEdit.research_interests || [],
         laboratory_ids: employeeEdit.laboratory_ids || [],
         education: employeeEdit.education || [],
         publications: employeeEdit.publications || [],
@@ -1143,12 +1186,11 @@ export default function Profile() {
       setEmployeeDraft((prev) => ({
         ...prev,
         full_name: data.full_name || prev.full_name,
-        research_interests: data.research_interests || prev.research_interests,
-        education: data.education || prev.education,
-        publications: data.publications || prev.publications,
+        research_interests: data.research_interests || prev.research_interests || [],
+        education: data.education || prev.education || [],
+        publications: data.publications || prev.publications || [],
         hindex_openalex: data.hindex_openalex ?? prev.hindex_openalex,
       }));
-      setEmployeeDraftInterestsInput((data.research_interests || []).join(", "));
       if (data.publications?.length) setShowDraftPublications(true);
     } catch (e) {
       setError(e.message);
@@ -1174,15 +1216,14 @@ export default function Profile() {
         setEmployeeEdit({
           ...employeeEdit,
           full_name: updated.full_name,
-          research_interests: updated.research_interests,
-          education: updated.education,
-          publications: updated.publications,
+          research_interests: updated.research_interests || [],
+          education: updated.education || [],
+          publications: updated.publications || [],
           hindex_wos: updated.hindex_wos,
           hindex_scopus: updated.hindex_scopus,
           hindex_rsci: updated.hindex_rsci,
           hindex_openalex: updated.hindex_openalex,
         });
-        setEmployeeEditInterestsInput((updated.research_interests || []).join(", "));
       }
     } catch (e) {
       setError(e.message);
@@ -1284,6 +1325,7 @@ export default function Profile() {
         activities: labDraft.activities.trim(),
         image_urls: labDraft.image_urls || [],
         employee_ids: labDraft.employee_ids || [],
+        head_employee_id: labDraft.head_employee_id != null ? labDraft.head_employee_id : null,
         equipment_ids: labDraft.equipment_ids || [],
         task_solution_ids: labDraft.task_solution_ids || [],
       };
@@ -1303,6 +1345,7 @@ export default function Profile() {
         activities: "",
         image_urls: [],
         employee_ids: [],
+        head_employee_id: null,
         equipment_ids: [],
         task_solution_ids: [],
       });
@@ -1334,10 +1377,9 @@ export default function Profile() {
         title: taskDraft.title.trim(),
         task_description: taskDraft.task_description.trim(),
         solution_description: taskDraft.solution_description.trim(),
-        completed_examples: taskDraft.completed_examples.trim(),
         article_links: taskDraft.article_links || [],
-        student_involvement: taskDraft.student_involvement.trim(),
-        staff_involvement: taskDraft.staff_involvement.trim(),
+        solution_deadline: taskDraft.solution_deadline.trim(),
+        grant_info: taskDraft.grant_info.trim(),
         cost: taskDraft.cost.trim(),
         external_solutions: taskDraft.external_solutions.trim(),
         laboratory_ids: taskDraft.laboratory_ids || [],
@@ -1355,10 +1397,9 @@ export default function Profile() {
         title: "",
         task_description: "",
         solution_description: "",
-        completed_examples: "",
         article_links: [],
-        student_involvement: "",
-        staff_involvement: "",
+        solution_deadline: "",
+        grant_info: "",
         cost: "",
         external_solutions: "",
         laboratory_ids: [],
@@ -1376,13 +1417,11 @@ export default function Profile() {
       title: item.title || "",
       task_description: item.task_description || "",
       solution_description: item.solution_description || "",
-      completed_examples: item.completed_examples || "",
       article_links: item.article_links || [],
-      student_involvement: item.student_involvement || "",
-      staff_involvement: item.staff_involvement || "",
+      solution_deadline: item.solution_deadline || "",
+      grant_info: item.grant_info || "",
       cost: item.cost || "",
       external_solutions: item.external_solutions || "",
-      // инициализируем связи с лабораториями для чекбоксов
       laboratory_ids: (item.laboratories || []).map((lab) => lab.id),
     });
   };
@@ -1405,10 +1444,9 @@ export default function Profile() {
         title: taskEdit.title.trim(),
         task_description: taskEdit.task_description.trim(),
         solution_description: taskEdit.solution_description.trim(),
-        completed_examples: taskEdit.completed_examples.trim(),
         article_links: taskEdit.article_links || [],
-        student_involvement: taskEdit.student_involvement.trim(),
-        staff_involvement: taskEdit.staff_involvement.trim(),
+        solution_deadline: taskEdit.solution_deadline.trim(),
+        grant_info: taskEdit.grant_info.trim(),
         cost: taskEdit.cost.trim(),
         external_solutions: taskEdit.external_solutions.trim(),
         laboratory_ids: taskEdit.laboratory_ids || [],
@@ -1483,7 +1521,7 @@ export default function Profile() {
         title: queryDraft.title.trim(),
         task_description: queryDraft.task_description.trim(),
         completed_examples: queryDraft.completed_examples.trim(),
-        article_links: queryDraft.article_links || [],
+        grant_info: queryDraft.grant_info.trim(),
         budget: queryDraft.budget.trim(),
         deadline: queryDraft.deadline.trim(),
         status: queryDraft.status || "active",
@@ -1500,7 +1538,7 @@ export default function Profile() {
         title: "",
         task_description: "",
         completed_examples: "",
-        article_links: [],
+        grant_info: "",
         budget: "",
         deadline: "",
         status: "active",
@@ -1521,7 +1559,7 @@ export default function Profile() {
       title: query.title || "",
       task_description: query.task_description || "",
       completed_examples: query.completed_examples || "",
-      article_links: query.article_links || [],
+      grant_info: query.grant_info || "",
       budget: query.budget || "",
       deadline: query.deadline || "",
       status: query.status || "active",
@@ -1545,7 +1583,7 @@ export default function Profile() {
         title: queryEdit.title.trim(),
         task_description: queryEdit.task_description.trim(),
         completed_examples: queryEdit.completed_examples.trim(),
-        article_links: queryEdit.article_links || [],
+        grant_info: queryEdit.grant_info.trim(),
         budget: queryEdit.budget.trim(),
         deadline: queryEdit.deadline.trim(),
         status: queryEdit.status || "active",
@@ -1580,6 +1618,14 @@ export default function Profile() {
   };
 
   const createVacancy = async () => {
+    if (!vacancyDraft.contact_employee_id) {
+      const email = (vacancyDraft.contact_email || "").trim();
+      const phone = (vacancyDraft.contact_phone || "").trim();
+      if (!email || !phone) {
+        setError("Укажите контактное лицо (сотрудника) или заполните email и телефон для связи.");
+        return;
+      }
+    }
     setSaving(true);
     setError(null);
     try {
@@ -1591,6 +1637,8 @@ export default function Profile() {
         query_id: vacancyDraft.query_id || null,
         laboratory_id: vacancyDraft.laboratory_id || null,
         contact_employee_id: vacancyDraft.contact_employee_id || null,
+        contact_email: vacancyDraft.contact_employee_id ? null : (vacancyDraft.contact_email || "").trim() || null,
+        contact_phone: vacancyDraft.contact_employee_id ? null : (vacancyDraft.contact_phone || "").trim() || null,
       };
       const created = await apiRequest("/profile/organization/vacancies", {
         method: "POST",
@@ -1605,6 +1653,8 @@ export default function Profile() {
         query_id: null,
         laboratory_id: null,
         contact_employee_id: null,
+        contact_email: "",
+        contact_phone: "",
       });
     } catch (e) {
       setError(e.message);
@@ -1623,6 +1673,8 @@ export default function Profile() {
       query_id: vacancy.query_id || null,
       laboratory_id: vacancy.laboratory_id || null,
       contact_employee_id: vacancy.contact_employee_id || null,
+      contact_email: vacancy.contact_email || "",
+      contact_phone: vacancy.contact_phone || "",
     });
   };
 
@@ -1633,6 +1685,14 @@ export default function Profile() {
 
   const updateVacancy = async () => {
     if (!vacancyEdit) return;
+    if (!vacancyEdit.contact_employee_id) {
+      const email = (vacancyEdit.contact_email || "").trim();
+      const phone = (vacancyEdit.contact_phone || "").trim();
+      if (!email || !phone) {
+        setError("Укажите контактное лицо (сотрудника) или заполните email и телефон для связи.");
+        return;
+      }
+    }
     setSaving(true);
     setError(null);
     try {
@@ -1644,6 +1704,8 @@ export default function Profile() {
         query_id: vacancyEdit.query_id || null,
         laboratory_id: vacancyEdit.laboratory_id || null,
         contact_employee_id: vacancyEdit.contact_employee_id || null,
+        contact_email: vacancyEdit.contact_employee_id ? null : (vacancyEdit.contact_email || "").trim() || null,
+        contact_phone: vacancyEdit.contact_employee_id ? null : (vacancyEdit.contact_phone || "").trim() || null,
       };
       const updated = await apiRequest(`/profile/organization/vacancies/${editingVacancyId}`, {
         method: "PUT",
@@ -1895,75 +1957,90 @@ export default function Profile() {
           <button type="button" onClick={clearError} aria-label="Закрыть">×</button>
         </div>
       )}
-      <section className="profile-card">
-        <ProfileSummary
-          loading={loading}
-          error={error}
-          profile={profile}
-          roleName={roleName}
-          roles={roles}
-          selectedRoleId={selectedRoleId}
-          onRoleChange={handleRoleChange}
-          onRoleSave={saveRole}
-          roleSaving={roleSaving}
-          roleLabelByName={roleLabelByName}
-          orcidError={orcidError}
-          orcidLinked={orcidLinked}
-          onOrcidLinked={() => apiRequest("/users/me").then(setProfile)}
-          onOrcidErrorDismiss={() => setOrcidError(null)}
-          onOpenAlexLinked={async () => {
-            const user = await apiRequest("/users/me");
-            setProfile(user);
-            if (isResearcherRole) {
-              try {
-                const researcher = await apiRequest("/profile/researcher");
-                setResearcherProfile(researcher);
-              } catch {
-                setResearcherProfile(null);
-              }
-            }
-          }}
-        />
-        {profile && (
-          <ProfileCollapsibleCard
-            title="Личные данные"
-            expanded={expandedPersonal}
-            onToggle={() => {
-              setExpandedPersonal((prev) => !prev);
-              if (expandedRoleSection) setExpandedRoleSection(false);
-            }}
-          >
-            <PersonalProfileSection
-              hideTitle
-              profile={profile}
-              onChange={handlePersonalChange}
-              onContactsChange={handlePersonalContactsChange}
-              onSave={savePersonalProfile}
-              saving={saving}
-            />
-          </ProfileCollapsibleCard>
-        )}
-        {profile && isOrgRole && (
-          <ProfileCollapsibleCard
-            ref={roleSectionRef}
-            title={roleKey === "lab_representative" ? "Профиль лаборатории" : "Профиль организации"}
-            expanded={expandedRoleSection}
-            onToggle={() => {
-              setExpandedRoleSection((prev) => !prev);
-              if (expandedPersonal) setExpandedPersonal(false);
-            }}
-          >
-            <OrganizationProfileSection
-              title={roleKey === "lab_representative" ? "Профиль лаборатории" : "Профиль организации"}
-              hideTitle
-              orgTab={orgTab}
-              setOrgTab={setOrgTab}
-              showProfileTab={roleKey === "lab_admin"}
+      <div className="profile-layout">
+        <aside className="profile-sidebar-wrap">
+          {profile && roleKey && (
+            <ProfileSidebar
               roleKey={roleKey}
-              onError={setError}
-              orgProfile={orgProfile}
-              handleOrgChange={handleOrgChange}
-            uploadOrgAvatar={uploadOrgAvatar}
+              currentSection={profileSection}
+              onSectionChange={setProfileSection}
+              orgTab={orgTab}
+              onOrgTabChange={(tabId) => {
+                setProfileSection("organization");
+                setOrgTab(tabId);
+              }}
+              showProfileTab={roleKey === "lab_admin"}
+            />
+          )}
+          <div className="profile-actions profile-actions--sidebar">
+            <button type="button" className="ghost-btn" onClick={() => navigate("/")}>
+              На главную
+            </button>
+            <button type="button" className="primary-btn" onClick={logout}>
+              Выйти
+            </button>
+          </div>
+        </aside>
+        <div className="profile-content" ref={profileContentRef}>
+          <div className="profile-content-inner">
+            {loading && !profile && <p className="muted">Загрузка…</p>}
+            {!loading && profile && !roleKey && profileSection !== "summary" && (
+              <p className="muted">Выберите роль в разделе «Обзор».</p>
+            )}
+            {profileSection === "summary" && (
+              <ProfileSummary
+                loading={loading}
+                error={error}
+                profile={profile}
+                roleName={roleName}
+                roles={roles}
+                selectedRoleId={selectedRoleId}
+                onRoleChange={handleRoleChange}
+                onRoleSave={saveRole}
+                roleSaving={roleSaving}
+                roleLabelByName={roleLabelByName}
+                orcidError={orcidError}
+                orcidLinked={orcidLinked}
+                onOrcidLinked={() => apiRequest("/users/me").then(setProfile)}
+                onOrcidErrorDismiss={() => setOrcidError(null)}
+                onOpenAlexLinked={async () => {
+                  const user = await apiRequest("/users/me");
+                  setProfile(user);
+                  if (isResearcherRole) {
+                    try {
+                      const researcher = await apiRequest("/profile/researcher");
+                      setResearcherProfile(researcher);
+                    } catch {
+                      setResearcherProfile(null);
+                    }
+                  }
+                }}
+                onAvatarUpload={uploadUserAvatar}
+                uploading={uploading}
+              />
+            )}
+            {profileSection === "personal" && profile && (
+              <PersonalProfileSection
+                hideTitle
+                profile={profile}
+                onChange={handlePersonalChange}
+                onContactsChange={handlePersonalContactsChange}
+                onSave={savePersonalProfile}
+                saving={saving}
+              />
+            )}
+            {profileSection === "organization" && profile && isOrgRole && (
+              <OrganizationProfileSection
+                title={roleKey === "lab_representative" ? "Профиль лаборатории" : "Профиль организации"}
+                hideTitle
+                orgTab={orgTab}
+                setOrgTab={setOrgTab}
+                showProfileTab={roleKey === "lab_admin"}
+                roleKey={roleKey}
+                onError={setError}
+                orgProfile={orgProfile}
+                handleOrgChange={handleOrgChange}
+                uploadOrgAvatar={uploadOrgAvatar}
             uploading={uploading}
             saving={saving}
             saveOrganization={saveOrganization}
@@ -1984,6 +2061,7 @@ export default function Profile() {
             handleLabDraft={handleLabDraft}
             orgEmployees={orgEmployees}
             toggleLabEmployee={toggleLabEmployee}
+            setLabHead={setLabHead}
             toggleLabEquipment={toggleLabEquipment}
             handleLabFiles={handleLabFiles}
             removeDraftImage={removeDraftImage}
@@ -2055,14 +2133,7 @@ export default function Profile() {
             uploadEmployeePhoto={uploadEmployeePhoto}
             employeeDraftPositionInput={employeeDraftPositionInput}
             setEmployeeDraftPositionInput={setEmployeeDraftPositionInput}
-            employeeDraftInterestsInput={employeeDraftInterestsInput}
-            setEmployeeDraftInterestsInput={setEmployeeDraftInterestsInput}
-            addInterestPreset={addInterestPreset}
-            researchInterestOptions={RESEARCH_INTEREST_OPTIONS}
             toggleEmployeeLab={toggleEmployeeLab}
-            newLabDraft={newLabDraft}
-            setNewLabDraft={setNewLabDraft}
-            createLabFromStaff={createLabFromStaff}
             addEducation={addEducation}
             removeEducation={removeEducation}
             showDraftPublications={showDraftPublications}
@@ -2077,8 +2148,6 @@ export default function Profile() {
             handleEmployeeEditChange={handleEmployeeEditChange}
             employeeEditPositionInput={employeeEditPositionInput}
             setEmployeeEditPositionInput={setEmployeeEditPositionInput}
-            employeeEditInterestsInput={employeeEditInterestsInput}
-            setEmployeeEditInterestsInput={setEmployeeEditInterestsInput}
             showEditPublications={showEditPublications}
             setShowEditPublications={setShowEditPublications}
             updateEmployee={updateEmployee}
@@ -2101,18 +2170,12 @@ export default function Profile() {
               setOrgProfile(org ?? EMPTY_ORG_PROFILE);
             }}
           />
-          </ProfileCollapsibleCard>
-        )}
-        {profile && roleKey === "student" && (
-          <ProfileCollapsibleCard
-            title="Профиль студента"
-            expanded={expandedRoleSection}
-            onToggle={() => setExpandedRoleSection((prev) => !prev)}
-          >
-            <StudentProfileSection
-              title="Профиль студента"
-              hideTitle
-              studentProfile={studentProfile}
+            )}
+            {profileSection === "student" && profile && roleKey === "student" && (
+              <StudentProfileSection
+                title="Профиль студента"
+                hideTitle
+                studentProfile={studentProfile}
               handleStudentChange={handleStudentChange}
               saveStudent={saveStudent}
               uploadStudentPhoto={uploadStudentPhoto}
@@ -2126,28 +2189,19 @@ export default function Profile() {
                 studentFileInputRefs.current = refs || [];
               }}
             />
-          </ProfileCollapsibleCard>
-        )}
-        {profile && (roleKey === "researcher" || roleKey === "lab_representative") && (
-          <ProfileCollapsibleCard
-            title="Мои запросы"
-            expanded={expandedMyRequests}
-            onToggle={() => setExpandedMyRequests((prev) => !prev)}
-          >
-            <MyJoinRequestsSection
-              roleKey={roleKey}
-              onError={setError}
-              creatorLabs={orgLabs}
-            />
-          </ProfileCollapsibleCard>
-        )}
-        {profile && roleKey === "researcher" && (
-          <ProfileCollapsibleCard
-            title="Профиль исследователя"
-            expanded={expandedRoleSection}
-            onToggle={() => setExpandedRoleSection((prev) => !prev)}
-          >
-            <ResearcherProfileSection
+            )}
+            {profileSection === "my-requests" && profile && (roleKey === "researcher" || roleKey === "lab_representative") && (
+              <MyJoinRequestsSection
+                roleKey={roleKey}
+                onError={setError}
+                creatorLabs={orgLabs}
+              />
+            )}
+            {profileSection === "my-vacancy-responses" && profile && (roleKey === "student" || roleKey === "researcher") && (
+              <MyVacancyResponsesSection onError={setError} />
+            )}
+            {profileSection === "researcher" && profile && roleKey === "researcher" && (
+              <ResearcherProfileSection
               hideTitle
               researcherProfile={researcherProfile}
               handleResearcherChange={handleResearcherChange}
@@ -2163,17 +2217,10 @@ export default function Profile() {
                 researcherFileInputRefs.current = refs || [];
               }}
             />
-          </ProfileCollapsibleCard>
-        )}
-        <div className="profile-actions">
-          <button className="ghost-btn" onClick={() => navigate("/")}>
-            На главную
-          </button>
-          <button className="primary-btn" onClick={logout}>
-            Выйти
-          </button>
+            )}
+          </div>
         </div>
-      </section>
+      </div>
       <GalleryModal
         gallery={gallery}
         galleryZoom={galleryZoom}

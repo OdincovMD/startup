@@ -32,3 +32,22 @@ async def get_current_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
+
+
+async def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+):
+    """Return current user or None if not authenticated."""
+    if not credentials:
+        return None
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            settings.JWT_SECRET,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
+        user_id = int(payload.get("sub"))
+    except Exception:
+        return None
+    user = await AsyncOrm.get_user(user_id)
+    return user

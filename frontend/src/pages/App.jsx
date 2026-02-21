@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, NavLink, Route, Routes } from "react-router-dom";
 import Home from "./Home";
 import Login from "./Login";
@@ -18,45 +18,110 @@ const navLinkClass = ({ isActive }) => `nav-link${isActive ? " nav-link--active"
 
 export default function App() {
   const { auth, logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const close = () => setMenuOpen(false);
+    if (menuOpen) {
+      document.body.classList.add("nav-open");
+      window.addEventListener("resize", close);
+      return () => {
+        document.body.classList.remove("nav-open");
+        window.removeEventListener("resize", close);
+      };
+    }
+  }, [menuOpen]);
+
+  const closeMenu = () => setMenuOpen(false);
 
   return (
     <div className="page">
       <header className="header">
-        <div className="logo">
-          <Link to="/">Synthesium</Link>
+        <div className="header__inner">
+          <Link className="logo" to="/" onClick={closeMenu}>Synthesium</Link>
+          <nav className="nav" aria-label="Основное меню">
+            <NavLink className={navLinkClass} to="/laboratories" end={false}>
+              Лаборатории
+            </NavLink>
+            <NavLink className={navLinkClass} to="/organizations" end={false}>
+              Организации
+            </NavLink>
+            <NavLink className={navLinkClass} to="/queries" end={false}>
+              Запросы
+            </NavLink>
+            <NavLink className={navLinkClass} to="/vacancies" end={false}>
+              Вакансии
+            </NavLink>
+            <NavLink className={navLinkClass} to="/" end={true}>
+              Главная
+            </NavLink>
+            {auth ? (
+              <>
+                <NotificationsDropdown />
+                <NavLink className={navLinkClass} to="/profile">
+                  Профиль
+                </NavLink>
+                <button className="nav-cta" onClick={logout} type="button">
+                  Выйти
+                </button>
+              </>
+            ) : (
+              <Link className="nav-cta" to="/login">
+                Войти
+              </Link>
+            )}
+          </nav>
+          <button
+            type="button"
+            className="nav-burger"
+            aria-expanded={menuOpen}
+            aria-controls="nav-drawer"
+            aria-label={menuOpen ? "Закрыть меню" : "Открыть меню"}
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            <span className="nav-burger__line" />
+            <span className="nav-burger__line" />
+            <span className="nav-burger__line" />
+          </button>
         </div>
-        <nav className="nav">
-          <NavLink className={navLinkClass} to="/laboratories" end={false}>
-            Лаборатории
-          </NavLink>
-          <NavLink className={navLinkClass} to="/organizations" end={false}>
-            Организации
-          </NavLink>
-          <NavLink className={navLinkClass} to="/queries" end={false}>
-            Запросы
-          </NavLink>
-          <NavLink className={navLinkClass} to="/vacancies" end={false}>
-            Вакансии
-          </NavLink>
-          <NavLink className={navLinkClass} to="/" end={true}>
-            Главная
-          </NavLink>
-          {auth ? (
-            <>
-              <NotificationsDropdown />
-              <NavLink className={navLinkClass} to="/profile">
-                Профиль
-              </NavLink>
-              <button className="nav-cta" onClick={logout} type="button">
-                Выйти
-              </button>
-            </>
-          ) : (
-            <Link className="nav-cta" to="/login">
-              Войти
-            </Link>
-          )}
-        </nav>
+        <div
+          id="nav-drawer"
+          className={`nav-drawer ${menuOpen ? "nav-drawer--open" : ""}`}
+          aria-hidden={!menuOpen}
+        >
+          <div className="nav-drawer__backdrop" onClick={closeMenu} aria-hidden="true" />
+          <div className="nav-drawer__panel">
+            <NavLink className={navLinkClass} to="/" end={true} onClick={closeMenu}>
+              Главная
+            </NavLink>
+            <NavLink className={navLinkClass} to="/laboratories" end={false} onClick={closeMenu}>
+              Лаборатории
+            </NavLink>
+            <NavLink className={navLinkClass} to="/organizations" end={false} onClick={closeMenu}>
+              Организации
+            </NavLink>
+            <NavLink className={navLinkClass} to="/queries" end={false} onClick={closeMenu}>
+              Запросы
+            </NavLink>
+            <NavLink className={navLinkClass} to="/vacancies" end={false} onClick={closeMenu}>
+              Вакансии
+            </NavLink>
+            {auth ? (
+              <>
+                <NavLink className={navLinkClass} to="/profile" onClick={closeMenu}>
+                  Профиль
+                </NavLink>
+                <button className="nav-cta nav-drawer__cta" onClick={() => { closeMenu(); logout(); }} type="button">
+                  Выйти
+                </button>
+              </>
+            ) : (
+              <Link className="nav-cta nav-drawer__cta" to="/login" onClick={closeMenu}>
+                Войти
+              </Link>
+            )}
+          </div>
+        </div>
       </header>
 
       <div className="main-wrapper">

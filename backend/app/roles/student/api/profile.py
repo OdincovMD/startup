@@ -26,17 +26,12 @@ async def upsert_student_profile(
     student = await AsyncOrm.upsert_student_profile(
         current_user.id,
         full_name=patch.get("full_name"),
-        university=patch.get("university"),
-        level=patch.get("level"),
-        direction=patch.get("direction"),
         status=patch.get("status"),
         skills=patch.get("skills"),
         summary=patch.get("summary"),
-        photo_url=patch.get("photo_url"),
         resume_url=patch.get("resume_url"),
         document_urls=patch.get("document_urls"),
         education=patch.get("education"),
         research_interests=patch.get("research_interests"),
-        contacts=patch.get("contacts"),
     )
     return student

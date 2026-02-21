@@ -54,6 +54,7 @@ async def create_org_laboratory(
             activities=payload.activities,
             image_urls=payload.image_urls,
             employee_ids=payload.employee_ids,
+            head_employee_id=payload.head_employee_id,
             equipment_ids=payload.equipment_ids,
             task_solution_ids=payload.task_solution_ids,
         )
@@ -66,6 +67,7 @@ async def create_org_laboratory(
             activities=payload.activities,
             image_urls=payload.image_urls,
             employee_ids=payload.employee_ids,
+            head_employee_id=payload.head_employee_id,
             equipment_ids=payload.equipment_ids,
             task_solution_ids=payload.task_solution_ids,
         )
@@ -91,6 +93,7 @@ async def update_org_laboratory(
             activities=payload.activities,
             image_urls=payload.image_urls,
             employee_ids=payload.employee_ids,
+            head_employee_id=payload.head_employee_id,
             equipment_ids=payload.equipment_ids,
             task_solution_ids=payload.task_solution_ids,
         )
@@ -103,6 +106,7 @@ async def update_org_laboratory(
             activities=payload.activities,
             image_urls=payload.image_urls,
             employee_ids=payload.employee_ids,
+            head_employee_id=payload.head_employee_id,
             equipment_ids=payload.equipment_ids,
             task_solution_ids=payload.task_solution_ids,
         )

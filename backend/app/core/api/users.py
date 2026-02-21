@@ -5,7 +5,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_current_user
-from app.core.schemas import UserRead, UserRoleUpdate, UserProfileUpdate, user_to_read
+from app.core.schemas import UserRead, UserRoleUpdate, UserProfileUpdate, UserAvatarUpdate, user_to_read
 from app.queries.async_orm import AsyncOrm
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -38,5 +38,17 @@ async def update_profile(
         current_user.id,
         full_name=full_name,
         contacts=payload.contacts,
+    )
+    return user_to_read(user)
+
+
+@router.put("/me/avatar", response_model=UserRead)
+async def update_avatar(
+    payload: UserAvatarUpdate,
+    current_user=Depends(get_current_user),
+):
+    user = await AsyncOrm.update_user_avatar(
+        current_user.id,
+        photo_url=payload.photo_url,
     )
     return user_to_read(user)

@@ -74,6 +74,19 @@ async def get_laboratory_details(public_id: str):
     employee_user_ids = {e.user_id for e in (lab.employees or []) if getattr(e, "user_id", None)}
     researchers_filtered = [r for r in (lab.researchers or []) if getattr(r, "user_id", None) not in employee_user_ids]
 
+    head_short = None
+    if getattr(lab, "head_employee", None):
+        he = lab.head_employee
+        head_short = {
+            "id": he.id,
+            "full_name": he.full_name or "",
+            "positions": getattr(he, "positions", None),
+            "academic_degree": getattr(he, "academic_degree", None),
+            "photo_url": getattr(he, "photo_url", None),
+        }
+
+    task_solutions = lab.task_solutions or []
+
     return LaboratoryDetails(
         id=lab.id,
         public_id=lab.public_id,
@@ -84,9 +97,11 @@ async def get_laboratory_details(public_id: str):
         created_at=lab.created_at,
         is_published=lab.is_published,
         organization=org_short,
+        head_employee=head_short,
         employees=lab.employees or [],
         researchers=researchers_filtered,
         equipment=lab.equipment or [],
+        task_solutions=task_solutions,
         queries=org_queries,
         vacancies=vacancies,
     )

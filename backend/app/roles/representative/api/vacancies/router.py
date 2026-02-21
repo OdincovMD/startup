@@ -46,6 +46,8 @@ async def create_org_vacancy(
             query_id=payload.query_id,
             laboratory_id=payload.laboratory_id,
             contact_employee_id=payload.contact_employee_id,
+            contact_email=payload.contact_email,
+            contact_phone=payload.contact_phone,
         )
     if is_lab_representative(current_user):
         require_lab_link_for_lab_rep(
@@ -63,6 +65,8 @@ async def create_org_vacancy(
             query_id=payload.query_id,
             laboratory_id=payload.laboratory_id,
             contact_employee_id=payload.contact_employee_id,
+            contact_email=payload.contact_email,
+            contact_phone=payload.contact_phone,
         )
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -95,6 +99,9 @@ async def update_org_vacancy(
             query_id=query_id,
             laboratory_id=laboratory_id,
             contact_employee_id=patch.get("contact_employee_id"),
+            contact_email=patch.get("contact_email"),
+            contact_phone=patch.get("contact_phone"),
+            patch=patch,
         )
     elif is_lab_representative(current_user):
         vacancy = await AsyncOrm.update_vacancy_for_creator(
@@ -107,6 +114,9 @@ async def update_org_vacancy(
             query_id=query_id,
             laboratory_id=laboratory_id,
             contact_employee_id=patch.get("contact_employee_id"),
+            contact_email=patch.get("contact_email"),
+            contact_phone=patch.get("contact_phone"),
+            patch=patch,
         )
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")

@@ -10,7 +10,7 @@ const ORCID_ERROR_MESSAGES = {
     "Сначала установите пароль. Вы зарегистрировались через ORCID — без пароля вы потеряете доступ к аккаунту после отвязки.",
 };
 
-export default function OrcidProfileSection({ profile, orcidError, orcidLinked, onOrcidLinked, onOrcidErrorDismiss, compact }) {
+export default function OrcidProfileSection({ profile, orcidError, orcidLinked, onOrcidLinked, onOrcidErrorDismiss, compact, hidePasswordForm = false, onPasswordFormVisibilityChange }) {
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [settingPassword, setSettingPassword] = useState(false);
@@ -178,17 +178,20 @@ export default function OrcidProfileSection({ profile, orcidError, orcidLinked, 
               {unlinking ? "Отвязываем..." : "Отвязать"}
             </button>
           </div>
-          {needsPasswordBeforeUnlink && !showSetPasswordForm && (
+          {needsPasswordBeforeUnlink && !hidePasswordForm && !showSetPasswordForm && (
             <button
               type="button"
               className="profile-btn-outline"
-              onClick={() => setShowSetPasswordForm(true)}
+              onClick={() => {
+                setShowSetPasswordForm(true);
+                onPasswordFormVisibilityChange?.(true);
+              }}
               style={{ marginTop: "0.75rem", fontSize: "0.875rem" }}
             >
               Установить пароль
             </button>
           )}
-          {needsPasswordBeforeUnlink && showSetPasswordForm && (
+          {needsPasswordBeforeUnlink && !hidePasswordForm && showSetPasswordForm && (
             <div className="orcid-set-password" style={{ marginTop: "1rem", padding: "1rem", background: "rgba(148, 163, 184, 0.1)", borderRadius: "0.5rem" }}>
               <p style={{ margin: "0 0 0.75rem 0", fontSize: "0.875rem", color: "var(--muted)" }}>
                 Вы зарегистрировались через ORCID. Чтобы отвязать его, сначала установите пароль — иначе потеряете доступ к аккаунту.
@@ -221,7 +224,12 @@ export default function OrcidProfileSection({ profile, orcidError, orcidLinked, 
                   <button
                     type="button"
                     className="profile-btn-outline"
-                    onClick={() => { setShowSetPasswordForm(false); setPasswordFormError(null); setPasswordForm({ password: "", password_confirm: "" }); }}
+                    onClick={() => {
+                      setShowSetPasswordForm(false);
+                      setPasswordFormError(null);
+                      setPasswordForm({ password: "", password_confirm: "" });
+                      onPasswordFormVisibilityChange?.(false);
+                    }}
                   >
                     Скрыть
                   </button>
