@@ -2,13 +2,15 @@
 Синхронный слой работы с БД для домена организаций.
 """
 
-from typing import List, Optional
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional, Tuple
 
 import secrets
 import string
 
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, cast, distinct, text, or_, and_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.types import String, Float
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -258,6 +260,15 @@ class SyncOrm:
             if not user or not user.organization_id:
                 return None
             return session.get(models.Organization, user.organization_id)
+
+    @staticmethod
+    def get_organization_representative_user_ids(org_id: int) -> List[int]:
+        """User ids, у которых organization_id == org_id (руководители организации)."""
+        with session_factory() as session:
+            rows = session.scalars(
+                select(models.User.id).where(models.User.organization_id == org_id)
+            ).all()
+            return list(rows)
 
     @staticmethod
     def set_organization_published(org_id: int, is_published: bool) -> Optional[models.Organization]:
@@ -570,7 +581,8 @@ class SyncOrm:
             return session.scalars(stmt).first()
 
     @staticmethod
-    def delete_employee(employee_id: int, organization_id: int) -> bool:
+    def delete_employee(employee_id: int, organization_id: int) -> tuple[bool, Optional[int], List[str]]:
+        """Удаляет сотрудника. Возвращает (успех, user_id для уведомления, список имён лабораторий)."""
         with session_factory() as session:
             stmt = (
                 select(models.Employee)
@@ -582,8 +594,8 @@ class SyncOrm:
             )
             employee = session.scalars(stmt).first()
             if not employee:
-                return False
-            lab_names = []
+                return (False, None, [])
+            lab_names: List[str] = []
             user_id_to_notify = employee.user_id
             if user_id_to_notify:
                 researcher = session.scalars(
@@ -613,13 +625,7 @@ class SyncOrm:
             except SQLAlchemyError:
                 session.rollback()
                 raise
-            if user_id_to_notify and lab_names:
-                CoreSyncOrm.create_notification(
-                    user_id_to_notify,
-                    "lab_join_removed",
-                    {"lab_names": lab_names},
-                )
-            return True
+            return (True, user_id_to_notify, lab_names)
 
     @staticmethod
     def update_employee_for_creator(
@@ -686,7 +692,8 @@ class SyncOrm:
             return session.scalars(stmt).first()
 
     @staticmethod
-    def delete_employee_for_creator(employee_id: int, creator_user_id: int) -> bool:
+    def delete_employee_for_creator(employee_id: int, creator_user_id: int) -> tuple[bool, Optional[int], List[str]]:
+        """Удаляет сотрудника (по creator). Возвращает (успех, user_id для уведомления, список имён лабораторий)."""
         with session_factory() as session:
             stmt = (
                 select(models.Employee)
@@ -698,8 +705,8 @@ class SyncOrm:
             )
             employee = session.scalars(stmt).first()
             if not employee:
-                return False
-            lab_names = []
+                return (False, None, [])
+            lab_names: List[str] = []
             user_id_to_notify = employee.user_id
             if user_id_to_notify:
                 researcher = session.scalars(
@@ -729,13 +736,7 @@ class SyncOrm:
             except SQLAlchemyError:
                 session.rollback()
                 raise
-            if user_id_to_notify and lab_names:
-                CoreSyncOrm.create_notification(
-                    user_id_to_notify,
-                    "lab_join_removed",
-                    {"lab_names": lab_names},
-                )
-            return True
+            return (True, user_id_to_notify, lab_names)
 
     # =============================
     #   EQUIPMENT (ORG PROFILE)
@@ -1426,8 +1427,27 @@ class SyncOrm:
             v.organization_id = None
 
     @staticmethod
-    def delete_laboratory(laboratory_id: int, organization_id: int) -> bool:
-        """Удаление лаборатории из организации: отвязка, а не полное удаление."""
+    def _close_lab_join_requests_for_lab(session, lab_id: int) -> None:
+        """Обновляет статус заявок на «removed» и отвязывает исследователей от лаборатории."""
+        lab_reqs = session.scalars(
+            select(models.LabJoinRequest).where(
+                models.LabJoinRequest.laboratory_id == lab_id,
+                models.LabJoinRequest.status == "approved",
+            )
+        ).all()
+        for req in lab_reqs:
+            req.status = "removed"
+        session.execute(
+            delete(models.researcher_laboratories).where(
+                models.researcher_laboratories.c.laboratory_id == lab_id,
+            )
+        )
+
+    @staticmethod
+    def delete_laboratory(
+        laboratory_id: int, organization_id: int
+    ) -> Tuple[bool, Optional[int], str]:
+        """Удаление лаборатории из организации: отвязка. Возвращает (успех, user_id представителя лаборатории для уведомления, lab_name)."""
         with session_factory() as session:
             lab = session.scalars(
                 select(models.OrganizationLaboratory)
@@ -1443,7 +1463,10 @@ class SyncOrm:
                 )
             ).first()
             if not lab:
-                return False
+                return (False, None, "")
+            lab_name = lab.name or "Лаборатория"
+            lab_rep_user_id = lab.creator_user_id
+            SyncOrm._close_lab_join_requests_for_lab(session, laboratory_id)
             SyncOrm._unlink_lab_from_org(session, lab)
             req = session.scalars(
                 select(models.OrgJoinRequest).where(
@@ -1459,11 +1482,13 @@ class SyncOrm:
             except SQLAlchemyError:
                 session.rollback()
                 raise
-            return True
+            return (True, lab_rep_user_id, lab_name)
 
     @staticmethod
-    def delete_laboratory_for_creator(laboratory_id: int, creator_user_id: int) -> bool:
-        """Удаление лаборатории: если в организации — отвязка; иначе — полное удаление."""
+    def delete_laboratory_for_creator(
+        laboratory_id: int, creator_user_id: int
+    ) -> Tuple[bool, Optional[int], str]:
+        """Удаление лаборатории: если в организации — отвязка; иначе — полное удаление. Возвращает (успех, user_id представителя лаборатории, lab_name)."""
         with session_factory() as session:
             lab = session.scalars(
                 select(models.OrganizationLaboratory)
@@ -1479,7 +1504,10 @@ class SyncOrm:
                 )
             ).first()
             if not lab:
-                return False
+                return (False, None, "")
+            lab_name = lab.name or "Лаборатория"
+            lab_rep_user_id = lab.creator_user_id
+            SyncOrm._close_lab_join_requests_for_lab(session, laboratory_id)
             if lab.organization_id is not None:
                 SyncOrm._unlink_lab_from_org(session, lab)
             else:
@@ -1489,7 +1517,7 @@ class SyncOrm:
             except SQLAlchemyError:
                 session.rollback()
                 raise
-            return True
+            return (True, lab_rep_user_id, lab_name)
 
     # =============================
     #   TASK SOLUTIONS (ORG)
@@ -2413,6 +2441,469 @@ class SyncOrm:
             return list(session.scalars(stmt).all())
 
     @staticmethod
+    def get_vacancy_stats_for_user(user_id: int) -> List[dict]:
+        """
+        Для представителя возвращает по каждой его вакансии: view_count (page_view из аналитики) и response_count.
+        """
+        org = SyncOrm.get_organization_for_user(user_id)
+        if org:
+            vacancies = SyncOrm.list_vacancies_for_org(org.id)
+        else:
+            vacancies = SyncOrm.list_vacancies_for_creator(user_id)
+        if not vacancies:
+            return []
+        public_ids = [v.public_id for v in vacancies if v.public_id]
+        vacancy_ids = [v.id for v in vacancies]
+        view_counts = {}
+        response_counts = {}
+        with session_factory() as session:
+            if public_ids and hasattr(models, "AnalyticsEvent"):
+                # Не считаем просмотры от создателя вакансии (он не может откликаться на свою вакансию)
+                stmt = (
+                    select(models.AnalyticsEvent.entity_id, func.count(models.AnalyticsEvent.id).label("cnt"))
+                    .select_from(models.AnalyticsEvent)
+                    .join(
+                        models.VacancyOrganization,
+                        (models.AnalyticsEvent.entity_id == models.VacancyOrganization.public_id)
+                        & (models.AnalyticsEvent.entity_type == "vacancy"),
+                    )
+                    .where(
+                        models.AnalyticsEvent.event_type == "page_view",
+                        models.AnalyticsEvent.entity_id.in_(public_ids),
+                        (models.AnalyticsEvent.user_id.is_(None))
+                        | (models.AnalyticsEvent.user_id != models.VacancyOrganization.creator_user_id),
+                    )
+                    .group_by(models.AnalyticsEvent.entity_id)
+                )
+                for row in session.execute(stmt).all():
+                    view_counts[row.entity_id] = row.cnt
+            stmt_resp = (
+                select(models.VacancyResponse.vacancy_id, func.count(models.VacancyResponse.id).label("cnt"))
+                .where(models.VacancyResponse.vacancy_id.in_(vacancy_ids))
+                .group_by(models.VacancyResponse.vacancy_id)
+            )
+            for row in session.execute(stmt_resp).all():
+                response_counts[row.vacancy_id] = row.cnt
+        return [
+            {
+                "vacancy_id": v.id,
+                "public_id": v.public_id,
+                "name": v.name,
+                "view_count": view_counts.get(v.public_id, 0) if v.public_id else 0,
+                "response_count": response_counts.get(v.id, 0),
+            }
+            for v in vacancies
+        ]
+
+    @staticmethod
+    def get_employer_dashboard_data(user_id: int) -> dict:
+        """
+        Данные дашборда представителя: сводка по вакансиям/откликам, по вакансиям/лабораториям/запросам
+        (просмотры, уникальные зрители, время на странице), плюс ряды по дням для графиков.
+        """
+        org = SyncOrm.get_organization_for_user(user_id)
+        if org:
+            vacancies = SyncOrm.list_vacancies_for_org(org.id)
+            laboratories = SyncOrm.list_laboratories_for_org(org.id)
+            queries = SyncOrm.list_queries_for_org(org.id)
+        else:
+            vacancies = SyncOrm.list_vacancies_for_creator(user_id)
+            laboratories = SyncOrm.list_laboratories_for_creator(user_id)
+            queries = SyncOrm.list_queries_for_creator(user_id)
+
+        vacancy_ids = [v.id for v in vacancies]
+        vacancy_public_ids = [v.public_id for v in vacancies if v.public_id]
+        lab_public_ids = [lab.public_id for lab in laboratories if lab.public_id]
+        query_public_ids = [q.public_id for q in queries if q.public_id]
+        published_count = sum(1 for v in vacancies if v.is_published)
+
+        view_counts = {}
+        unique_viewers = {}
+        avg_time_on_page = {}
+        lab_view_counts = {}
+        lab_unique_viewers = {}
+        lab_avg_time = {}
+        query_view_counts = {}
+        query_unique_viewers = {}
+        query_avg_time = {}
+        response_counts = {}
+        status_counts = {"new": 0, "accepted": 0, "rejected": 0}
+        first_response_at = {}
+        first_acceptance_at = {}
+        views_over_time = []
+        responses_over_time = []
+
+        with session_factory() as session:
+            if vacancy_public_ids and hasattr(models, "AnalyticsEvent"):
+                ae = models.AnalyticsEvent
+                vo = models.VacancyOrganization
+                join_cond = (ae.entity_id == vo.public_id) & (ae.entity_type == "vacancy")
+                creator_filter = (ae.user_id.is_(None)) | (ae.user_id != vo.creator_user_id)
+
+                stmt_view = (
+                    select(ae.entity_id, func.count(ae.id).label("cnt"))
+                    .select_from(ae)
+                    .join(vo, join_cond)
+                    .where(
+                        ae.event_type == "page_view",
+                        ae.entity_id.in_(vacancy_public_ids),
+                        creator_filter,
+                    )
+                    .group_by(ae.entity_id)
+                )
+                for row in session.execute(stmt_view).all():
+                    view_counts[row.entity_id] = row.cnt
+
+                viewer_key = func.coalesce(cast(ae.user_id, String), ae.session_id)
+                stmt_uv = (
+                    select(ae.entity_id, func.count(distinct(viewer_key)).label("uv"))
+                    .select_from(ae)
+                    .join(vo, join_cond)
+                    .where(
+                        ae.event_type == "page_view",
+                        ae.entity_id.in_(vacancy_public_ids),
+                        creator_filter,
+                    )
+                    .group_by(ae.entity_id)
+                )
+                for row in session.execute(stmt_uv).all():
+                    unique_viewers[row.entity_id] = row.uv
+
+                time_sql = text("""
+                    SELECT ae.entity_id, AVG((ae.payload->>'duration_sec')::float) AS avg_sec
+                    FROM analytics_events ae
+                    JOIN vacancies_organizations vo ON ae.entity_id = vo.public_id AND ae.entity_type = 'vacancy'
+                    WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'vacancy'
+                      AND ae.entity_id = ANY(:public_ids)
+                      AND ae.payload->>'duration_sec' IS NOT NULL
+                    GROUP BY ae.entity_id
+                """)
+                try:
+                    for row in session.execute(time_sql, {"public_ids": vacancy_public_ids}).all():
+                        if row.avg_sec is not None:
+                            avg_time_on_page[row.entity_id] = round(float(row.avg_sec), 1)
+                except Exception:
+                    pass
+
+            if lab_public_ids and hasattr(models, "AnalyticsEvent"):
+                ae = models.AnalyticsEvent
+                lo = models.OrganizationLaboratory
+                join_cond = (ae.entity_id == lo.public_id) & (ae.entity_type == "laboratory")
+                creator_filter = (ae.user_id.is_(None)) | (ae.user_id != lo.creator_user_id)
+                stmt = (
+                    select(ae.entity_id, func.count(ae.id).label("cnt"))
+                    .select_from(ae)
+                    .join(lo, join_cond)
+                    .where(
+                        ae.event_type == "page_view",
+                        ae.entity_id.in_(lab_public_ids),
+                        creator_filter,
+                    )
+                    .group_by(ae.entity_id)
+                )
+                for row in session.execute(stmt).all():
+                    lab_view_counts[row.entity_id] = row.cnt
+                viewer_key = func.coalesce(cast(ae.user_id, String), ae.session_id)
+                stmt_uv = (
+                    select(ae.entity_id, func.count(distinct(viewer_key)).label("uv"))
+                    .select_from(ae)
+                    .join(lo, join_cond)
+                    .where(
+                        ae.event_type == "page_view",
+                        ae.entity_id.in_(lab_public_ids),
+                        creator_filter,
+                    )
+                    .group_by(ae.entity_id)
+                )
+                for row in session.execute(stmt_uv).all():
+                    lab_unique_viewers[row.entity_id] = row.uv
+                time_sql_lab = text("""
+                    SELECT ae.entity_id, AVG((ae.payload->>'duration_sec')::float) AS avg_sec
+                    FROM analytics_events ae
+                    JOIN laboratories_organizations lo ON ae.entity_id = lo.public_id AND ae.entity_type = 'laboratory'
+                    WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'laboratory'
+                      AND ae.entity_id = ANY(:public_ids)
+                      AND ae.payload->>'duration_sec' IS NOT NULL
+                    GROUP BY ae.entity_id
+                """)
+                try:
+                    for row in session.execute(time_sql_lab, {"public_ids": lab_public_ids}).all():
+                        if row.avg_sec is not None:
+                            lab_avg_time[row.entity_id] = round(float(row.avg_sec), 1)
+                except Exception:
+                    pass
+
+            if query_public_ids and hasattr(models, "AnalyticsEvent"):
+                ae = models.AnalyticsEvent
+                oq = models.OrganizationQuery
+                join_cond = (ae.entity_id == oq.public_id) & (ae.entity_type == "query")
+                creator_filter = (ae.user_id.is_(None)) | (ae.user_id != oq.creator_user_id)
+                stmt = (
+                    select(ae.entity_id, func.count(ae.id).label("cnt"))
+                    .select_from(ae)
+                    .join(oq, join_cond)
+                    .where(
+                        ae.event_type == "page_view",
+                        ae.entity_id.in_(query_public_ids),
+                        creator_filter,
+                    )
+                    .group_by(ae.entity_id)
+                )
+                for row in session.execute(stmt).all():
+                    query_view_counts[row.entity_id] = row.cnt
+                viewer_key = func.coalesce(cast(ae.user_id, String), ae.session_id)
+                stmt_uv = (
+                    select(ae.entity_id, func.count(distinct(viewer_key)).label("uv"))
+                    .select_from(ae)
+                    .join(oq, join_cond)
+                    .where(
+                        ae.event_type == "page_view",
+                        ae.entity_id.in_(query_public_ids),
+                        creator_filter,
+                    )
+                    .group_by(ae.entity_id)
+                )
+                for row in session.execute(stmt_uv).all():
+                    query_unique_viewers[row.entity_id] = row.uv
+                time_sql_q = text("""
+                    SELECT ae.entity_id, AVG((ae.payload->>'duration_sec')::float) AS avg_sec
+                    FROM analytics_events ae
+                    JOIN organization_queries oq ON ae.entity_id = oq.public_id AND ae.entity_type = 'query'
+                    WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'query'
+                      AND ae.entity_id = ANY(:public_ids)
+                      AND ae.payload->>'duration_sec' IS NOT NULL
+                    GROUP BY ae.entity_id
+                """)
+                try:
+                    for row in session.execute(time_sql_q, {"public_ids": query_public_ids}).all():
+                        if row.avg_sec is not None:
+                            query_avg_time[row.entity_id] = round(float(row.avg_sec), 1)
+                except Exception:
+                    pass
+
+            stmt_resp = (
+                select(
+                    models.VacancyResponse.vacancy_id,
+                    func.count(models.VacancyResponse.id).label("cnt"),
+                )
+                .where(models.VacancyResponse.vacancy_id.in_(vacancy_ids))
+                .group_by(models.VacancyResponse.vacancy_id)
+            )
+            for row in session.execute(stmt_resp).all():
+                response_counts[row.vacancy_id] = row.cnt
+
+            stmt_status = (
+                select(
+                    models.VacancyResponse.status,
+                    func.count(models.VacancyResponse.id).label("cnt"),
+                )
+                .where(models.VacancyResponse.vacancy_id.in_(vacancy_ids))
+                .group_by(models.VacancyResponse.status)
+            )
+            for row in session.execute(stmt_status).all():
+                if row.status in status_counts:
+                    status_counts[row.status] = row.cnt
+
+            stmt_first = (
+                select(
+                    models.VacancyResponse.vacancy_id,
+                    func.min(models.VacancyResponse.created_at).label("first_at"),
+                )
+                .where(models.VacancyResponse.vacancy_id.in_(vacancy_ids))
+                .group_by(models.VacancyResponse.vacancy_id)
+            )
+            for row in session.execute(stmt_first).all():
+                first_response_at[row.vacancy_id] = row.first_at
+
+            stmt_first_acc = (
+                select(
+                    models.VacancyResponse.vacancy_id,
+                    func.min(models.VacancyResponse.created_at).label("first_at"),
+                )
+                .where(
+                    models.VacancyResponse.vacancy_id.in_(vacancy_ids),
+                    models.VacancyResponse.status == "accepted",
+                )
+                .group_by(models.VacancyResponse.vacancy_id)
+            )
+            for row in session.execute(stmt_first_acc).all():
+                first_acceptance_at[row.vacancy_id] = row.first_at
+
+            if hasattr(models, "AnalyticsEvent"):
+                since_dt = datetime.now(timezone.utc) - timedelta(days=30)
+                since = since_dt.date()
+                since_ts = since_dt
+                dates_needed = [since + timedelta(days=i) for i in range(31)]
+                date_strs = [d.strftime("%Y-%m-%d") for d in dates_needed]
+                vac_by_date = {}
+                lab_by_date = {}
+                q_by_date = {}
+                for d in date_strs:
+                    vac_by_date[d] = 0
+                    lab_by_date[d] = 0
+                    q_by_date[d] = 0
+                if vacancy_public_ids:
+                    sql_v = text("""
+                        SELECT (ae.created_at AT TIME ZONE 'UTC')::date AS d, COUNT(*)
+                        FROM analytics_events ae
+                        JOIN vacancies_organizations vo ON ae.entity_id = vo.public_id AND ae.entity_type = 'vacancy'
+                        WHERE ae.event_type = 'page_view' AND ae.entity_id = ANY(:pids)
+                          AND (ae.user_id IS NULL OR ae.user_id != vo.creator_user_id)
+                          AND ae.created_at >= :since
+                        GROUP BY 1
+                    """)
+                    for row in session.execute(sql_v, {"pids": vacancy_public_ids, "since": since_ts}).all():
+                        vac_by_date[row.d.strftime("%Y-%m-%d")] = row.count
+                if lab_public_ids:
+                    sql_l = text("""
+                        SELECT (ae.created_at AT TIME ZONE 'UTC')::date AS d, COUNT(*)
+                        FROM analytics_events ae
+                        JOIN laboratories_organizations lo ON ae.entity_id = lo.public_id AND ae.entity_type = 'laboratory'
+                        WHERE ae.event_type = 'page_view' AND ae.entity_id = ANY(:pids)
+                          AND (ae.user_id IS NULL OR ae.user_id != lo.creator_user_id)
+                          AND ae.created_at >= :since
+                        GROUP BY 1
+                    """)
+                    for row in session.execute(sql_l, {"pids": lab_public_ids, "since": since_ts}).all():
+                        lab_by_date[row.d.strftime("%Y-%m-%d")] = row.count
+                if query_public_ids:
+                    sql_q = text("""
+                        SELECT (ae.created_at AT TIME ZONE 'UTC')::date AS d, COUNT(*)
+                        FROM analytics_events ae
+                        JOIN organization_queries oq ON ae.entity_id = oq.public_id AND ae.entity_type = 'query'
+                        WHERE ae.event_type = 'page_view' AND ae.entity_id = ANY(:pids)
+                          AND (ae.user_id IS NULL OR ae.user_id != oq.creator_user_id)
+                          AND ae.created_at >= :since
+                        GROUP BY 1
+                    """)
+                    for row in session.execute(sql_q, {"pids": query_public_ids, "since": since_ts}).all():
+                        q_by_date[row.d.strftime("%Y-%m-%d")] = row.count
+                for d in date_strs:
+                    vc, lc, qc = vac_by_date.get(d, 0), lab_by_date.get(d, 0), q_by_date.get(d, 0)
+                    views_over_time.append({
+                        "date": d,
+                        "total": vc + lc + qc,
+                        "by_entity_type": {"vacancy": vc, "laboratory": lc, "query": qc},
+                    })
+                resp_by_date = {d: 0 for d in date_strs}
+                if vacancy_ids:
+                    sql_r = text("""
+                        SELECT (created_at AT TIME ZONE 'UTC')::date AS d, COUNT(*)
+                        FROM vacancy_responses
+                        WHERE vacancy_id = ANY(:vids) AND created_at >= :since
+                        GROUP BY 1
+                    """)
+                    for row in session.execute(sql_r, {"vids": vacancy_ids, "since": since_ts}).all():
+                        resp_by_date[row.d.strftime("%Y-%m-%d")] = row.count
+                for d in date_strs:
+                    responses_over_time.append({"date": d, "count": resp_by_date.get(d, 0)})
+
+        total_responses = sum(response_counts.values())
+        new_count = status_counts["new"]
+        accepted_count = status_counts["accepted"]
+        rejected_count = status_counts["rejected"]
+        vacancies_with_zero = sum(1 for vid in vacancy_ids if response_counts.get(vid, 0) == 0)
+        avg_responses = (total_responses / len(vacancies)) if vacancies else 0.0
+        decided = accepted_count + rejected_count
+        accepted_rate = (accepted_count / decided) if decided else None
+        if accepted_rate is not None:
+            accepted_rate = round(accepted_rate * 100, 1)
+
+        days_to_first_list = []
+        for v in vacancies:
+            first_at = first_response_at.get(v.id)
+            if first_at and v.created_at:
+                delta = (first_at - v.created_at).total_seconds() / 86400
+                days_to_first_list.append(delta)
+        avg_days_to_first_response = round(sum(days_to_first_list) / len(days_to_first_list), 1) if days_to_first_list else None
+
+        days_to_accept_list = []
+        for v in vacancies:
+            first_at = first_acceptance_at.get(v.id)
+            if first_at and v.created_at:
+                delta = (first_at - v.created_at).total_seconds() / 86400
+                days_to_accept_list.append(delta)
+        avg_days_to_first_acceptance = round(sum(days_to_accept_list) / len(days_to_accept_list), 1) if days_to_accept_list else None
+
+        by_vacancy = []
+        for v in vacancies:
+            view_count = view_counts.get(v.public_id, 0) if v.public_id else 0
+            response_count = response_counts.get(v.id, 0)
+            uv = unique_viewers.get(v.public_id, 0) if v.public_id else 0
+            conversion_rate = None
+            if uv and uv > 0:
+                conversion_rate = round(response_count / uv, 4)
+            avg_sec = avg_time_on_page.get(v.public_id) if v.public_id else None
+            first_at = first_response_at.get(v.id)
+            days_to_first = None
+            if first_at and v.created_at:
+                days_to_first = round((first_at - v.created_at).total_seconds() / 86400, 1)
+            by_vacancy.append({
+                "vacancy_id": v.id,
+                "public_id": v.public_id,
+                "name": v.name,
+                "view_count": view_count,
+                "response_count": response_count,
+                "unique_viewers": uv,
+                "conversion_rate": conversion_rate,
+                "avg_time_on_page_sec": avg_sec,
+                "days_to_first_response": days_to_first,
+            })
+
+        by_laboratory = []
+        for lab in laboratories:
+            view_count = lab_view_counts.get(lab.public_id, 0) if lab.public_id else 0
+            uv = lab_unique_viewers.get(lab.public_id, 0) if lab.public_id else 0
+            avg_sec = lab_avg_time.get(lab.public_id) if lab.public_id else None
+            by_laboratory.append({
+                "laboratory_id": lab.id,
+                "public_id": lab.public_id,
+                "name": lab.name,
+                "view_count": view_count,
+                "unique_viewers": uv,
+                "avg_time_on_page_sec": avg_sec,
+            })
+
+        by_query = []
+        for q in queries:
+            view_count = query_view_counts.get(q.public_id, 0) if q.public_id else 0
+            uv = query_unique_viewers.get(q.public_id, 0) if q.public_id else 0
+            avg_sec = query_avg_time.get(q.public_id) if q.public_id else None
+            by_query.append({
+                "query_id": q.id,
+                "public_id": q.public_id,
+                "title": q.title,
+                "view_count": view_count,
+                "unique_viewers": uv,
+                "avg_time_on_page_sec": avg_sec,
+            })
+
+        return {
+            "summary": {
+                "total_vacancies_published": published_count,
+                "total_responses": total_responses,
+                "new_count": new_count,
+                "accepted_count": accepted_count,
+                "rejected_count": rejected_count,
+                "vacancies_with_zero_responses": vacancies_with_zero,
+                "avg_responses_per_vacancy": round(avg_responses, 1),
+                "avg_days_to_first_response": avg_days_to_first_response,
+                "avg_days_to_first_acceptance": avg_days_to_first_acceptance,
+                "accepted_rate": accepted_rate,
+            },
+            "by_status": [
+                {"status": "new", "count": new_count},
+                {"status": "accepted", "count": accepted_count},
+                {"status": "rejected", "count": rejected_count},
+            ],
+            "by_vacancy": by_vacancy,
+            "by_laboratory": by_laboratory,
+            "by_query": by_query,
+            "views_over_time": views_over_time,
+            "responses_over_time": responses_over_time,
+        }
+
+    @staticmethod
     def list_published_vacancies() -> List[models.VacancyOrganization]:
         """
         Публичный список вакансий (для главной страницы и каталога).
@@ -2765,14 +3256,24 @@ class SyncOrm:
     @staticmethod
     def list_vacancy_responses_for_employer(creator_user_id: int) -> List[dict]:
         with session_factory() as session:
+            user = session.get(models.User, creator_user_id)
+            org_id = user.organization_id if user else None
+            vac = models.VacancyOrganization
+            lab = models.OrganizationLaboratory
+            # Отклики по вакансиям: созданным пользователем ИЛИ по вакансиям организации (в т.ч. через присоединённые лаборатории)
+            conditions = [vac.creator_user_id == creator_user_id]
+            if org_id is not None:
+                conditions.append(vac.organization_id == org_id)
+                conditions.append((vac.laboratory_id.isnot(None)) & (lab.organization_id == org_id))
             stmt = (
                 select(models.VacancyResponse)
                 .options(
                     selectinload(models.VacancyResponse.user),
                     selectinload(models.VacancyResponse.vacancy),
                 )
-                .join(models.VacancyOrganization, models.VacancyResponse.vacancy_id == models.VacancyOrganization.id)
-                .where(models.VacancyOrganization.creator_user_id == creator_user_id)
+                .join(vac, models.VacancyResponse.vacancy_id == vac.id)
+                .outerjoin(lab, vac.laboratory_id == lab.id)
+                .where(or_(*conditions))
                 .order_by(models.VacancyResponse.created_at.desc())
             )
             rows = list(session.scalars(stmt).unique().all())
@@ -2784,8 +3285,10 @@ class SyncOrm:
                 if researcher:
                     if getattr(researcher, "research_interests", None):
                         preview_parts.append("Направления: " + ", ".join((researcher.research_interests or [])[:3]))
-                    if getattr(researcher, "education", None) and isinstance(researcher.education, list):
-                        preview_parts.append("Образование: " + (researcher.education[0].get("institution", "") if researcher.education else ""))
+                    if getattr(researcher, "education", None) and isinstance(researcher.education, list) and researcher.education:
+                        first_edu = researcher.education[0]
+                        edu_str = first_edu.get("institution", "") if isinstance(first_edu, dict) else str(first_edu)
+                        preview_parts.append("Образование: " + (edu_str or ""))
                 else:
                     student = StudentSyncOrm.get_student_by_user(r.user_id)
                     if student:
@@ -2841,6 +3344,15 @@ class SyncOrm:
         if status not in allowed:
             return None
         with session_factory() as session:
+            user = session.get(models.User, employer_user_id)
+            org_id = user.organization_id if user else None
+            vac = models.VacancyOrganization
+            lab = models.OrganizationLaboratory
+            cond_creator = vac.creator_user_id == employer_user_id
+            conditions = [cond_creator]
+            if org_id is not None:
+                conditions.append(vac.organization_id == org_id)
+                conditions.append((vac.laboratory_id.isnot(None)) & (lab.organization_id == org_id))
             stmt = (
                 select(models.VacancyResponse)
                 .options(
@@ -2848,8 +3360,9 @@ class SyncOrm:
                     selectinload(models.VacancyResponse.vacancy),
                 )
                 .where(models.VacancyResponse.id == response_id)
-                .join(models.VacancyOrganization, models.VacancyResponse.vacancy_id == models.VacancyOrganization.id)
-                .where(models.VacancyOrganization.creator_user_id == employer_user_id)
+                .join(vac, models.VacancyResponse.vacancy_id == vac.id)
+                .outerjoin(lab, vac.laboratory_id == lab.id)
+                .where(or_(*conditions))
             )
             resp = session.scalars(stmt).unique().first()
             if not resp:
@@ -3060,14 +3573,23 @@ class SyncOrm:
             if lab not in employee.laboratories:
                 employee.laboratories.append(lab)
         else:
+            # photo_url и contacts у Researcher нет — берём из User
+            user = researcher.user
+            photo_url = user.photo_url if user else None
+            contacts = user.contacts if user and getattr(user, "contacts", None) else {}
+            if not isinstance(contacts, dict):
+                contacts = {}
+            # position у Researcher — строка, у Employee — JSON (список)
+            pos = getattr(researcher, "position", None)
+            position = [pos] if isinstance(pos, str) and pos.strip() else (pos if isinstance(pos, list) else [])
             employee = models.Employee(
                 organization_id=org_id,
                 creator_user_id=creator_id if org_id is None else None,
                 user_id=researcher.user_id,
                 full_name=researcher.full_name,
-                position=researcher.position or [],
+                position=position,
                 academic_degree=researcher.academic_degree,
-                photo_url=researcher.photo_url,
+                photo_url=photo_url,
                 research_interests=researcher.research_interests or [],
                 education=researcher.education or [],
                 publications=researcher.publications or [],
@@ -3075,7 +3597,7 @@ class SyncOrm:
                 hindex_scopus=researcher.hindex_scopus,
                 hindex_rsci=researcher.hindex_rsci,
                 hindex_openalex=researcher.hindex_openalex,
-                contacts=researcher.contacts or {},
+                contacts=contacts,
             )
             session.add(employee)
             session.flush()

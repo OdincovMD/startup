@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Link, NavLink, Route, Routes } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import Home from "./Home";
 import Login from "./Login";
 import Register from "./Register";
@@ -13,12 +13,60 @@ import Vacancies from "./Vacancies";
 import Privacy from "./Privacy";
 import { useAuth } from "../auth/AuthContext";
 import NotificationsDropdown from "../components/NotificationsDropdown";
+import { getOrCreateSessionId, getEntityFromPath, sendEvents } from "../analytics";
 
 const navLinkClass = ({ isActive }) => `nav-link${isActive ? " nav-link--active" : ""}`;
 
 export default function App() {
   const { auth, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
+  const viewStartRef = useRef(null);
+  const lastEntityRef = useRef(null);
+
+  useEffect(() => {
+    const { entity_type, entity_id } = getEntityFromPath(location.pathname);
+    if (entity_type) {
+      viewStartRef.current = Date.now();
+      lastEntityRef.current = { entity_type, entity_id };
+      const sessionId = getOrCreateSessionId();
+      sendEvents([
+        {
+          event_type: "page_view",
+          session_id: sessionId,
+          entity_type,
+          entity_id: entity_id || undefined,
+        },
+      ]);
+    } else {
+      lastEntityRef.current = null;
+      viewStartRef.current = null;
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== "hidden") return;
+      const last = lastEntityRef.current;
+      const start = viewStartRef.current;
+      if (!last || start == null) return;
+      const durationSec = Math.round((Date.now() - start) / 1000);
+      const sessionId = getOrCreateSessionId();
+      sendEvents([
+        {
+          event_type: "page_leave",
+          session_id: sessionId,
+          entity_type: last.entity_type,
+          entity_id: last.entity_id || undefined,
+          payload: { duration_sec: durationSec },
+        },
+      ]);
+      viewStartRef.current = null;
+      lastEntityRef.current = null;
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
 
   useEffect(() => {
     const close = () => setMenuOpen(false);

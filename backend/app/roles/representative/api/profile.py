@@ -37,6 +37,7 @@ from .employees import router as employees_router
 from .tasks import router as tasks_router
 from .queries import router as queries_router
 from .vacancies import router as vacancies_router
+from .profile_analytics import router as profile_analytics_router
 
 router = APIRouter()
 
@@ -47,6 +48,7 @@ router.include_router(employees_router, tags=["profile-employees"])
 router.include_router(tasks_router, tags=["profile-tasks"])
 router.include_router(queries_router, tags=["profile-queries"])
 router.include_router(vacancies_router, tags=["profile-vacancies"])
+router.include_router(profile_analytics_router)
 
 
 # =========================

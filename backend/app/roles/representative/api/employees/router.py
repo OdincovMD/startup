@@ -283,11 +283,20 @@ async def import_employee_openalex(
 async def delete_org_employee(employee_id: int, current_user=Depends(get_current_user)):
     org = await AsyncOrm.get_organization_for_user(current_user.id)
     if org:
-        deleted = await AsyncOrm.delete_employee(employee_id, org.id)
+        deleted, user_id_to_notify, lab_names = await AsyncOrm.delete_employee(employee_id, org.id)
     elif is_lab_representative(current_user):
-        deleted = await AsyncOrm.delete_employee_for_creator(employee_id, current_user.id)
+        deleted, user_id_to_notify, lab_names = await AsyncOrm.delete_employee_for_creator(
+            employee_id, current_user.id
+        )
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+    # Уведомление соискателю, что его отвязали от лаборатории
+    if user_id_to_notify:
+        await AsyncOrm.create_notification(
+            user_id_to_notify,
+            "lab_join_removed",
+            {"lab_names": lab_names or ["лабораторию"]},
+        )
     return {"status": "ok"}

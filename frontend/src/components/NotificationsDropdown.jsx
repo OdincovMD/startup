@@ -11,11 +11,13 @@ const TYPE_LABELS = {
   lab_join_approved: "Заявка в лабораторию принята",
   lab_join_rejected: "Заявка в лабораторию отклонена",
   lab_join_removed: "Вас отвязали от лаборатории",
+  lab_deleted: "Лаборатория удалена или отвязана",
   org_join_request_created: "Новая заявка лаборатории в организацию",
   org_join_approved: "Заявка в организацию принята",
   org_join_rejected: "Заявка в организацию отклонена",
   org_join_left: "Лаборатория покинула организацию",
   vacancy_response_created: "Отклик на вакансию",
+  vacancy_response_status_changed: "Статус отклика на вакансию",
 };
 
 function formatNotification(n) {
@@ -31,6 +33,10 @@ function formatNotification(n) {
     const labs = d.lab_names || [];
     return labs.join(", ") || "лаборатория";
   }
+  if (n.type === "lab_deleted") {
+    const name = (d && d.lab_name) ? d.lab_name : "лаборатория";
+    return `«${name}» удалена или отвязана от организации`;
+  }
   if (n.type === "org_join_request_created") {
     return d.lab_name || "лаборатория";
   }
@@ -43,11 +49,18 @@ function formatNotification(n) {
   if (n.type === "vacancy_response_created") {
     return `${d.applicant_name || "Соискатель"} · «${d.vacancy_name || "вакансия"}»`;
   }
+  if (n.type === "vacancy_response_status_changed") {
+    const statusLabels = { accepted: "принят", rejected: "отклонён", new: "новый" };
+    const statusText = statusLabels[d.status] || d.status || "";
+    return `«${d.vacancy_name || "вакансия"}» — ${statusText}`;
+  }
   return label;
 }
 
 function getTypeLabel(n) {
-  return TYPE_LABELS[n.type] || n.type;
+  const t = n.type;
+  if (t === "lab_deleted") return "Лаборатория удалена или отвязана";
+  return TYPE_LABELS[t] || t;
 }
 
 function formatDate(iso) {
@@ -74,10 +87,12 @@ function getNotificationLink(n) {
     case "lab_join_approved":
     case "lab_join_rejected":
     case "lab_join_removed":
+    case "lab_deleted":
     case "org_join_approved":
     case "org_join_rejected":
       return { path: "/profile", tab: "my-requests" };
     case "vacancy_response_created":
+    case "vacancy_response_status_changed":
       return { path: "/profile", tab: "vacancy-responses" };
     default:
       return { path: "/profile" };

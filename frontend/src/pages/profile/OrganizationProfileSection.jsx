@@ -10,6 +10,7 @@ import {
 } from "./org";
 import JoinRequestsIncomingTab from "./JoinRequestsIncomingTab";
 import VacancyResponsesIncomingTab from "./VacancyResponsesIncomingTab";
+import EmployerDashboard from "./EmployerDashboard";
 
 export default function OrganizationProfileSection({
   title = "Профиль организации",
@@ -147,6 +148,10 @@ export default function OrganizationProfileSection({
     <div className="profile-section profile-section--no-border">
       {!hideTitle && <h3 className="profile-section-title">{title}</h3>}
       <div className="org-section-content">
+      {orgTab === "dashboard" && (
+        <EmployerDashboard onError={onError} />
+      )}
+
       {showProfileTab && orgTab === "profile" && (
         <>
           <p className="profile-tab-desc">Название, описание и контакты организации. Опубликуйте профиль, чтобы он был виден на платформе.</p>

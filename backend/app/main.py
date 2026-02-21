@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.bootstrap import create_tables, ensure_storage, seed_roles
 from app.storage.s3 import LOCALHOST_STORAGE_PREFIX, _public_base_url
-from app.api import profile, storage
+from app.api import profile, storage, analytics
 from app.core.api import auth, users, roles
 from app.jobs.openalex_sync import sync_openalex_data
 from app.roles.representative.api import (
@@ -91,4 +91,5 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(roles.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
+app.include_router(analytics.router, prefix="/api")
 app.include_router(storage.router, prefix="/api")

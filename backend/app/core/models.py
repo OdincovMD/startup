@@ -106,3 +106,26 @@ class Notification(BaseModel):
         Index("idx_notification_user", "user_id"),
         Index("idx_notification_type", "type"),
     )
+
+
+# =========================
+#      ANALYTICS EVENTS
+# =========================
+
+class AnalyticsEvent(BaseModel):
+    __tablename__ = "analytics_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_type = Column(String(50), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    session_id = Column(String(64), nullable=True)
+    entity_type = Column(String(50), nullable=True)
+    entity_id = Column(String(32), nullable=True)
+    payload = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_analytics_events_entity", "entity_type", "entity_id"),
+        Index("idx_analytics_events_user_created", "user_id", "created_at"),
+        Index("idx_analytics_events_type_created", "event_type", "created_at"),
+    )

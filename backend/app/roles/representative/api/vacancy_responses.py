@@ -30,6 +30,19 @@ async def update_vacancy_response_status(
     )
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Отклик не найден")
+    # Уведомление соискателю о смене статуса
+    applicant_user_id = updated.get("user_id")
+    if applicant_user_id:
+        await AsyncOrm.create_notification(
+            applicant_user_id,
+            "vacancy_response_status_changed",
+            {
+                "response_id": response_id,
+                "vacancy_name": updated.get("vacancy_name"),
+                "vacancy_public_id": updated.get("vacancy_public_id"),
+                "status": updated["status"],
+            },
+        )
     return updated
 
 

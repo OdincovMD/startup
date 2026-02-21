@@ -121,13 +121,24 @@ async def update_org_laboratory(
 async def delete_org_laboratory(laboratory_id: int, current_user=Depends(get_current_user)):
     org = await AsyncOrm.get_organization_for_user(current_user.id)
     if org:
-        deleted = await AsyncOrm.delete_laboratory(laboratory_id, org.id)
+        deleted, lab_rep_user_id, lab_name = await AsyncOrm.delete_laboratory(
+            laboratory_id, org.id
+        )
     elif is_lab_representative(current_user):
-        deleted = await AsyncOrm.delete_laboratory_for_creator(laboratory_id, current_user.id)
+        deleted, lab_rep_user_id, lab_name = await AsyncOrm.delete_laboratory_for_creator(
+            laboratory_id, current_user.id
+        )
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Laboratory not found")
+    # Уведомление представителю лаборатории о том, что лаборатория удалена/отвязана
+    if lab_rep_user_id and lab_name:
+        await AsyncOrm.create_notification(
+            lab_rep_user_id,
+            "lab_deleted",
+            {"lab_name": lab_name},
+        )
     return {"status": "ok"}
 
 

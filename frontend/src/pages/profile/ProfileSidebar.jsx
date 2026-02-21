@@ -1,7 +1,20 @@
 /**
  * Боковая панель профиля: список разделов по роли; «Профиль организации» раскрывается подпунктами в сайдбаре.
+ * Блок «Профиль организации» можно скрыть; выбор сохраняется в localStorage.
  */
 import React, { useState, useEffect } from "react";
+
+const ORG_HIDDEN_STORAGE_KEY = "profile_sidebar_org_hidden";
+
+function getOrgHidden() {
+  if (typeof localStorage === "undefined") return false;
+  return localStorage.getItem(ORG_HIDDEN_STORAGE_KEY) === "1";
+}
+
+function setOrgHidden(hidden) {
+  if (hidden) localStorage.setItem(ORG_HIDDEN_STORAGE_KEY, "1");
+  else localStorage.removeItem(ORG_HIDDEN_STORAGE_KEY);
+}
 
 const SECTIONS = [
   { id: "summary", labelKey: "summary", roles: ["lab_admin", "lab_representative", "student", "researcher"] },
@@ -48,6 +61,7 @@ function getOrgSubItems(showProfileTab) {
     { id: "tasks", label: "Задачи", group: ORG_GROUP_CONTENT },
     { id: "queries", label: "Запросы", group: ORG_GROUP_CONTENT },
     { id: "vacancies", label: "Вакансии", group: ORG_GROUP_RECRUIT },
+    { id: "dashboard", label: "Дашборд", group: ORG_GROUP_RECRUIT },
     { id: "join-requests", label: "Запросы на присоединение", group: ORG_GROUP_RECRUIT },
     { id: "vacancy-responses", label: "Отклики на вакансии", group: ORG_GROUP_RECRUIT },
   ];
@@ -64,10 +78,18 @@ export default function ProfileSidebar({
   const items = getItemsForRole(roleKey);
   const isOrgSection = currentSection === "organization";
   const [orgExpanded, setOrgExpanded] = useState(isOrgSection);
+  const [orgSectionHidden, setOrgSectionHiddenState] = useState(getOrgHidden);
+  const isOrgRole = roleKey === "lab_admin" || roleKey === "lab_representative";
 
   useEffect(() => {
     if (!isOrgSection) setOrgExpanded(false);
   }, [isOrgSection]);
+
+  const setOrgSectionHidden = (hidden) => {
+    setOrgSectionHiddenState(hidden);
+    setOrgHidden(hidden);
+    if (hidden && currentSection === "organization") onSectionChange("summary");
+  };
 
   const handleOrgHeaderClick = () => {
     if (!isOrgSection) onSectionChange("organization");
@@ -79,9 +101,18 @@ export default function ProfileSidebar({
     onOrgTabChange?.(tabId);
   };
 
-  const orgSubItems = (roleKey === "lab_admin" || roleKey === "lab_representative")
-    ? getOrgSubItems(showProfileTab)
-    : [];
+  const handleHideOrg = (e) => {
+    e.stopPropagation();
+    setOrgSectionHidden(true);
+  };
+
+  const handleShowOrg = () => {
+    setOrgSectionHidden(false);
+    onSectionChange("organization");
+  };
+
+  const orgSubItems = isOrgRole ? getOrgSubItems(showProfileTab) : [];
+  const showOrgInList = isOrgRole && !orgSectionHidden;
 
   return (
     <nav className="profile-sidebar" aria-label="Разделы профиля">
@@ -101,24 +132,36 @@ export default function ProfileSidebar({
               </li>
             );
           }
+          if (!showOrgInList) return null;
           const expanded = orgExpanded || isOrgSection;
           return (
             <li
               key={item.id}
               className={`profile-sidebar__list-item profile-sidebar__list-item--with-children${expanded ? " profile-sidebar__list-item--expanded" : ""}`}
             >
-              <button
-                type="button"
-                className={`profile-sidebar__item profile-sidebar__item--parent ${isOrgSection ? "profile-sidebar__item--active" : ""}`}
-                onClick={handleOrgHeaderClick}
-                aria-expanded={expanded}
-                aria-current={isOrgSection ? "page" : undefined}
-              >
-                <span>{item.label}</span>
-                <span className="profile-sidebar__expand-icon" aria-hidden="true">
-                  {expanded ? "▼" : "▶"}
-                </span>
-              </button>
+              <div className="profile-sidebar__parent-row">
+                <button
+                  type="button"
+                  className={`profile-sidebar__item profile-sidebar__item--parent ${isOrgSection ? "profile-sidebar__item--active" : ""}`}
+                  onClick={handleOrgHeaderClick}
+                  aria-expanded={expanded}
+                  aria-current={isOrgSection ? "page" : undefined}
+                >
+                  <span>{item.label}</span>
+                  <span className="profile-sidebar__expand-icon" aria-hidden="true">
+                    {expanded ? "▼" : "▶"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="profile-sidebar__hide-org"
+                  onClick={handleHideOrg}
+                  title="Скрыть блок из меню"
+                  aria-label="Скрыть профиль организации из меню"
+                >
+                  −
+                </button>
+              </div>
               {expanded && orgSubItems.length > 0 && (
                 <ul className="profile-sidebar__sublist">
                   {(() => {
@@ -152,6 +195,18 @@ export default function ProfileSidebar({
             </li>
           );
         })}
+        {isOrgRole && orgSectionHidden && (
+          <li className="profile-sidebar__list-item">
+            <button
+              type="button"
+              className="profile-sidebar__item profile-sidebar__item--show-org"
+              onClick={handleShowOrg}
+              title="Вернуть блок в меню"
+            >
+              Показать профиль организации
+            </button>
+          </li>
+        )}
       </ul>
     </nav>
   );

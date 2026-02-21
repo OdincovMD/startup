@@ -1,6 +1,6 @@
 /**
  * Вкладка «Отклики на вакансии»: отклики соискателей на вакансии текущего пользователя (работодатель).
- * Стиль как у запросов на присоединение и других вкладок: lab-tab-header, profile-list, profile-list-card.
+ * Краткая статистика по вакансиям (просмотры, отклики). Полный дашборд — на вкладке «Дашборд».
  */
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
@@ -15,6 +15,7 @@ const STATUS_CHIP = { new: "Новый", accepted: "Принят", rejected: "О
 
 export default function VacancyResponsesIncomingTab({ onError }) {
   const [list, setList] = useState([]);
+  const [vacancyStats, setVacancyStats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
 
@@ -30,8 +31,18 @@ export default function VacancyResponsesIncomingTab({ onError }) {
     }
   };
 
+  const loadVacancyStats = async () => {
+    try {
+      const data = await apiRequest("/profile/analytics/vacancy-stats");
+      setVacancyStats(Array.isArray(data?.items) ? data.items : []);
+    } catch {
+      setVacancyStats([]);
+    }
+  };
+
   useEffect(() => {
     load();
+    loadVacancyStats();
   }, []);
 
   const updateStatus = async (responseId, status) => {
@@ -79,6 +90,22 @@ export default function VacancyResponsesIncomingTab({ onError }) {
       <div className="lab-tab-header">
         <p className="lab-tab-desc">Отклики соискателей на ваши вакансии. Меняйте статус: новый, принят, отклонён.</p>
       </div>
+      {vacancyStats.length > 0 && (
+        <div className="profile-form-group vacancy-stats-block">
+          <div className="profile-form-group-title">Статистика по вакансиям</div>
+          <p className="profile-field-hint">Просмотры и отклики. Подробный дашборд — вкладка «Дашборд».</p>
+          <div className="vacancy-stats-list">
+            {vacancyStats.map((v) => (
+              <div key={v.vacancy_id} className="vacancy-stats-row">
+                <span className="vacancy-stats-name">{v.name || "Без названия"}</span>
+                <span className="vacancy-stats-meta">
+                  Просмотров: {v.view_count ?? 0} · Откликов: {v.response_count ?? 0}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="profile-list">
         {list.map((item) => (
           <div key={item.id} className="profile-list-card">

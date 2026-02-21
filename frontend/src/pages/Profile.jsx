@@ -257,7 +257,10 @@ export default function Profile() {
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "join-requests") {
+    if (tab === "dashboard") {
+      setOrgTab("dashboard");
+      setSearchParams({ section: "organization" }, { replace: true });
+    } else if (tab === "join-requests") {
       setOrgTab("join-requests");
       setSearchParams({ section: "organization" }, { replace: true });
     } else if (tab === "vacancy-responses") {
@@ -1854,8 +1857,8 @@ export default function Profile() {
         hindex_rsci: r.hindex_rsci ?? null,
         contacts: r.contacts || {},
         job_search_status: r.job_search_status || null,
-        desired_positions: r.desired_positions || [],
-        employment_type_preference: r.employment_type_preference || [],
+        desired_positions: Array.isArray(r.desired_positions) ? r.desired_positions.join(", ") : (r.desired_positions?.trim() || null),
+        employment_type_preference: Array.isArray(r.employment_type_preference) ? r.employment_type_preference.join(", ") : (r.employment_type_preference?.trim() || null),
         preferred_region: r.preferred_region?.trim() || null,
         availability_date: r.availability_date?.trim() || null,
         salary_expectation: r.salary_expectation?.trim() || null,

@@ -3,7 +3,7 @@ AsyncOrm — асинхронная обёртка над SyncOrm для дом�
 """
 
 import asyncio
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from app import models
 from app.roles.representative.queries.sync_orm import SyncOrm
@@ -78,6 +78,12 @@ class AsyncOrm:
     @staticmethod
     async def get_organization_for_user(user_id: int) -> Optional[models.Organization]:
         return await asyncio.to_thread(SyncOrm.get_organization_for_user, user_id)
+
+    @staticmethod
+    async def get_organization_representative_user_ids(org_id: int) -> List[int]:
+        return await asyncio.to_thread(
+            SyncOrm.get_organization_representative_user_ids, org_id
+        )
 
     @staticmethod
     async def set_organization_published(org_id: int, is_published: bool) -> Optional[models.Organization]:
@@ -180,7 +186,7 @@ class AsyncOrm:
         )
 
     @staticmethod
-    async def delete_employee(employee_id: int, organization_id: int) -> bool:
+    async def delete_employee(employee_id: int, organization_id: int) -> tuple[bool, Optional[int], List[str]]:
         return await asyncio.to_thread(SyncOrm.delete_employee, employee_id, organization_id)
 
     @staticmethod
@@ -221,7 +227,7 @@ class AsyncOrm:
         )
 
     @staticmethod
-    async def delete_employee_for_creator(employee_id: int, creator_user_id: int) -> bool:
+    async def delete_employee_for_creator(employee_id: int, creator_user_id: int) -> tuple[bool, Optional[int], List[str]]:
         return await asyncio.to_thread(
             SyncOrm.delete_employee_for_creator, employee_id, creator_user_id
         )
@@ -396,8 +402,12 @@ class AsyncOrm:
         )
 
     @staticmethod
-    async def delete_laboratory(laboratory_id: int, organization_id: int) -> bool:
-        return await asyncio.to_thread(SyncOrm.delete_laboratory, laboratory_id, organization_id)
+    async def delete_laboratory(
+        laboratory_id: int, organization_id: int
+    ) -> tuple[bool, Optional[int], str]:
+        return await asyncio.to_thread(
+            SyncOrm.delete_laboratory, laboratory_id, organization_id
+        )
 
     @staticmethod
     async def update_laboratory_for_creator(
@@ -440,7 +450,9 @@ class AsyncOrm:
         )
 
     @staticmethod
-    async def delete_laboratory_for_creator(laboratory_id: int, creator_user_id: int) -> bool:
+    async def delete_laboratory_for_creator(
+        laboratory_id: int, creator_user_id: int
+    ) -> tuple[bool, Optional[int], str]:
         return await asyncio.to_thread(
             SyncOrm.delete_laboratory_for_creator, laboratory_id, creator_user_id
         )
@@ -783,6 +795,14 @@ class AsyncOrm:
         creator_user_id: int,
     ) -> List[models.VacancyOrganization]:
         return await asyncio.to_thread(SyncOrm.list_vacancies_for_creator, creator_user_id)
+
+    @staticmethod
+    async def get_vacancy_stats_for_user(user_id: int) -> list:
+        return await asyncio.to_thread(SyncOrm.get_vacancy_stats_for_user, user_id)
+
+    @staticmethod
+    async def get_employer_dashboard_data(user_id: int) -> dict:
+        return await asyncio.to_thread(SyncOrm.get_employer_dashboard_data, user_id)
 
     @staticmethod
     async def list_published_vacancies_for_org(

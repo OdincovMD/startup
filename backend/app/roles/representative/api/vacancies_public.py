@@ -76,18 +76,30 @@ async def respond_to_vacancy(public_id: str, current_user=Depends(get_current_us
         if getattr(student, "direction", None):
             preview_parts.append(student.direction or "")
     applicant_preview = "; ".join(p for p in preview_parts if p) or None
+    notification_data = {
+        "response_id": resp.id,
+        "vacancy_name": vacancy.name,
+        "applicant_name": applicant_name,
+        "applicant_preview": applicant_preview,
+        "vacancy_public_id": vacancy.public_id,
+    }
+    notified = set()
     if vacancy.creator_user_id:
         await AsyncOrm.create_notification(
             vacancy.creator_user_id,
             "vacancy_response_created",
-            {
-            "response_id": resp.id,
-            "vacancy_name": vacancy.name,
-            "applicant_name": applicant_name,
-            "applicant_preview": applicant_preview,
-            "vacancy_public_id": vacancy.public_id,
-            },
+            notification_data,
         )
+        notified.add(vacancy.creator_user_id)
+    # Руководителю организации — если вакансия принадлежит организации (в т.ч. через присоединённую лабораторию)
+    org_id = getattr(vacancy, "organization_id", None) or (
+        getattr(vacancy.laboratory, "organization_id", None) if getattr(vacancy, "laboratory", None) else None
+    )
+    if org_id:
+        for uid in await AsyncOrm.get_organization_representative_user_ids(org_id):
+            if uid not in notified:
+                await AsyncOrm.create_notification(uid, "vacancy_response_created", notification_data)
+                notified.add(uid)
     return {"id": resp.id, "status": resp.status}
 
 

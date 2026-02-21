@@ -134,6 +134,12 @@ export default function MyJoinRequestsSection({ roleKey, onError, creatorLabs = 
     load();
   }, []);
 
+  useEffect(() => {
+    const handler = () => load();
+    window.addEventListener("profile-refresh", handler);
+    return () => window.removeEventListener("profile-refresh", handler);
+  }, []);
+
   const joinLab = async () => {
     const pid = labInput.trim();
     if (!pid) return;
