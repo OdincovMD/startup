@@ -1,7 +1,7 @@
 /**
  * Дашборд представителя: сводка (KPI), графики по дням и по типам контента, таблицы по вакансиям/лабораториям/запросам.
  */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -24,9 +24,29 @@ import { apiRequest } from "../../api/client";
 const COLORS = { vacancy: "#8884d8", laboratory: "#82ca9d", query: "#ffc658" };
 const PIE_COLORS = [COLORS.vacancy, COLORS.laboratory, COLORS.query];
 
+const CHART_HEIGHT_DEFAULT = 280;
+const CHART_HEIGHT_MOBILE = 200;
+const CHART_HEIGHT_SMALL = 220;
+
+function useChartHeight() {
+  const [width, setWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1024);
+  useEffect(() => {
+    const onResize = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return useMemo(() => {
+    if (width <= 480) return CHART_HEIGHT_MOBILE;
+    if (width <= 768) return CHART_HEIGHT_SMALL;
+    return CHART_HEIGHT_DEFAULT;
+  }, [width]);
+}
+
 export default function EmployerDashboard({ onError }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const chartHeight = useChartHeight();
+  const chartHeightSmall = Math.round(chartHeight * 0.9);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,7 +173,7 @@ export default function EmployerDashboard({ onError }) {
           {viewsChartData.length > 0 && (
             <div className="dashboard-chart-wrap">
               <h4 className="dashboard-chart-title" title="Количество просмотров страниц вакансий, лабораторий и запросов по дням за последние 30 дней">Просмотры по дням</h4>
-              <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height={chartHeight}>
                 <AreaChart data={viewsChartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
@@ -166,7 +186,7 @@ export default function EmployerDashboard({ onError }) {
                 </AreaChart>
               </ResponsiveContainer>
               <div className="dashboard-chart-wrap dashboard-chart-wrap--lines">
-                <ResponsiveContainer width="100%" height={260}>
+                <ResponsiveContainer width="100%" height={chartHeightSmall}>
                   <LineChart data={viewsChartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" tick={{ fontSize: 11 }} />
@@ -184,7 +204,7 @@ export default function EmployerDashboard({ onError }) {
           {responses_over_time.length > 0 && (
             <div className="dashboard-chart-wrap">
               <h4 className="dashboard-chart-title" title="В какой день соискатели оставляли отклики на ваши вакансии (за 30 дней)">Отклики на вакансии по дням</h4>
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={chartHeightSmall}>
                 <BarChart data={responses_over_time} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
@@ -198,7 +218,7 @@ export default function EmployerDashboard({ onError }) {
           {pieData.length > 0 && (
             <div className="dashboard-chart-wrap dashboard-chart-wrap--pie">
               <h4 className="dashboard-chart-title" title="Как распределены просмотры между вакансиями, лабораториями и запросами за 30 дней">Просмотры по типу контента</h4>
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={chartHeightSmall}>
                 <PieChart>
                   <Pie
                     data={pieData}

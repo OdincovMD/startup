@@ -7,6 +7,7 @@ GET  /orcid/callback — callback от ORCID
 POST /orcid/complete — дорегистрация после ORCID (email, роль)
 """
 
+import asyncio
 import secrets
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode, quote
@@ -25,11 +26,14 @@ from app.core.schemas import (
     UserRead,
     user_to_read,
     EmailVerificationRequest,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
     OrcidCompleteRequest,
     SetPasswordRequest,
 )
 from app.queries.async_orm import AsyncOrm
 from app.api.deps import get_current_user
+from app.services.email import send_verification_email, send_password_reset_email
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -51,6 +55,9 @@ async def register(user_in: UserCreate):
             password=user_in.password,
             role_id=user_in.role_id,
         )
+        token = await AsyncOrm.create_verification_token(user.id)
+        verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/verify-email?token={token}"
+        await asyncio.to_thread(send_verification_email, user.mail, verify_url)
         return user_to_read(user)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -72,7 +79,46 @@ async def verify_email(payload: EmailVerificationRequest):
     user = await AsyncOrm.verify_email_by_token(payload.token)
     if not user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")
-    return _user_to_read(user)
+    return user_to_read(user)
+
+
+@router.post("/resend-verification")
+async def resend_verification(user: User = Depends(get_current_user)):
+    """Повторная отправка письма с ссылкой подтверждения. Только для пользователей с email_verified=false."""
+    if user.email_verified:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already verified")
+    token = await AsyncOrm.create_verification_token(user.id)
+    verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/verify-email?token={token}"
+    await asyncio.to_thread(send_verification_email, user.mail, verify_url)
+    return {"detail": "Verification email sent"}
+
+
+GENERIC_FORGOT_PASSWORD_RESPONSE = "Если аккаунт с таким email существует и подтверждён, вы получите письмо с инструкциями."
+
+
+@router.post("/forgot-password")
+async def forgot_password(payload: ForgotPasswordRequest):
+    """Запрос сброса пароля. Отправляет письмо только если аккаунт есть и email подтверждён. Всегда возвращает один и тот же текст (защита от перебора email)."""
+    user = await AsyncOrm.get_user_by_mail(payload.mail)
+    if user and user.email_verified:
+        token = await AsyncOrm.create_password_reset_token(user.id)
+        reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?token={token}"
+        await asyncio.to_thread(send_password_reset_email, user.mail, reset_url)
+    return {"detail": GENERIC_FORGOT_PASSWORD_RESPONSE}
+
+
+@router.post("/reset-password", response_model=UserRead)
+async def reset_password(payload: ResetPasswordRequest):
+    """Установка нового пароля по токену из письма."""
+    try:
+        user = await AsyncOrm.consume_password_reset_token(payload.token, payload.password)
+    except ValueError as e:
+        if "отличаться" in str(e):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise
+    if not user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Недействительная или просроченная ссылка")
+    return user_to_read(user)
 
 
 @router.post("/me/set-password")
@@ -142,11 +188,16 @@ async def orcid_link_start(user=Depends(get_current_user)):
 
 @router.delete("/orcid/unlink")
 async def orcid_unlink(user: User = Depends(get_current_user)):
-    """Отвязать ORCID от текущего аккаунта. Требует пароль, если пользователь зарегистрирован через ORCID."""
+    """Отвязать ORCID от текущего аккаунта. Требует пароль и подтверждённый email."""
     if not user.has_password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="requires_password_first",
+        )
+    if not user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="email_not_verified",
         )
     try:
         await AsyncOrm.unlink_orcid(user.id)
@@ -253,7 +304,7 @@ async def orcid_callback(
 
 @router.post("/orcid/complete", response_model=TokenResponse)
 async def orcid_complete(payload: OrcidCompleteRequest):
-    """Дорегистрация: создать пользователя по ORCID + email + роль, выдать JWT."""
+    """Дорегистрация: создать пользователя по ORCID + email + роль, выдать JWT и отправить письмо верификации."""
     try:
         user = await AsyncOrm.create_user_orcid(
             mail=payload.mail,
@@ -263,5 +314,8 @@ async def orcid_complete(payload: OrcidCompleteRequest):
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    verify_token = await AsyncOrm.create_verification_token(user.id)
+    verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/verify-email?token={verify_token}"
+    await asyncio.to_thread(send_verification_email, user.mail, verify_url)
     token = _create_access_token(str(user.id))
     return TokenResponse(access_token=token, user=user_to_read(user))

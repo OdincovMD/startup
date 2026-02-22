@@ -99,6 +99,10 @@ export default function Login() {
               {loading ? "Вход…" : "Войти"}
             </button>
 
+            <div className="auth-footer auth-footer--compact">
+              <Link to="/forgot-password">Забыли пароль?</Link>
+            </div>
+
             <div className="auth-divider">или</div>
 
             <a

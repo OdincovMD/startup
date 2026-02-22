@@ -4,7 +4,7 @@ import React, { useRef, useEffect, useState } from "react";
  * Общий модуль «Оборудование»: создание/редактирование оборудования, привязка к лабораториям.
  * Используется и представителем организации, и представителем лаборатории.
  */
-export default function OrgEquipmentTab({
+export default function EquipmentTab({
   equipmentDraft,
   handleEquipmentDraft,
   orgLabs,

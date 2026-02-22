@@ -138,6 +138,32 @@ class EmailVerificationRequest(BaseModel):
     token: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    mail: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
+    password_confirm: str
+
+    @field_validator("password")
+    @classmethod
+    def password_min_length(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Пароль должен быть не короче 8 символов")
+        return v
+
+    @field_validator("password_confirm")
+    @classmethod
+    def passwords_match(cls, v: str, info) -> str:
+        if "password" in info.data and v != info.data["password"]:
+            raise ValueError("Пароли не совпадают")
+        if len(v) < 8:
+            raise ValueError("Пароль должен быть не короче 8 символов")
+        return v
+
+
 class OrcidCompleteRequest(BaseModel):
     """Дорегистрация после первого входа через ORCID. Роль задаётся в профиле."""
     orcid: str

@@ -74,6 +74,7 @@ export async function apiRequest(path, options = {}) {
     const normalized = message
       .replace("Invalid credentials", "Неверный email или пароль")
       .replace("User with this mail already exists", "Аккаунт с таким email уже существует")
+      .replace("User with this mail or ORCID already exists", "Аккаунт с таким email или ORCID уже зарегистрирован. Войдите или воспользуйтесь восстановлением пароля.")
       .replace("Not authenticated", "Требуется вход")
       .replace("Invalid token", "Сессия истекла, войдите снова")
       .replace("Laboratory not published", "Лаборатория не опубликована")

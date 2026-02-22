@@ -14,21 +14,6 @@ import EmployeeModal from "./profile/EmployeeModal";
 import PersonalProfileSection from "./profile/PersonalProfileSection";
 import ProfileSidebar from "./profile/ProfileSidebar";
 
-const RESEARCH_INTEREST_OPTIONS = [
-  "Материаловедение",
-  "Наноматериалы",
-  "Наноэнзимы",
-  "Биотехнологии",
-  "Медицинская химия",
-  "Фотоника",
-  "Нейробиология",
-  "Биоинформатика",
-  "Квантовые технологии",
-  "Нанофизика",
-  "Робототехника",
-  "Искусственный интеллект",
-];
-
 const EMPTY_ORG_PROFILE = {
   name: "",
   avatar_url: "",
@@ -173,9 +158,14 @@ export default function Profile() {
     researcher: ["summary", "personal", "researcher", "my-requests", "my-vacancy-responses"],
   };
 
+  const emailVerified = auth?.user?.email_verified === true;
   const profileSection = (() => {
     const fromUrl = searchParams.get("section");
-    const allowed = roleKey ? (ALLOWED_SECTIONS_BY_ROLE[roleKey] || ["summary"]) : ["summary"];
+    const allowed = !emailVerified
+      ? ["summary", "personal"]
+      : roleKey
+        ? (ALLOWED_SECTIONS_BY_ROLE[roleKey] || ["summary"])
+        : ["summary"];
     if (fromUrl && allowed.includes(fromUrl)) return fromUrl;
     return allowed[0] || "summary";
   })();
@@ -1973,6 +1963,7 @@ export default function Profile() {
                 setOrgTab(tabId);
               }}
               showProfileTab={roleKey === "lab_admin"}
+              emailVerified={emailVerified}
             />
           )}
           <div className="profile-actions profile-actions--sidebar">
@@ -2185,7 +2176,6 @@ export default function Profile() {
               uploadStudentResume={uploadStudentResume}
               uploadStudentDocument={uploadStudentDocument}
               removeStudentDocument={removeStudentDocument}
-              researchInterestOptions={RESEARCH_INTEREST_OPTIONS}
               saving={saving}
               uploading={uploading}
               onFileInputRefsReady={(refs) => {
@@ -2213,7 +2203,6 @@ export default function Profile() {
               uploadResearcherResume={uploadResearcherResume}
               uploadResearcherDocument={uploadResearcherDocument}
               removeResearcherDocument={removeResearcherDocument}
-              researchInterestOptions={RESEARCH_INTEREST_OPTIONS}
               saving={saving}
               uploading={uploading}
               onFileInputRefsReady={(refs) => {

@@ -8,6 +8,8 @@ const ORCID_ERROR_MESSAGES = {
   user_not_found: "Пользователь не найден. Войдите снова.",
   requires_password_first:
     "Сначала установите пароль. Вы зарегистрировались через ORCID — без пароля вы потеряете доступ к аккаунту после отвязки.",
+  email_not_verified:
+    "Для отвязки ORCID нужно подтвердить email. Перейдите в профиль и нажмите «Запросить подтверждение», либо запросите сброс пароля, если нужен доступ к аккаунту.",
 };
 
 export default function OrcidProfileSection({ profile, orcidError, orcidLinked, onOrcidLinked, onOrcidErrorDismiss, compact, hidePasswordForm = false, onPasswordFormVisibilityChange }) {
@@ -97,9 +99,13 @@ export default function OrcidProfileSection({ profile, orcidError, orcidLinked, 
       await apiRequest("/auth/orcid/unlink", { method: "DELETE" });
       onOrcidLinked?.();
     } catch (e) {
-      if (e.message?.includes("requires_password_first") || e.message === "requires_password_first") {
+      const detail = e.message || "";
+      if (detail.includes("requires_password_first") || detail === "requires_password_first") {
         setError(ORCID_ERROR_MESSAGES.requires_password_first);
         setShowSetPasswordForm(true);
+      } else if (detail.includes("email_not_verified") || detail === "email_not_verified") {
+        setError(ORCID_ERROR_MESSAGES.email_not_verified);
+        setShowSetPasswordForm(false);
       } else {
         setError(e.message);
       }

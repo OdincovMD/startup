@@ -10,7 +10,7 @@ const STATUS_OPTIONS = [
  * Модуль «Запросы»: список запросов, форма нового запроса, редактирование.
  * Стиль как у карточек лабораторий, оборудования и задач.
  */
-export default function OrgQueriesTab({
+export default function QueriesTab({
   queryDraft,
   setQueryDraft,
   orgLabs,

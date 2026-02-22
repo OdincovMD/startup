@@ -4,7 +4,7 @@ import React, { useRef, useEffect, useState } from "react";
  * Общий модуль «Лаборатории»: создание/редактирование лабораторий, привязка оборудования, задач, сотрудников.
  * Используется и представителем организации, и представителем лаборатории.
  */
-export default function OrgLaboratoriesTab({
+export default function LaboratoriesTab({
   labDraft,
   handleLabDraft,
   orgEquipment,

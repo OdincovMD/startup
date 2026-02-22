@@ -5,6 +5,10 @@ import Login from "./Login";
 import Register from "./Register";
 import AuthCallback from "./AuthCallback";
 import RegisterOrcid from "./RegisterOrcid";
+import VerifyEmail from "./VerifyEmail";
+import ForgotPassword from "./ForgotPassword";
+import ResetPassword from "./ResetPassword";
+import SetPassword from "./SetPassword";
 import Profile from "./Profile";
 import Organizations from "./Organizations";
 import Laboratories from "./Laboratories";
@@ -13,6 +17,7 @@ import Vacancies from "./Vacancies";
 import Privacy from "./Privacy";
 import { useAuth } from "../auth/AuthContext";
 import NotificationsDropdown from "../components/NotificationsDropdown";
+import EmailVerifiedGate from "../components/EmailVerifiedGate";
 import { getOrCreateSessionId, getEntityFromPath, sendEvents } from "../analytics";
 
 const navLinkClass = ({ isActive }) => `nav-link${isActive ? " nav-link--active" : ""}`;
@@ -179,15 +184,19 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/register/orcid" element={<RegisterOrcid />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/set-password" element={<SetPassword />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/organizations" element={<Organizations />} />
-          <Route path="/organizations/:publicId" element={<Organizations />} />
-          <Route path="/laboratories" element={<Laboratories />} />
-          <Route path="/laboratories/:publicId" element={<Laboratories />} />
-          <Route path="/queries" element={<Queries />} />
-          <Route path="/queries/:publicId" element={<Queries />} />
-          <Route path="/vacancies" element={<Vacancies />} />
-          <Route path="/vacancies/:publicId" element={<Vacancies />} />
+          <Route path="/organizations" element={<EmailVerifiedGate><Organizations /></EmailVerifiedGate>} />
+          <Route path="/organizations/:publicId" element={<EmailVerifiedGate><Organizations /></EmailVerifiedGate>} />
+          <Route path="/laboratories" element={<EmailVerifiedGate><Laboratories /></EmailVerifiedGate>} />
+          <Route path="/laboratories/:publicId" element={<EmailVerifiedGate><Laboratories /></EmailVerifiedGate>} />
+          <Route path="/queries" element={<EmailVerifiedGate><Queries /></EmailVerifiedGate>} />
+          <Route path="/queries/:publicId" element={<EmailVerifiedGate><Queries /></EmailVerifiedGate>} />
+          <Route path="/vacancies" element={<EmailVerifiedGate><Vacancies /></EmailVerifiedGate>} />
+          <Route path="/vacancies/:publicId" element={<EmailVerifiedGate><Vacancies /></EmailVerifiedGate>} />
           <Route path="/privacy" element={<Privacy />} />
         </Routes>
       </div>

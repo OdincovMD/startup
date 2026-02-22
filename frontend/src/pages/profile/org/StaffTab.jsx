@@ -40,7 +40,7 @@ function capitalizeEachWord(str) {
 /**
  * Общий модуль «Сотрудники»: форма нового сотрудника, редактирование, список.
  */
-export default function OrgStaffTab({
+export default function StaffTab({
   employeeDraft,
   handleEmployeeDraftChange,
   setEmployeeDraft,

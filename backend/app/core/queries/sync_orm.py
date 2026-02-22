@@ -3,10 +3,11 @@
 """
 
 import hashlib
-from datetime import datetime, timezone
+import secrets
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import selectinload
 
@@ -73,7 +74,7 @@ class SyncOrm:
             return False
         if pwd_context.verify(_password_for_bcrypt(password), hashed):
             return True
-        return _verify_password_legacy(password, hashed)
+        return SyncOrm._verify_password_legacy(password, hashed)
 
     @staticmethod
     def _verify_password_legacy(password: str, hashed: str) -> bool:
@@ -134,7 +135,7 @@ class SyncOrm:
         role_id: int,
         full_name: Optional[str] = None,
     ) -> models.User:
-        """Create user from ORCID auth (no password)."""
+        """Create user from ORCID auth (no password). Email нужно подтвердить по ссылке из письма."""
         with session_factory() as session:
             normalized = orcid.replace("https://orcid.org/", "").strip()
             user = models.User(
@@ -143,6 +144,7 @@ class SyncOrm:
                 orcid=normalized,
                 role_id=role_id,
                 full_name=full_name,
+                email_verified=False,
             )
             session.add(user)
             try:
@@ -286,9 +288,93 @@ class SyncOrm:
             session.refresh(user)
             return user
 
+    # =============================
+    #   EMAIL VERIFICATION
+    # =============================
+
+    VERIFICATION_TOKEN_TTL_HOURS = 24
+
+    @staticmethod
+    def create_verification_token(user_id: int) -> str:
+        """Создать токен верификации для user_id, удалить старые. Возвращает токен."""
+        with session_factory() as session:
+            session.execute(delete(models.EmailVerificationToken).where(models.EmailVerificationToken.user_id == user_id))
+            token = secrets.token_urlsafe(32)
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=SyncOrm.VERIFICATION_TOKEN_TTL_HOURS)
+            rec = models.EmailVerificationToken(user_id=user_id, token=token, expires_at=expires_at)
+            session.add(rec)
+            session.commit()
+            return token
+
     @staticmethod
     def verify_email_by_token(token: str) -> Optional[models.User]:
-        return None
+        """Найти токен, проверить срок, отметить user.email_verified=True, удалить токен. Возвращает user или None."""
+        with session_factory() as session:
+            rec = session.scalar(
+                select(models.EmailVerificationToken).where(models.EmailVerificationToken.token == token)
+            )
+            if not rec:
+                return None
+            now = datetime.now(timezone.utc)
+            if rec.expires_at < now:
+                session.delete(rec)
+                session.commit()
+                return None
+            user = session.get(models.User, rec.user_id)
+            if not user:
+                session.delete(rec)
+                session.commit()
+                return None
+            user.email_verified = True
+            session.delete(rec)
+            session.commit()
+            session.refresh(user)
+            return user
+
+    # =============================
+    #   PASSWORD RESET TOKENS
+    # =============================
+
+    PASSWORD_RESET_TTL_HOURS = 1
+
+    @staticmethod
+    def create_password_reset_token(user_id: int) -> str:
+        """Создать токен сброса пароля для user_id, удалить старые. Возвращает токен."""
+        with session_factory() as session:
+            session.execute(delete(models.PasswordResetToken).where(models.PasswordResetToken.user_id == user_id))
+            token = secrets.token_urlsafe(32)
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=SyncOrm.PASSWORD_RESET_TTL_HOURS)
+            rec = models.PasswordResetToken(user_id=user_id, token=token, expires_at=expires_at)
+            session.add(rec)
+            session.commit()
+            return token
+
+    @staticmethod
+    def consume_password_reset_token(token: str, new_password: str) -> Optional[models.User]:
+        """Найти токен, проверить срок, проверить что пароль отличается от текущего, обновить пароль, удалить токен. Возвращает user или None. ValueError если новый пароль совпадает с текущим."""
+        with session_factory() as session:
+            rec = session.scalar(
+                select(models.PasswordResetToken).where(models.PasswordResetToken.token == token)
+            )
+            if not rec:
+                return None
+            now = datetime.now(timezone.utc)
+            if rec.expires_at < now:
+                session.delete(rec)
+                session.commit()
+                return None
+            user = session.get(models.User, rec.user_id)
+            if not user:
+                session.delete(rec)
+                session.commit()
+                return None
+            if user.hash_parameter and SyncOrm.verify_password(new_password, user.hash_parameter):
+                raise ValueError("Новый пароль должен отличаться от текущего")
+            user.hash_parameter = SyncOrm.hash_password(new_password)
+            session.delete(rec)
+            session.commit()
+            session.refresh(user)
+            return user
 
     # =============================
     #       NOTIFICATIONS

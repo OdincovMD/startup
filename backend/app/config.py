@@ -42,6 +42,15 @@ class Settings(BaseSettings):
     ORCID_TOKEN_URL: str = "https://orcid.org/oauth/token"
     FRONTEND_URL: str = "https://pi-hardbox.ru"
 
+    # Почта (верификация email, сброс пароля). Задаются через .env.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USE_TLS: bool = True
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    MAIL_FROM: str = ""
+    MAIL_FROM_NAME: str = "Synthesium"
+
     @property
     def DATABASE_URL_pg(self) -> str:
         """

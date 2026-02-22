@@ -1,8 +1,11 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import OrcidProfileSection from "./OrcidProfileSection";
 import OpenAlexProfileSection from "./OpenAlexProfileSection";
 import { formatPhoneRU } from "../../utils/validation";
 import { apiRequest } from "../../api/client";
+
+const RESEND_COOLDOWN_SEC = 60;
 
 export default function ProfileSummary({
   loading,
@@ -27,44 +30,32 @@ export default function ProfileSummary({
   const initial = profile?.full_name?.[0]?.toUpperCase() || profile?.mail?.[0]?.toUpperCase() || "?";
   const contacts = profile?.contacts || {};
 
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({ password: "", password_confirm: "" });
-  const [passwordFormError, setPasswordFormError] = useState(null);
-  const [settingPassword, setSettingPassword] = useState(false);
+  const [resendVerifyStatus, setResendVerifyStatus] = useState(null); // null | sending | sent | error
+  const [resendCooldownUntil, setResendCooldownUntil] = useState(null);
+  const [cooldownSecondsLeft, setCooldownSecondsLeft] = useState(0);
+
+  useEffect(() => {
+    if (!resendCooldownUntil || resendCooldownUntil <= Date.now()) {
+      setCooldownSecondsLeft(0);
+      return;
+    }
+    const tick = () => {
+      const left = Math.ceil((resendCooldownUntil - Date.now()) / 1000);
+      if (left <= 0) {
+        setCooldownSecondsLeft(0);
+        setResendCooldownUntil(null);
+        return;
+      }
+      setCooldownSecondsLeft(left);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [resendCooldownUntil]);
 
   const hasOrcid = Boolean(profile?.orcid);
   const hasPassword = profile?.has_password !== false;
   const needsPasswordSetup = hasOrcid && !hasPassword;
-
-  const handleSetPassword = async (e) => {
-    e.preventDefault();
-    setPasswordFormError(null);
-    if (passwordForm.password.length < 8) {
-      setPasswordFormError("Пароль должен быть не короче 8 символов");
-      return;
-    }
-    if (passwordForm.password !== passwordForm.password_confirm) {
-      setPasswordFormError("Пароли не совпадают");
-      return;
-    }
-    setSettingPassword(true);
-    try {
-      await apiRequest("/auth/me/set-password", {
-        method: "POST",
-        body: JSON.stringify({
-          password: passwordForm.password,
-          password_confirm: passwordForm.password_confirm,
-        }),
-      });
-      setPasswordForm({ password: "", password_confirm: "" });
-      setShowPasswordForm(false);
-      onOrcidLinked?.();
-    } catch (e) {
-      setPasswordFormError(e.message);
-    } finally {
-      setSettingPassword(false);
-    }
-  };
 
   const handleAvatarClick = () => {
     avatarInputRef.current?.click();
@@ -76,6 +67,18 @@ export default function ProfileSummary({
       onAvatarUpload(file);
     }
     e.target.value = "";
+  };
+
+  const handleResendVerification = async () => {
+    if (cooldownSecondsLeft > 0) return;
+    setResendVerifyStatus("sending");
+    try {
+      await apiRequest("/auth/resend-verification", { method: "POST" });
+      setResendVerifyStatus("sent");
+      setResendCooldownUntil(Date.now() + RESEND_COOLDOWN_SEC * 1000);
+    } catch (e) {
+      setResendVerifyStatus("error");
+    }
   };
 
   if (loading) {
@@ -102,6 +105,30 @@ export default function ProfileSummary({
 
   return (
     <div className="profile-summary-card">
+      {profile.email_verified === false && (
+        <div className="profile-summary-verify-banner">
+          <p className="profile-summary-verify-banner__title">Подтвердите email</p>
+          <p>Для полного доступа к разделам сайта нужно подтвердить адрес почты.</p>
+          {resendVerifyStatus === "sent" && <p className="profile-summary-verify-banner--success">Письмо отправлено. Проверьте почту.</p>}
+          {resendVerifyStatus === "error" && <p className="profile-summary-verify-banner--error">Не удалось отправить. Попробуйте позже.</p>}
+          <div className="profile-summary-verify-banner__actions">
+            <button
+              type="button"
+              className="profile-summary-verify-banner__btn"
+              onClick={handleResendVerification}
+              disabled={resendVerifyStatus === "sending" || cooldownSecondsLeft > 0}
+            >
+              {resendVerifyStatus === "sending"
+                ? "Отправка…"
+                : cooldownSecondsLeft > 0
+                  ? `Запросить ещё раз (${cooldownSecondsLeft} сек)`
+                  : resendVerifyStatus === "sent"
+                    ? "Запросить ещё раз"
+                    : "Запросить письмо"}
+            </button>
+          </div>
+        </div>
+      )}
       <div className="profile-summary-header">
         <button
           type="button"
@@ -165,6 +192,12 @@ export default function ProfileSummary({
         </div>
       </div>
 
+      {profile?.has_password && (
+        <div className="profile-summary-security">
+          <Link to="/forgot-password" className="profile-summary-link">Сбросить пароль</Link>
+        </div>
+      )}
+
       {roles?.length > 0 && (
         <div className="profile-summary-role-block">
           <span className="profile-summary-block-label">Роль</span>
@@ -213,71 +246,16 @@ export default function ProfileSummary({
         </div>
       )}
 
-      {needsPasswordSetup && (
+      {needsPasswordSetup && profile?.email_verified === true && (
         <div className="profile-summary-password-block">
           <span className="profile-summary-block-label">Установка пароля</span>
           <p className="profile-summary-integrations-desc">
             Вы зарегистрировались через ORCID. Установите пароль, чтобы иметь альтернативный способ входа.
           </p>
-          {!showPasswordForm ? (
-            <button
-              type="button"
-              className="profile-password-btn"
-              onClick={() => setShowPasswordForm(true)}
-            >
-              <span className="profile-password-btn__icon">🔐</span>
-              Установить пароль
-            </button>
-          ) : (
-            <div className="profile-password-card">
-              <form onSubmit={handleSetPassword} className="profile-password-form-modern">
-                <div className="field-group">
-                  <label htmlFor="new-password">Новый пароль</label>
-                  <input
-                    id="new-password"
-                    type="password"
-                    placeholder="Минимум 8 символов"
-                    value={passwordForm.password}
-                    onChange={(e) => setPasswordForm((p) => ({ ...p, password: e.target.value }))}
-                    className={passwordFormError ? "error" : ""}
-                    minLength={8}
-                    autoComplete="new-password"
-                  />
-                </div>
-                <div className="field-group">
-                  <label htmlFor="confirm-password">Подтвердите пароль</label>
-                  <input
-                    id="confirm-password"
-                    type="password"
-                    placeholder="Повторите пароль"
-                    value={passwordForm.password_confirm}
-                    onChange={(e) => setPasswordForm((p) => ({ ...p, password_confirm: e.target.value }))}
-                    className={passwordFormError ? "error" : ""}
-                    autoComplete="new-password"
-                  />
-                </div>
-                {passwordFormError && (
-                  <div className="auth-alert auth-alert-error">{passwordFormError}</div>
-                )}
-                <div className="profile-password-form-actions">
-                  <button type="submit" className="profile-password-submit" disabled={settingPassword}>
-                    {settingPassword ? "Сохранение..." : "Сохранить пароль"}
-                  </button>
-                  <button
-                    type="button"
-                    className="profile-password-cancel"
-                    onClick={() => {
-                      setShowPasswordForm(false);
-                      setPasswordFormError(null);
-                      setPasswordForm({ password: "", password_confirm: "" });
-                    }}
-                  >
-                    Отмена
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
+          <Link to="/set-password" className="profile-password-btn">
+            <span className="profile-password-btn__icon">🔐</span>
+            Установить пароль
+          </Link>
         </div>
       )}
     </div>

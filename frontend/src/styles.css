@@ -916,6 +916,9 @@ body.nav-open {
 }
 
 .auth-page .auth-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   padding: 0.85rem 1.25rem;
   font-size: 1rem;
@@ -928,6 +931,9 @@ body.nav-open {
   cursor: pointer;
   transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
   margin-top: 0.25rem;
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
 .auth-page .auth-btn-primary:hover:not(:disabled) {
@@ -994,6 +1000,17 @@ body.nav-open {
   color: var(--text-muted);
 }
 
+.auth-page .auth-footer.auth-footer--compact {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: none;
+  text-align: left;
+}
+
+.auth-page .auth-footer--compact a {
+  font-size: 0.9rem;
+}
+
 .auth-page .auth-footer a {
   color: var(--accent);
   font-weight: 600;
@@ -1004,10 +1021,143 @@ body.nav-open {
   color: var(--text-primary);
 }
 
+/* Блок действий в карточке auth: основная кнопка + вторичные ссылки */
+.auth-page .auth-actions {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auth-page .auth-actions .auth-actions__primary {
+  width: 100%;
+  margin: 0;
+  text-align: center;
+  justify-content: center;
+}
+
+.auth-page .auth-actions .auth-actions__secondary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.auth-page .auth-actions .auth-actions__secondary a {
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.auth-page .auth-actions .auth-actions__secondary a:hover {
+  color: var(--text-primary);
+}
+
+.auth-page .auth-actions .auth-actions__secondary .auth-actions__sep {
+  color: var(--border);
+  user-select: none;
+}
+
+/* Вторичная кнопка (контур) для auth-страниц */
+.auth-page .auth-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1.5px solid var(--border);
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  text-decoration: none;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.auth-page .auth-btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--card-bg);
+}
+
+/* Блок с несколькими ссылками/кнопками в карточке auth (горизонтальный вариант) */
+.auth-page .auth-footer.auth-footer--actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.auth-page .auth-footer--actions .auth-btn-primary {
+  width: auto;
+  min-width: 140px;
+  margin-top: 0;
+  text-align: center;
+  justify-content: center;
+}
+
+.auth-page .auth-footer--actions a:not(.primary-btn) {
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.auth-page .auth-footer--actions a:not(.primary-btn):hover {
+  color: var(--text-primary);
+}
+
+/* Успех в карточке auth (сообщение после отправки письма и т.п.) */
+.auth-page .auth-alert-success {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
 .auth-page .auth-hint-inline {
   font-size: 0.8rem;
   color: var(--text-muted);
   margin-top: -0.25rem;
+}
+
+/* Состояние загрузки на auth-карточке */
+.auth-page .auth-card-modern--loading .auth-subtitle {
+  margin-bottom: 1rem;
+}
+
+.auth-page .auth-loading-dots {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+
+.auth-page .auth-loading-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: authLoadingDots 1s ease-in-out infinite;
+}
+
+.auth-page .auth-loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+.auth-page .auth-loading-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes authLoadingDots {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1); }
 }
 
 .profile-field-error {
@@ -1097,6 +1247,19 @@ body.nav-open {
   background: var(--nav-active-bg);
   color: var(--text-primary-alt);
   font-weight: 600;
+}
+
+.profile-sidebar__item--locked,
+.profile-sidebar__list-item--locked .profile-sidebar__item--parent {
+  opacity: 0.65;
+  cursor: default;
+  pointer-events: auto;
+}
+
+.profile-sidebar__item--locked:hover,
+.profile-sidebar__list-item--locked .profile-sidebar__item--parent:hover {
+  background: transparent;
+  color: inherit;
 }
 
 .profile-sidebar__item:focus-visible {
@@ -1762,6 +1925,118 @@ body.nav-open {
   line-height: 1.4;
 }
 
+/* Баннер «Подтвердите email» в профиле */
+.profile-summary-verify-banner {
+  margin-bottom: 1rem;
+  padding: 1rem 1.25rem;
+  background: var(--warning-bg, rgba(234, 179, 8, 0.12));
+  border: 1px solid var(--warning-border, #eab308);
+  border-radius: 0.75rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.profile-summary-verify-banner__title {
+  font-weight: 600;
+  color: var(--text-primary-alt);
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.profile-summary-verify-banner p {
+  margin: 0 0 0.5rem;
+}
+
+.profile-summary-verify-banner p:last-of-type {
+  margin-bottom: 0;
+}
+
+.profile-summary-verify-banner .profile-summary-verify-banner__actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.profile-summary-verify-banner .profile-summary-verify-banner__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #fff;
+  background: var(--text-primary-alt);
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  text-align: center;
+}
+
+.profile-summary-verify-banner .profile-summary-verify-banner__btn:hover:not(:disabled) {
+  background: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.profile-summary-verify-banner .profile-summary-verify-banner__btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.profile-summary-verify-banner .profile-summary-verify-banner--success {
+  color: var(--success, #22c55e);
+}
+
+.profile-summary-verify-banner .profile-summary-verify-banner--error {
+  color: var(--danger);
+}
+
+/* Блок «Сбросить пароль» в профиле — компактная ссылка-кнопка */
+.profile-summary-security {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.profile-summary-security .profile-summary-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  text-align: center;
+}
+
+.profile-summary-security .profile-summary-link:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
+  background: var(--card-bg);
+}
+
+.profile-summary-link {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.profile-summary-link:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
 .profile-integration-cards {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -2156,6 +2431,10 @@ body.nav-open {
   text-align: center;
 }
 
+.profile-summary-password-block a.profile-password-btn {
+  text-decoration: none;
+}
+
 .profile-password-btn {
   display: inline-flex;
   align-items: center;
@@ -2172,10 +2451,46 @@ body.nav-open {
   transition: all 0.2s ease;
 }
 
-.profile-password-btn:hover {
+.profile-password-btn:hover:not(:disabled) {
   background: var(--page-bg-alt);
   border-color: var(--accent-soft);
   transform: translateY(-1px);
+}
+
+.profile-password-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.profile-summary-password-verify-hint {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0.5rem 0 0;
+  text-align: center;
+}
+
+.profile-summary-password-block .profile-password-resend-btn {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.profile-summary-password-block .profile-password-resend-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.profile-summary-password-block .profile-password-resend-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .profile-password-btn__icon {
@@ -3305,6 +3620,114 @@ body.nav-open {
 
 .dashboard-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+/* Дашборд: адаптация под телефон и узкие экраны */
+@media (max-width: 768px) {
+  .dashboard-page {
+    padding: 0;
+  }
+
+  .dashboard-page .profile-form-group-title,
+  .dashboard-page .profile-field-hint {
+    margin-bottom: 0.35rem;
+  }
+
+  .dashboard-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .dashboard-metric {
+    padding: 0.6rem 0.5rem;
+    min-width: 0;
+  }
+
+  .dashboard-metric-value {
+    font-size: 1.1rem;
+  }
+
+  .dashboard-metric-label {
+    font-size: 0.7rem;
+    line-height: 1.2;
+    word-break: break-word;
+  }
+
+  .dashboard-chart-wrap {
+    min-height: 160px;
+    margin-bottom: 1.25rem;
+  }
+
+  .dashboard-chart-title {
+    font-size: 0.875rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .dashboard-chart-wrap--lines,
+  .dashboard-chart-wrap--pie {
+    margin-top: 0.75rem;
+  }
+
+  .dashboard-table-wrap {
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-sm);
+  }
+
+  .dashboard-table {
+    font-size: 0.8125rem;
+    min-width: 520px;
+  }
+
+  .dashboard-table th,
+  .dashboard-table td {
+    padding: 0.45rem 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-metrics {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+  }
+
+  .dashboard-metric {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+  }
+
+  .dashboard-metric-value {
+    font-size: 1.125rem;
+    order: -1;
+    width: 100%;
+  }
+
+  .dashboard-metric-label {
+    font-size: 0.75rem;
+    margin-top: 0;
+    width: 100%;
+  }
+
+  .dashboard-chart-wrap {
+    min-height: 140px;
+  }
+
+  .dashboard-table {
+    min-width: 480px;
+    font-size: 0.75rem;
+  }
+
+  .dashboard-table th,
+  .dashboard-table td {
+    padding: 0.4rem 0.45rem;
+  }
 }
 
 .vacancy-stats-block {

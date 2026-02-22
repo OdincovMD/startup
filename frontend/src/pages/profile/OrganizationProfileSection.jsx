@@ -1,12 +1,12 @@
 import React from "react";
 import {
-  OrgProfileTab,
-  OrgSharedLaboratoriesTab,
-  OrgSharedEquipmentTab,
-  OrgSharedStaffTab,
-  OrgSharedTasksTab,
-  OrgSharedQueriesTab,
-  OrgSharedVacanciesTab,
+  ProfileTab,
+  LaboratoriesTab,
+  EquipmentTab,
+  StaffTab,
+  TasksTab,
+  QueriesTab,
+  VacanciesTab,
 } from "./org";
 import JoinRequestsIncomingTab from "./JoinRequestsIncomingTab";
 import VacancyResponsesIncomingTab from "./VacancyResponsesIncomingTab";
@@ -155,7 +155,7 @@ export default function OrganizationProfileSection({
       {showProfileTab && orgTab === "profile" && (
         <>
           <p className="profile-tab-desc">Название, описание и контакты организации. Опубликуйте профиль, чтобы он был виден на платформе.</p>
-          <OrgProfileTab
+          <ProfileTab
           orgProfile={orgProfile}
           handleOrgChange={handleOrgChange}
           uploadOrgAvatar={uploadOrgAvatar}
@@ -172,7 +172,7 @@ export default function OrganizationProfileSection({
       {orgTab === "labs" && (
         <>
           <p className="profile-tab-desc">Добавляйте лаборатории, привязывайте к ним оборудование, задачи и сотрудников.</p>
-        <OrgSharedLaboratoriesTab
+        <LaboratoriesTab
           labDraft={labDraft}
           handleLabDraft={handleLabDraft}
           orgEquipment={orgEquipment}
@@ -209,7 +209,7 @@ export default function OrganizationProfileSection({
       {orgTab === "equipment" && (
         <>
           <p className="profile-tab-desc">Опишите оборудование и привяжите его к лабораториям.</p>
-        <OrgSharedEquipmentTab
+        <EquipmentTab
           equipmentDraft={equipmentDraft}
           handleEquipmentDraft={handleEquipmentDraft}
           orgLabs={orgLabs}
@@ -239,7 +239,7 @@ export default function OrganizationProfileSection({
 
       {orgTab === "staff" && (
         <>
-        <OrgSharedStaffTab
+        <StaffTab
           employeeDraft={employeeDraft}
           handleEmployeeDraftChange={handleEmployeeDraftChange}
           setEmployeeDraft={setEmployeeDraft}
@@ -283,7 +283,7 @@ export default function OrganizationProfileSection({
 
       {orgTab === "tasks" && (
         <>
-        <OrgSharedTasksTab
+        <TasksTab
           taskDraft={taskDraft}
           setTaskDraft={setTaskDraft}
           orgLabs={orgLabs}
@@ -304,7 +304,7 @@ export default function OrganizationProfileSection({
 
       {orgTab === "queries" && (
         <>
-        <OrgSharedQueriesTab
+        <QueriesTab
           queryDraft={queryDraft}
           setQueryDraft={setQueryDraft}
           orgLabs={orgLabs}
@@ -330,7 +330,7 @@ export default function OrganizationProfileSection({
       {orgTab === "vacancies" && (
         <>
           <p className="profile-tab-desc">Добавляйте позиции и связывайте их с лабораториями и запросами.</p>
-        <OrgSharedVacanciesTab
+        <VacanciesTab
           vacancyDraft={vacancyDraft}
           setVacancyDraft={setVacancyDraft}
           orgLabs={orgLabs}

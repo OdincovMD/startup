@@ -5,7 +5,7 @@ import { normalizeWebsiteInput } from "../../../utils/validation";
  * Модуль «Решённые задачи»: список, форма новой задачи, редактирование.
  * Стиль как у карточек лабораторий и оборудования.
  */
-export default function OrgTasksTab({
+export default function TasksTab({
   taskDraft,
   setTaskDraft,
   orgLabs,

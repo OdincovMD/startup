@@ -12,6 +12,7 @@ from sqlalchemy import (
     Text,
     JSON,
     Index,
+    Boolean,
     func,
 )
 from sqlalchemy.orm import relationship
@@ -48,11 +49,7 @@ class User(BaseModel):
     photo_url = Column(String(500), nullable=True)
     contacts = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    @property
-    def email_verified(self) -> bool:
-        """Заглушка под будущее подтверждение email."""
-        return False
+    email_verified = Column(Boolean, nullable=False, server_default="false")
 
     @property
     def has_password(self) -> bool:
@@ -84,6 +81,36 @@ class User(BaseModel):
         Index("idx_users_mail", "email"),
         Index("idx_users_role_id", "role_id"),
     )
+
+
+# =========================
+#   EMAIL VERIFICATION
+# =========================
+
+class EmailVerificationToken(BaseModel):
+    __tablename__ = "email_verification_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("idx_email_verification_token_user", "user_id"),)
+
+
+# =========================
+#    PASSWORD RESET TOKENS
+# =========================
+
+class PasswordResetToken(BaseModel):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("idx_password_reset_token_user", "user_id"),)
 
 
 # =========================

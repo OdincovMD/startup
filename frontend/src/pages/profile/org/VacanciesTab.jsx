@@ -6,7 +6,7 @@ import React, { useState } from "react";
  * Связанный запрос и лаборатория — карточка выбранного + очистка или select.
  * Контакт: либо сотрудник (карточка + очистка/select), либо при отсутствии — обязательные email и телефон.
  */
-export default function OrgVacanciesTab({
+export default function VacanciesTab({
   vacancyDraft,
   setVacancyDraft,
   orgLabs,

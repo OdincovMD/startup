@@ -1,8 +1,7 @@
-export { default as OrgProfileTab } from "./OrgProfileTab";
-// Общие табы, используемые и представителем организации, и представителем лаборатории
-export { default as OrgSharedLaboratoriesTab } from "./OrgLaboratoriesTab";
-export { default as OrgSharedEquipmentTab } from "./OrgEquipmentTab";
-export { default as OrgSharedStaffTab } from "./OrgStaffTab";
-export { default as OrgSharedTasksTab } from "./OrgTasksTab";
-export { default as OrgSharedQueriesTab } from "./OrgQueriesTab";
-export { default as OrgSharedVacanciesTab } from "./OrgVacanciesTab";
+export { default as ProfileTab } from "./ProfileTab";
+export { default as LaboratoriesTab } from "./LaboratoriesTab";
+export { default as EquipmentTab } from "./EquipmentTab";
+export { default as StaffTab } from "./StaffTab";
+export { default as TasksTab } from "./TasksTab";
+export { default as QueriesTab } from "./QueriesTab";
+export { default as VacanciesTab } from "./VacanciesTab";

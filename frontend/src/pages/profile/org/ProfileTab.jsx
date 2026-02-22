@@ -5,7 +5,7 @@ import OrgOpenAlexSection from "../OrgOpenAlexSection";
 /**
  * Модуль «Профиль организации»: название, аватар, адрес, сайт, описание, сохранение и публикация.
  */
-export default function OrgProfileTab({
+export default function ProfileTab({
   orgProfile,
   handleOrgChange,
   uploadOrgAvatar,

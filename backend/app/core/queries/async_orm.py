@@ -102,6 +102,18 @@ class AsyncOrm:
     async def verify_email_by_token(token: str) -> Optional[models.User]:
         return await asyncio.to_thread(SyncOrm.verify_email_by_token, token)
 
+    @staticmethod
+    async def create_verification_token(user_id: int) -> str:
+        return await asyncio.to_thread(SyncOrm.create_verification_token, user_id)
+
+    @staticmethod
+    async def create_password_reset_token(user_id: int) -> str:
+        return await asyncio.to_thread(SyncOrm.create_password_reset_token, user_id)
+
+    @staticmethod
+    async def consume_password_reset_token(token: str, new_password: str) -> Optional[models.User]:
+        return await asyncio.to_thread(SyncOrm.consume_password_reset_token, token, new_password)
+
     # =============================
     #       NOTIFICATIONS
     # =============================

@@ -61,8 +61,27 @@ export function AuthProvider({ children }) {
     return nextAuth;
   };
 
+  const refreshUser = async () => {
+    if (!auth?.token) return null;
+    const user = await apiRequest("/users/me", {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    });
+    const nextAuth = { ...auth, user };
+    setAuth(nextAuth);
+    setStoredAuth(nextAuth);
+    return user;
+  };
+
+  /** Обновить только объект user в auth (например, из ответа verify-email). Не делает запросов. */
+  const updateUser = (user) => {
+    if (!auth?.token) return;
+    const nextAuth = { ...auth, user };
+    setAuth(nextAuth);
+    setStoredAuth(nextAuth);
+  };
+
   const value = useMemo(
-    () => ({ auth, loading, error, login, register, logout, loginWithToken }),
+    () => ({ auth, loading, error, login, register, logout, loginWithToken, refreshUser, updateUser }),
     [auth, loading, error]
   );
 

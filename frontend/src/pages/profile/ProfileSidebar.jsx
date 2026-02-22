@@ -67,6 +67,8 @@ function getOrgSubItems(showProfileTab) {
   ];
 }
 
+const ALLOWED_WHEN_UNVERIFIED = ["summary", "personal"];
+
 export default function ProfileSidebar({
   roleKey,
   currentSection,
@@ -74,12 +76,14 @@ export default function ProfileSidebar({
   orgTab,
   onOrgTabChange,
   showProfileTab = false,
+  emailVerified = true,
 }) {
   const items = getItemsForRole(roleKey);
   const isOrgSection = currentSection === "organization";
-  const [orgExpanded, setOrgExpanded] = useState(isOrgSection);
+  const [orgExpanded, setOrgExpanded] = useState(false);
   const [orgSectionHidden, setOrgSectionHiddenState] = useState(getOrgHidden);
   const isOrgRole = roleKey === "lab_admin" || roleKey === "lab_representative";
+  const locked = !emailVerified;
 
   useEffect(() => {
     if (!isOrgSection) setOrgExpanded(false);
@@ -92,11 +96,13 @@ export default function ProfileSidebar({
   };
 
   const handleOrgHeaderClick = () => {
+    if (locked) return;
     if (!isOrgSection) onSectionChange("organization");
     setOrgExpanded((prev) => !prev);
   };
 
   const handleOrgSubClick = (tabId) => {
+    if (locked) return;
     onSectionChange("organization");
     onOrgTabChange?.(tabId);
   };
@@ -118,14 +124,17 @@ export default function ProfileSidebar({
     <nav className="profile-sidebar" aria-label="Разделы профиля">
       <ul className="profile-sidebar__list">
         {items.map((item) => {
+          const itemLocked = locked && !ALLOWED_WHEN_UNVERIFIED.includes(item.id);
           if (item.id !== "organization") {
             return (
               <li key={item.id} className="profile-sidebar__list-item">
                 <button
                   type="button"
-                  className={`profile-sidebar__item ${currentSection === item.id ? "profile-sidebar__item--active" : ""}`}
-                  onClick={() => onSectionChange(item.id)}
+                  className={`profile-sidebar__item ${currentSection === item.id ? "profile-sidebar__item--active" : ""} ${itemLocked ? "profile-sidebar__item--locked" : ""}`}
+                  onClick={() => !itemLocked && onSectionChange(item.id)}
                   aria-current={currentSection === item.id ? "page" : undefined}
+                  disabled={itemLocked}
+                  title={itemLocked ? "Подтвердите email для доступа" : undefined}
                 >
                   {item.label}
                 </button>
@@ -133,34 +142,38 @@ export default function ProfileSidebar({
             );
           }
           if (!showOrgInList) return null;
-          const expanded = orgExpanded || isOrgSection;
+          const expanded = !locked && (orgExpanded || isOrgSection);
           return (
             <li
               key={item.id}
-              className={`profile-sidebar__list-item profile-sidebar__list-item--with-children${expanded ? " profile-sidebar__list-item--expanded" : ""}`}
+              className={`profile-sidebar__list-item profile-sidebar__list-item--with-children${expanded ? " profile-sidebar__list-item--expanded" : ""} ${locked ? " profile-sidebar__list-item--locked" : ""}`}
             >
               <div className="profile-sidebar__parent-row">
                 <button
                   type="button"
-                  className={`profile-sidebar__item profile-sidebar__item--parent ${isOrgSection ? "profile-sidebar__item--active" : ""}`}
+                  className={`profile-sidebar__item profile-sidebar__item--parent ${isOrgSection ? "profile-sidebar__item--active" : ""} ${locked ? "profile-sidebar__item--locked" : ""}`}
                   onClick={handleOrgHeaderClick}
                   aria-expanded={expanded}
                   aria-current={isOrgSection ? "page" : undefined}
+                  disabled={locked}
+                  title={locked ? "Подтвердите email для доступа" : undefined}
                 >
                   <span>{item.label}</span>
                   <span className="profile-sidebar__expand-icon" aria-hidden="true">
                     {expanded ? "▼" : "▶"}
                   </span>
                 </button>
-                <button
-                  type="button"
-                  className="profile-sidebar__hide-org"
-                  onClick={handleHideOrg}
-                  title="Скрыть блок из меню"
-                  aria-label="Скрыть профиль организации из меню"
-                >
-                  −
-                </button>
+                {!locked && (
+                  <button
+                    type="button"
+                    className="profile-sidebar__hide-org"
+                    onClick={handleHideOrg}
+                    title="Скрыть блок из меню"
+                    aria-label="Скрыть профиль организации из меню"
+                  >
+                    −
+                  </button>
+                )}
               </div>
               {expanded && orgSubItems.length > 0 && (
                 <ul className="profile-sidebar__sublist">
@@ -182,6 +195,7 @@ export default function ProfileSidebar({
                               className={`profile-sidebar__subitem ${orgTab === sub.id ? "profile-sidebar__subitem--active" : ""}`}
                               onClick={() => handleOrgSubClick(sub.id)}
                               aria-current={orgTab === sub.id ? "page" : undefined}
+                              disabled={locked}
                             >
                               {sub.label}
                             </button>
