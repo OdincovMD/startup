@@ -2,6 +2,7 @@
 Синхронный слой работы с БД для ядра: User, Role.
 """
 
+import hashlib
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 
@@ -14,6 +15,11 @@ from app import models
 
 from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def _password_for_bcrypt(password: str) -> str:
+    """Преобразует пароль любой длины в строку 64 символа (SHA256 hex), чтобы обойти лимит bcrypt 72 байта."""
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
 class SyncOrm:
@@ -59,23 +65,25 @@ class SyncOrm:
 
     @staticmethod
     def hash_password(password: str) -> str:
-        safe = SyncOrm._truncate_password(password)
-        return pwd_context.hash(safe)
+        return pwd_context.hash(_password_for_bcrypt(password))
 
     @staticmethod
     def verify_password(password: str, hashed: Optional[str]) -> bool:
         if not hashed:
             return False
-        safe = SyncOrm._truncate_password(password)
-        return pwd_context.verify(safe, hashed)
+        if pwd_context.verify(_password_for_bcrypt(password), hashed):
+            return True
+        return _verify_password_legacy(password, hashed)
 
     @staticmethod
-    def _truncate_password(password: str) -> str:
-        """Если пользователь ввёл слишком длинный пароль- необходимо обрезать."""
+    def _verify_password_legacy(password: str, hashed: str) -> bool:
+        """Проверка старых хешей (пароль обрезался до 72 байт)."""
         raw = password.encode("utf-8")
-        if len(raw) <= 72:
-            return password
-        return raw[:72].decode("utf-8", errors="ignore")
+        if len(raw) > 72:
+            safe = raw[:72].decode("utf-8", errors="replace")
+        else:
+            safe = password
+        return pwd_context.verify(safe, hashed)
 
     @staticmethod
     def create_user(mail: str, password: str, role_id: int) -> models.User:
