@@ -8,11 +8,46 @@ const FALLBACK_DIRECTIONS = [
   "Materials", "Neuroscience", "Quantum", "Chemistry", "Bioinformatics",
   "Machine Learning", "Synthetic Biology", "Nanotech", "Energy",
 ];
-const METRIC_LABELS = {
-  laboratories: "Лабораторий на платформе",
-  vacancies: "Открытых позиций",
-  responses: "Откликов отправлено",
-};
+/** Склонение для русского: 1 — одна форма, 2–4 — вторая, 0/5+ — третья (11–14 тоже третья). */
+function pluralRu(n, one, few, many) {
+  const mod10 = Math.abs(n) % 10;
+  const mod100 = Math.abs(n) % 100;
+  if (mod100 !== 11 && mod10 === 1) return one;
+  if (mod100 < 12 || mod100 > 14) {
+    if (mod10 >= 2 && mod10 <= 4) return few;
+  }
+  return many;
+}
+
+function cap(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+function getMetricLabelLaboratories(n) {
+  const word = pluralRu(n, "лаборатория", "лаборатории", "лабораторий");
+  return `${cap(word)} на платформе`;
+}
+function getMetricLabelVacancies(n) {
+  return cap(pluralRu(n, "открытая позиция", "открытые позиции", "открытых позиций"));
+}
+function getMetricLabelResponses(n) {
+  return cap(pluralRu(n, "отклик отправлен", "отклика отправлено", "откликов отправлено"));
+}
+
+function formatVacancyDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function parseVacancySkills(requirements, description) {
+  const text = [requirements, description].filter(Boolean).join(" ");
+  if (!text.trim()) return [];
+  const parts = text
+    .split(/[,;\n·]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && s.length <= 40);
+  return [...new Set(parts)].slice(0, 6);
+}
 
 const IMG_EXT = /\.(jpe?g|png|gif|webp|avif)(\?|$)/i;
 
@@ -112,19 +147,19 @@ export default function Home() {
           <div className="metric-value">
             {loading && !stats ? "…" : formatMetric(stats?.laboratories ?? 0)}
           </div>
-          <div className="metric-label">{METRIC_LABELS.laboratories}</div>
+          <div className="metric-label">{getMetricLabelLaboratories(stats?.laboratories ?? 0)}</div>
         </div>
         <div className="metric-card">
           <div className="metric-value">
             {loading && !stats ? "…" : formatMetric(stats?.vacancies ?? 0)}
           </div>
-          <div className="metric-label">{METRIC_LABELS.vacancies}</div>
+          <div className="metric-label">{getMetricLabelVacancies(stats?.vacancies ?? 0)}</div>
         </div>
         <div className="metric-card">
           <div className="metric-value">
             {loading && !stats ? "…" : formatMetric(stats?.responses ?? 0)}
           </div>
-          <div className="metric-label">{METRIC_LABELS.responses}</div>
+          <div className="metric-label">{getMetricLabelResponses(stats?.responses ?? 0)}</div>
         </div>
       </section>
 
@@ -132,7 +167,7 @@ export default function Home() {
         <section id="orgs" className="section">
           <div className="section-header">
             <h2>Организации недели</h2>
-            <p>Организации на платформе с лабораториями и вакансиями. Выберите карточку, чтобы открыть профиль.</p>
+            <p>Организации на платформе с лабораториями и вакансиями.</p>
           </div>
           {error && <p className="error">{error}</p>}
           {loading && !error && (
@@ -311,7 +346,7 @@ export default function Home() {
         <section id="vacancies" className="section">
           <div className="section-header">
             <h2>Открытые вакансии</h2>
-            <p>Новые роли из университетов, институтов и исследовательских стартапов. Выберите карточку, чтобы открыть вакансию.</p>
+            <p>Новые роли из университетов, институтов и исследовательских стартапов.</p>
           </div>
           {error && <p className="error">{error}</p>}
           {loading && !error && (
@@ -331,67 +366,77 @@ export default function Home() {
           )}
           {!loading && !error && (
             <div className="org-cards-grid">
-              {featuredVacancies.map((vacancy) => (
-                <article
-                  key={vacancy.id}
-                  className="org-card-modern"
-                  onClick={() => vacancy.public_id && navigate(`/vacancies/${vacancy.public_id}`)}
-                  role={vacancy.public_id ? "button" : undefined}
-                  tabIndex={vacancy.public_id ? 0 : undefined}
-                  onKeyDown={(e) => {
-                    if (vacancy.public_id && (e.key === "Enter" || e.key === " ")) {
-                      e.preventDefault();
-                      navigate(`/vacancies/${vacancy.public_id}`);
-                    }
-                  }}
-                >
-                  <div className="org-card-modern__media">
-                    <div className="org-card-modern__avatar-placeholder vacancy-placeholder" aria-hidden="true">
-                      {vacancy.name ? vacancy.name.charAt(0).toUpperCase() : "V"}
+              {featuredVacancies.map((vacancy) => {
+                const skills = parseVacancySkills(vacancy.requirements, vacancy.description);
+                return (
+                  <article
+                    key={vacancy.id}
+                    className="vacancy-card"
+                    onClick={() => vacancy.public_id && navigate(`/vacancies/${vacancy.public_id}`)}
+                    role={vacancy.public_id ? "button" : undefined}
+                    tabIndex={vacancy.public_id ? 0 : undefined}
+                    onKeyDown={(e) => {
+                      if (vacancy.public_id && (e.key === "Enter" || e.key === " ")) {
+                        e.preventDefault();
+                        navigate(`/vacancies/${vacancy.public_id}`);
+                      }
+                    }}
+                  >
+                    <div className="vacancy-card__accent" aria-hidden="true" />
+                    <div className="vacancy-card__inner">
+                      <div className="vacancy-card__header">
+                        <span className="vacancy-card__icon" aria-hidden="true">
+                          {vacancy.name ? vacancy.name.charAt(0).toUpperCase() : "V"}
+                        </span>
+                        <div className="vacancy-card__headline">
+                          <h3 className="vacancy-card__title">{vacancy.name || "Вакансия"}</h3>
+                          {vacancy.employment_type && (
+                            <span className="vacancy-card__type">{vacancy.employment_type}</span>
+                          )}
+                        </div>
+                      </div>
+                      {vacancy.created_at && (
+                        <p className="vacancy-card__date">
+                          <span className="vacancy-card__date-label">Опубликовано</span> {formatVacancyDate(vacancy.created_at)}
+                        </p>
+                      )}
+                      {skills.length > 0 && (
+                        <div className="vacancy-card__skills" aria-label="Навыки">
+                          {skills.map((skill, i) => (
+                            <span key={i} className="vacancy-card__skill">
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {vacancy.public_id && (
+                        <span className="vacancy-card__cta">
+                          Открыть вакансию
+                          <span className="vacancy-card__cta-arrow" aria-hidden="true">→</span>
+                        </span>
+                      )}
                     </div>
-                  </div>
-                  <div className="org-card-modern__body">
-                    <h3 className="org-card-modern__title">{vacancy.name || "Вакансия"}</h3>
-                    <div className="org-card-modern__meta">
-                      {vacancy.employment_type && (
-                        <span className="org-card-modern__meta-item">{vacancy.employment_type}</span>
-                      )}
-                      {vacancy.organization && (
-                        <span className="org-card-modern__meta-item">{vacancy.organization.name}</span>
-                      )}
-                      {!vacancy.employment_type && !vacancy.organization && (
-                        <span className="org-card-modern__meta-item org-card-modern__meta-item--muted">Нет данных</span>
-                      )}
-                    </div>
-                    {(vacancy.requirements || vacancy.description) && (
-                      <p className="org-card-modern__description" title={vacancy.requirements || vacancy.description}>
-                        {(vacancy.requirements || vacancy.description || "").slice(0, 120)}
-                        {(vacancy.requirements || vacancy.description || "").length > 120 ? "…" : ""}
-                      </p>
-                    )}
-                    {vacancy.public_id && (
-                      <span className="org-card-modern__cta">
-                        Открыть вакансию
-                        <span className="org-card-modern__cta-arrow" aria-hidden="true">→</span>
-                      </span>
-                    )}
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
       )}
 
-      <section className="cta section-cta">
-        <div className="cta__content">
-          <h2 className="cta__title">Готовы собрать команду?</h2>
-          <p className="cta__text">Добавьте лабораторию, откройте позиции и начинайте подбор уже сегодня.</p>
-        </div>
-        <Link className="primary-btn cta__btn" to={auth?.token ? "/profile" : "/login"}>
-          Начать
-        </Link>
-      </section>
+      {!auth && (
+        <section className="cta section-cta">
+          <div className="cta__content">
+            <h2 className="cta__title">Присоединяйтесь к платформе</h2>
+            <p className="cta__text">
+              Добавляйте лаборатории и вакансии, откликайтесь на позиции или найдите команду для своего проекта — для организаций, исследователей и студентов.
+            </p>
+          </div>
+          <Link className="primary-btn cta__btn" to="/login">
+            Начать
+          </Link>
+        </section>
+      )}
     </main>
   );
 }

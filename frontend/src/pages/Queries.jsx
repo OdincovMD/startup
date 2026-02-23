@@ -3,6 +3,15 @@ import { useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import EmployeeModal from "./profile/EmployeeModal";
 
+const QUERY_STATUS_LABELS = { active: "Активный", paused: "На паузе", closed: "Закрыт" };
+
+function formatQueryDate(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+}
+
 export default function Queries() {
   const [queries, setQueries] = useState([]);
   const [details, setDetails] = useState(null);
@@ -75,7 +84,7 @@ export default function Queries() {
         {!selectedId && (
           <div className="section-header">
             <h2>Запросы</h2>
-            <p>Заявки на R&D с описанием, бюджетом и грантами. Выберите карточку, чтобы открыть детали и связанные лаборатории.</p>
+            <p>Заявки на R&D с описанием, бюджетом и грантами. Откройте карточку для деталей и связанных лабораторий.</p>
           </div>
         )}
         {loading && !selectedId && (
@@ -106,7 +115,7 @@ export default function Queries() {
               queries.map((query) => (
                 <article
                   key={query.id}
-                  className="org-card-modern"
+                  className="query-card"
                   onClick={() => query.public_id && openQuery(query.public_id)}
                   role={query.public_id ? "button" : undefined}
                   tabIndex={query.public_id ? 0 : undefined}
@@ -117,81 +126,70 @@ export default function Queries() {
                     }
                   }}
                 >
-                  <div className="org-card-modern__media">
-                    <div className="org-card-modern__avatar-placeholder query-placeholder" aria-hidden="true">
-                      {query.title ? query.title.charAt(0).toUpperCase() : "Q"}
+                  <div className="query-card__accent" aria-hidden="true" />
+                  <div className="query-card__inner">
+                    <div className="query-card__header">
+                      <span className="query-card__icon" aria-hidden="true">
+                        {query.title ? query.title.charAt(0).toUpperCase() : "Q"}
+                      </span>
+                      <div className="query-card__headline">
+                        <h3 className="query-card__title">{query.title || "Запрос"}</h3>
+                        {query.status && (
+                          <span className="query-card__status">{QUERY_STATUS_LABELS[query.status] ?? query.status}</span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="org-card-modern__body">
-                    <h3 className="org-card-modern__title">{query.title || "Запрос"}</h3>
-                    <div className="org-card-modern__meta">
-                      {query.organization && (
-                        <span
-                          className="org-card-modern__meta-item"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (query.organization?.public_id) {
+                    {(query.deadline || query.budget) && (
+                      <p className="query-card__meta">
+                        {query.deadline && (
+                          <span className="query-card__meta-item">
+                            <span className="query-card__meta-label">Дедлайн</span> {formatQueryDate(query.deadline)}
+                          </span>
+                        )}
+                        {query.budget && (
+                          <span className="query-card__meta-item">
+                            <span className="query-card__meta-label">Бюджет</span> {query.budget}
+                          </span>
+                        )}
+                      </p>
+                    )}
+                    {query.organization && (
+                      <p className="query-card__org">
+                        {query.organization.public_id ? (
+                          <span
+                            className="query-card__org-link"
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
                               navigate(`/organizations/${query.organization.public_id}`);
-                            }
-                          }}
-                          role={query.organization?.public_id ? "button" : undefined}
-                          tabIndex={query.organization?.public_id ? 0 : undefined}
-                        >
-                          {query.organization.name}
-                        </span>
-                      )}
-                      {query.linked_task_solution && (
-                        <span className="org-card-modern__meta-item org-card-modern__meta-item--muted">
-                          Решённая задача: {query.linked_task_solution.title.length > 30 ? `${query.linked_task_solution.title.slice(0, 30)}…` : query.linked_task_solution.title}
-                        </span>
-                      )}
-                      {query.grant_info && (
-                        <span className="org-card-modern__meta-item">Грант: {query.grant_info.length > 25 ? `${query.grant_info.slice(0, 25)}…` : query.grant_info}</span>
-                      )}
-                      {query.budget && (
-                        <span className="org-card-modern__meta-item">Бюджет: {query.budget}</span>
-                      )}
-                      {query.deadline && (
-                        <span className="org-card-modern__meta-item">Дедлайн: {query.deadline}</span>
-                      )}
-                      {query.status && (
-                        <span className="org-card-modern__meta-item org-card-modern__meta-item--status">
-                          {query.status === "active" && "Активный"}
-                          {query.status === "paused" && "На паузе"}
-                          {query.status === "closed" && "Закрыт"}
-                        </span>
-                      )}
-                      {!query.budget && !query.deadline && !query.organization && !query.grant_info && !query.status && (
-                        <span className="org-card-modern__meta-item org-card-modern__meta-item--muted">
-                          Нет данных
-                        </span>
-                      )}
-                    </div>
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                navigate(`/organizations/${query.organization.public_id}`);
+                              }
+                            }}
+                          >
+                            {query.organization.name}
+                          </span>
+                        ) : (
+                          <span className="query-card__org-name">{query.organization.name}</span>
+                        )}
+                      </p>
+                    )}
                     {query.task_description && (
-                      <p className="org-card-modern__description" title={query.task_description}>
-                        {query.task_description.length > 140
-                          ? `${query.task_description.slice(0, 140)}…`
+                      <p className="query-card__description" title={query.task_description}>
+                        {query.task_description.length > 100
+                          ? `${query.task_description.slice(0, 100)}…`
                           : query.task_description}
                       </p>
                     )}
-                    {((query.laboratories || []).length > 0 || (query.vacancies || []).length > 0) && (
-                      <div className="org-detail-card__chips org-card-modern__chips">
-                        {(query.laboratories || []).slice(0, 2).map((lab) => (
-                          <span key={lab.id} className="org-detail-chip">
-                            {lab.name}
-                          </span>
-                        ))}
-                        {(query.vacancies || []).length > 0 && (
-                          <span className="org-detail-chip">
-                            {(query.vacancies || []).length} ваканс.
-                          </span>
-                        )}
-                      </div>
-                    )}
                     {query.public_id && (
-                      <span className="org-card-modern__cta">
+                      <span className="query-card__cta">
                         Открыть запрос
-                        <span className="org-card-modern__cta-arrow" aria-hidden="true">→</span>
+                        <span className="query-card__cta-arrow" aria-hidden="true">→</span>
                       </span>
                     )}
                   </div>
@@ -218,83 +216,99 @@ export default function Queries() {
                   </div>
                   <div className="org-detail-hero__body">
                     <h1 className="org-detail-hero__title">{details.title}</h1>
-                    <div className="org-detail-hero__meta">
-                      {details.organization && (
-                        <span
-                          className="org-detail-hero__link"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (details.organization?.public_id) {
-                              navigate(`/organizations/${details.organization.public_id}`);
-                            }
-                          }}
-                          role={details.organization?.public_id ? "button" : undefined}
-                          tabIndex={details.organization?.public_id ? 0 : undefined}
-                        >
-                          {details.organization.name}
-                        </span>
-                      )}
+                    <div className="query-detail-meta">
                       {details.status && (
-                        <span className="org-detail-hero__meta-item org-detail-hero__meta-item--status">
-                          {details.status === "active" && "Активный"}
-                          {details.status === "paused" && "На паузе"}
-                          {details.status === "closed" && "Закрыт"}
+                        <span className="query-detail-meta__item">
+                          <span className="query-detail-meta__label">Статус</span>
+                          <span className="query-detail-chip">{QUERY_STATUS_LABELS[details.status] ?? details.status}</span>
                         </span>
                       )}
                       {details.budget && (
-                        <span className="org-detail-hero__meta-item">Бюджет: {details.budget}</span>
+                        <span className="query-detail-meta__item">
+                          <span className="query-detail-meta__label">Бюджет</span>
+                          <span className="query-detail-meta__value">{details.budget}</span>
+                        </span>
                       )}
                       {details.deadline && (
-                        <span className="org-detail-hero__meta-item">Дедлайн: {details.deadline}</span>
+                        <span className="query-detail-meta__item">
+                          <span className="query-detail-meta__label">Дедлайн</span>
+                          <span className="query-detail-meta__value">{formatQueryDate(details.deadline)}</span>
+                        </span>
                       )}
                       {details.grant_info && (
-                        <span className="org-detail-hero__meta-item">Грант: {details.grant_info}</span>
+                        <span className="query-detail-meta__item">
+                          <span className="query-detail-meta__label">Грант</span>
+                          <span className="query-detail-meta__value">{details.grant_info}</span>
+                        </span>
                       )}
                     </div>
-                    {((details.laboratories || []).length > 0 || (details.employees || []).length > 0 || (details.vacancies || []).length > 0) && (
-                      <div className="org-detail-hero__summary">
-                        {(details.laboratories || []).length > 0 && <span>Лабораторий: {(details.laboratories || []).length}</span>}
-                        {(details.employees || []).length > 0 && <span>Сотрудников: {(details.employees || []).length}</span>}
-                        {(details.vacancies || []).length > 0 && <span>Вакансий: {(details.vacancies || []).length}</span>}
+                    {details.organization && (
+                      <div className="query-detail__block">
+                        <h2 className="query-detail__block-title">Организация</h2>
+                        <span
+                          className="org-detail-hero__link query-detail__org-link"
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (details.organization?.public_id) navigate(`/organizations/${details.organization.public_id}`);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              if (details.organization?.public_id) navigate(`/organizations/${details.organization.public_id}`);
+                            }
+                          }}
+                        >
+                          {details.organization.name}
+                        </span>
                       </div>
                     )}
-                    {details.linked_task_solution && (
-                      <div className="org-detail-hero__linked-task">
-                        <span className="org-detail-hero__linked-task-label">Связанная решённая задача:</span>
-                        <div className="org-detail-card org-detail-card--inline">
-                          <div className="org-detail-card__body">
-                            <h3 className="org-detail-card__title">{details.linked_task_solution.title}</h3>
-                            {(details.linked_task_solution.task_description || details.linked_task_solution.solution_description) && (
-                              <p className="org-detail-card__text">
-                                {(details.linked_task_solution.task_description || details.linked_task_solution.solution_description || "").length > 200
-                                  ? `${(details.linked_task_solution.task_description || details.linked_task_solution.solution_description || "").slice(0, 200)}…`
-                                  : (details.linked_task_solution.task_description || details.linked_task_solution.solution_description || "")}
-                              </p>
-                            )}
-                            <div className="org-detail-card__meta">
-                              {details.linked_task_solution.solution_deadline && <span>Сроки: {details.linked_task_solution.solution_deadline}</span>}
-                              {details.linked_task_solution.grant_info && <span>Грант: {details.linked_task_solution.grant_info}</span>}
-                              {details.linked_task_solution.cost && <span>Стоимость: {details.linked_task_solution.cost}</span>}
-                            </div>
-                            {(details.linked_task_solution.laboratories || []).length > 0 && (
-                              <div className="org-detail-card__chips">
-                                {(details.linked_task_solution.laboratories || []).slice(0, 3).map((lab) => (
-                                  <span key={lab.id} className="org-detail-chip">{lab.name}</span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                    {((details.laboratories || []).length > 0 || (details.employees || []).length > 0 || (details.vacancies || []).length > 0) && (
+                      <div className="query-detail__summary">
+                        {(details.laboratories || []).length > 0 && <span className="query-detail__summary-item">Лабораторий: {(details.laboratories || []).length}</span>}
+                        {(details.employees || []).length > 0 && <span className="query-detail__summary-item">Сотрудников: {(details.employees || []).length}</span>}
+                        {(details.vacancies || []).length > 0 && <span className="query-detail__summary-item">Вакансий: {(details.vacancies || []).length}</span>}
                       </div>
                     )}
                     {details.task_description && (
-                      <p className="org-detail-hero__description">{details.task_description}</p>
+                      <div className="query-detail__block">
+                        <h2 className="query-detail__block-title">Описание задачи</h2>
+                        <p className="query-detail__text">{details.task_description}</p>
+                      </div>
                     )}
                     {details.completed_examples && (
-                      <p className="org-detail-hero__description">{details.completed_examples}</p>
+                      <div className="query-detail__block">
+                        <h2 className="query-detail__block-title">Примеры выполнения</h2>
+                        <p className="query-detail__text query-detail__text--muted">{details.completed_examples}</p>
+                      </div>
                     )}
-                    {details.grant_info && (
-                      <p className="org-detail-hero__description">Грант: {details.grant_info}</p>
+                    {details.linked_task_solution && (
+                      <div className="query-detail__block">
+                        <h2 className="query-detail__block-title">Связанная решённая задача</h2>
+                        <div className="query-detail__linked-task">
+                          <h3 className="query-detail__linked-task-title">{details.linked_task_solution.title}</h3>
+                          {(details.linked_task_solution.task_description || details.linked_task_solution.solution_description) && (
+                            <p className="query-detail__text">
+                              {(details.linked_task_solution.task_description || details.linked_task_solution.solution_description || "").length > 200
+                                ? `${(details.linked_task_solution.task_description || details.linked_task_solution.solution_description || "").slice(0, 200)}…`
+                                : (details.linked_task_solution.task_description || details.linked_task_solution.solution_description || "")}
+                            </p>
+                          )}
+                          <div className="query-detail__linked-task-meta">
+                            {details.linked_task_solution.solution_deadline && <span>Сроки: {details.linked_task_solution.solution_deadline}</span>}
+                            {details.linked_task_solution.grant_info && <span>Грант: {details.linked_task_solution.grant_info}</span>}
+                            {details.linked_task_solution.cost && <span>Стоимость: {details.linked_task_solution.cost}</span>}
+                          </div>
+                          {(details.linked_task_solution.laboratories || []).length > 0 && (
+                            <div className="query-detail-skills">
+                              {(details.linked_task_solution.laboratories || []).slice(0, 3).map((lab) => (
+                                <span key={lab.id} className="query-detail-skills__item">{lab.name}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -338,45 +352,37 @@ export default function Queries() {
                   {(details.employees || []).length === 0 && (
                     <p className="org-detail-section__empty">Сотрудники не указаны.</p>
                   )}
-                  <div className="org-detail-grid org-detail-grid--employees">
+                  <div className="query-contacts">
                     {(details.employees || []).map((employee) => (
-                      <div
+                      <button
                         key={employee.id}
-                        className="org-detail-card org-detail-card--employee org-detail-card--clickable"
-                        role="button"
-                        tabIndex={0}
+                        type="button"
+                        className="query-contact__card"
                         onClick={() => {
                           setEmployeePreview(employee);
                           setShowEmployeePublications(false);
                         }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setEmployeePreview(employee);
-                            setShowEmployeePublications(false);
-                          }
-                        }}
                       >
-                        <div className="org-detail-card__body">
+                        <span className="query-contact__avatar-wrap">
                           {employee.photo_url ? (
-                            <img className="org-detail-card__avatar" src={employee.photo_url} alt="" />
+                            <img className="query-contact__avatar" src={employee.photo_url} alt="" />
                           ) : (
-                            <div className="org-detail-card__avatar-placeholder">
+                            <span className="query-contact__avatar-placeholder">
                               {employee.full_name ? employee.full_name.charAt(0).toUpperCase() : "?"}
-                            </div>
+                            </span>
                           )}
-                          <h3 className="org-detail-card__title">{employee.full_name}</h3>
+                        </span>
+                        <span className="query-contact__body">
+                          <span className="query-contact__name">{employee.full_name}</span>
                           {employee.academic_degree && (
-                            <p className="org-detail-card__text org-detail-card__text--muted">
-                              {employee.academic_degree}
-                            </p>
+                            <span className="query-contact__meta">{employee.academic_degree}</span>
                           )}
                           {(employee.positions || []).length > 0 && (
-                            <p className="org-detail-card__text">{employee.positions.join(", ")}</p>
+                            <span className="query-contact__meta">{employee.positions.join(", ")}</span>
                           )}
-                          <span className="org-detail-card__cta">Профиль →</span>
-                        </div>
-                      </div>
+                          <span className="query-contact__cta">Открыть профиль →</span>
+                        </span>
+                      </button>
                     ))}
                   </div>
                 </div>

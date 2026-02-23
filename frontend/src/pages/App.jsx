@@ -17,6 +17,7 @@ import Vacancies from "./Vacancies";
 import Privacy from "./Privacy";
 import { useAuth } from "../auth/AuthContext";
 import NotificationsDropdown from "../components/NotificationsDropdown";
+import CookieBanner from "../components/CookieBanner";
 import { getOrCreateSessionId, getEntityFromPath, sendEvents } from "../analytics";
 
 const navLinkClass = ({ isActive }) => `nav-link${isActive ? " nav-link--active" : ""}`;
@@ -73,6 +74,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
+  useEffect(() => {
     const close = () => setMenuOpen(false);
     if (menuOpen) {
       document.body.classList.add("nav-open");
@@ -108,15 +113,15 @@ export default function App() {
               Главная
             </NavLink>
             {auth ? (
-              <>
+              <div className="nav__user">
                 <NotificationsDropdown />
                 <NavLink className={navLinkClass} to="/profile">
                   Профиль
                 </NavLink>
-                <button className="nav-cta" onClick={logout} type="button">
+                <button className="nav-cta nav-cta--ghost" onClick={logout} type="button">
                   Выйти
                 </button>
-              </>
+              </div>
             ) : (
               <Link className="nav-cta" to="/login">
                 Войти
@@ -143,35 +148,55 @@ export default function App() {
         >
           <div className="nav-drawer__backdrop" onClick={closeMenu} aria-hidden="true" />
           <div className="nav-drawer__panel">
-            <NavLink className={navLinkClass} to="/" end={true} onClick={closeMenu}>
-              Главная
-            </NavLink>
-            <NavLink className={navLinkClass} to="/laboratories" end={false} onClick={closeMenu}>
-              Лаборатории
-            </NavLink>
-            <NavLink className={navLinkClass} to="/organizations" end={false} onClick={closeMenu}>
-              Организации
-            </NavLink>
-            <NavLink className={navLinkClass} to="/queries" end={false} onClick={closeMenu}>
-              Запросы
-            </NavLink>
-            <NavLink className={navLinkClass} to="/vacancies" end={false} onClick={closeMenu}>
-              Вакансии
-            </NavLink>
-            {auth ? (
-              <>
-                <NavLink className={navLinkClass} to="/profile" onClick={closeMenu}>
-                  Профиль
-                </NavLink>
-                <button className="nav-cta nav-drawer__cta" onClick={() => { closeMenu(); logout(); }} type="button">
-                  Выйти
-                </button>
-              </>
-            ) : (
-              <Link className="nav-cta nav-drawer__cta" to="/login" onClick={closeMenu}>
-                Войти
-              </Link>
-            )}
+            <div className="nav-drawer__header">
+              <div className="nav-drawer__brand">Synthesium</div>
+              <button
+                type="button"
+                className="nav-drawer__close"
+                onClick={closeMenu}
+                aria-label="Закрыть меню"
+              >
+                ×
+              </button>
+            </div>
+            <div className="nav-drawer__links">
+              <NavLink className={navLinkClass} to="/" end={true} onClick={closeMenu}>
+                Главная
+              </NavLink>
+              <NavLink className={navLinkClass} to="/laboratories" end={false} onClick={closeMenu}>
+                Лаборатории
+              </NavLink>
+              <NavLink className={navLinkClass} to="/organizations" end={false} onClick={closeMenu}>
+                Организации
+              </NavLink>
+              <NavLink className={navLinkClass} to="/queries" end={false} onClick={closeMenu}>
+                Запросы
+              </NavLink>
+              <NavLink className={navLinkClass} to="/vacancies" end={false} onClick={closeMenu}>
+                Вакансии
+              </NavLink>
+              {auth ? (
+                <div className="nav-drawer__user">
+                  <NavLink className={navLinkClass} to="/profile" onClick={closeMenu}>
+                    Профиль
+                  </NavLink>
+                  <button
+                    className="nav-cta nav-cta--ghost nav-drawer__cta"
+                    onClick={() => {
+                      closeMenu();
+                      logout();
+                    }}
+                    type="button"
+                  >
+                    Выйти
+                  </button>
+                </div>
+              ) : (
+                <Link className="nav-cta nav-drawer__cta" to="/login" onClick={closeMenu}>
+                  Войти
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -200,6 +225,8 @@ export default function App() {
         </Routes>
       </div>
 
+      <CookieBanner />
+
       <footer className="footer">
         <div className="footer__content">
           <div className="footer__brand">Synthesium</div>
@@ -219,21 +246,6 @@ export default function App() {
             </address>
           </div>
           <div className="footer__nav">
-            <NavLink className={({ isActive }) => `footer__link${isActive ? " footer__link--active" : ""}`} to="/">
-              Главная
-            </NavLink>
-            <NavLink className={({ isActive }) => `footer__link${isActive ? " footer__link--active" : ""}`} to="/laboratories" end={false}>
-              Лаборатории
-            </NavLink>
-            <NavLink className={({ isActive }) => `footer__link${isActive ? " footer__link--active" : ""}`} to="/organizations" end={false}>
-              Организации
-            </NavLink>
-            <NavLink className={({ isActive }) => `footer__link${isActive ? " footer__link--active" : ""}`} to="/queries" end={false}>
-              Запросы
-            </NavLink>
-            <NavLink className={({ isActive }) => `footer__link${isActive ? " footer__link--active" : ""}`} to="/vacancies" end={false}>
-              Вакансии
-            </NavLink>
             <NavLink className={({ isActive }) => `footer__link${isActive ? " footer__link--active" : ""}`} to="/privacy">
               Политика конфиденциальности
             </NavLink>
