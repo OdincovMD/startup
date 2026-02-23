@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useMemo, useState } from "react";
-import { apiRequest, getStoredAuth, setStoredAuth } from "../api/client";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { apiRequest, getStoredAuth, setStoredAuth, setOnUnauthorized } from "../api/client";
 
 const AuthContext = createContext(null);
 
@@ -79,6 +79,11 @@ export function AuthProvider({ children }) {
     setAuth(nextAuth);
     setStoredAuth(nextAuth);
   };
+
+  useEffect(() => {
+    setOnUnauthorized(() => setAuth(null));
+    return () => setOnUnauthorized(() => {});
+  }, []);
 
   const value = useMemo(
     () => ({ auth, loading, error, login, register, logout, loginWithToken, refreshUser, updateUser }),

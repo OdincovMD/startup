@@ -158,7 +158,7 @@ export default function Profile() {
     researcher: ["summary", "personal", "researcher", "my-requests", "my-vacancy-responses"],
   };
 
-  const emailVerified = auth?.user?.email_verified === true;
+  const emailVerified = (profile?.email_verified ?? auth?.user?.email_verified) === true;
   const profileSection = (() => {
     const fromUrl = searchParams.get("section");
     const allowed = !emailVerified

@@ -41,9 +41,9 @@ ORCID_STATE_COOKIE = "orcid_state"
 ORCID_LINK_UID_COOKIE = "orcid_link_uid"
 
 
-def _create_access_token(subject: str) -> str:
+def _create_access_token(subject: str, token_version: int = 0) -> str:
     expires = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MIN)
-    payload = {"sub": subject, "exp": expires}
+    payload = {"sub": subject, "exp": expires, "v": token_version}
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
@@ -70,7 +70,7 @@ async def login(payload: LoginRequest):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not await AsyncOrm.verify_password(payload.password, user.hash_parameter):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    token = _create_access_token(str(user.id))
+    token = _create_access_token(str(user.id), getattr(user, "token_version", 0))
     return TokenResponse(access_token=token, user=user_to_read(user))
 
 
@@ -289,7 +289,7 @@ async def orcid_callback(
 
     user = await AsyncOrm.get_user_by_orcid(orcid)
     if user:
-        token = _create_access_token(str(user.id))
+        token = _create_access_token(str(user.id), getattr(user, "token_version", 0))
         response = RedirectResponse(url=f"{frontend}/auth/callback?token={token}", status_code=302)
     else:
         name_enc = quote(name, safe="")
@@ -317,5 +317,5 @@ async def orcid_complete(payload: OrcidCompleteRequest):
     verify_token = await AsyncOrm.create_verification_token(user.id)
     verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/verify-email?token={verify_token}"
     await asyncio.to_thread(send_verification_email, user.mail, verify_url)
-    token = _create_access_token(str(user.id))
+    token = _create_access_token(str(user.id), getattr(user, "token_version", 0))
     return TokenResponse(access_token=token, user=user_to_read(user))

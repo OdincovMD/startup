@@ -19,6 +19,11 @@ export const setStoredAuth = (auth) => {
   localStorage.setItem("labconnect_auth", JSON.stringify(auth));
 };
 
+let onUnauthorized = () => {};
+export function setOnUnauthorized(fn) {
+  onUnauthorized = typeof fn === "function" ? fn : () => {};
+}
+
 export async function apiRequest(path, options = {}) {
   const auth = getStoredAuth();
   const headers = {
@@ -28,14 +33,19 @@ export async function apiRequest(path, options = {}) {
   if (!isFormData) {
     headers["Content-Type"] = "application/json";
   }
-  if (auth?.token) {
+  if (!options.skipAuth && auth?.token) {
     headers.Authorization = `Bearer ${auth.token}`;
   }
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
   });
+  const hadAuth = !options.skipAuth && auth?.token;
   if (!response.ok) {
+    if (response.status === 401 && hadAuth) {
+      setStoredAuth(null);
+      onUnauthorized();
+    }
     let message = "Ошибка запроса";
     const text = await response.text();
     try {

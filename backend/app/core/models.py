@@ -50,6 +50,7 @@ class User(BaseModel):
     contacts = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     email_verified = Column(Boolean, nullable=False, server_default="false")
+    token_version = Column(Integer, nullable=False, server_default="0")
 
     @property
     def has_password(self) -> bool:

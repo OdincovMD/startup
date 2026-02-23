@@ -230,6 +230,7 @@ class SyncOrm:
             if not user:
                 raise ValueError("User not found")
             user.hash_parameter = SyncOrm.hash_password(password)
+            user.token_version = getattr(user, "token_version", 0) + 1
             session.commit()
             session.refresh(user)
             return user
@@ -371,6 +372,7 @@ class SyncOrm:
             if user.hash_parameter and SyncOrm.verify_password(new_password, user.hash_parameter):
                 raise ValueError("Новый пароль должен отличаться от текущего")
             user.hash_parameter = SyncOrm.hash_password(new_password)
+            user.token_version = getattr(user, "token_version", 0) + 1
             session.delete(rec)
             session.commit()
             session.refresh(user)

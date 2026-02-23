@@ -31,6 +31,9 @@ async def get_current_user(
     user = await AsyncOrm.get_user(user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    token_version = payload.get("v", 0)
+    if getattr(user, "token_version", 0) != token_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     return user
 
 

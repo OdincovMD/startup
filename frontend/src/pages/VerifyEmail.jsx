@@ -6,7 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { auth, refreshUser, updateUser } = useAuth();
+  const { auth, updateUser } = useAuth();
   const [status, setStatus] = useState("loading"); // loading | success | error
   const [errorMessage, setErrorMessage] = useState(null);
 
@@ -23,13 +23,10 @@ export default function VerifyEmail() {
         const user = await apiRequest("/auth/verify-email", {
           method: "POST",
           body: JSON.stringify({ token }),
+          skipAuth: true,
         });
-        if (!cancelled && auth?.token) {
-          if (user?.id != null) {
-            updateUser(user);
-          } else {
-            await refreshUser();
-          }
+        if (!cancelled && auth?.token && user?.id != null) {
+          updateUser(user);
         }
         if (!cancelled) setStatus("success");
       } catch (e) {
@@ -41,7 +38,7 @@ export default function VerifyEmail() {
     };
     verify();
     return () => { cancelled = true; };
-  }, [searchParams, auth?.token, refreshUser]);
+  }, [searchParams, auth?.token, updateUser]);
 
   if (status === "loading") {
     return (
