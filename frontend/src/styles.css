@@ -744,7 +744,7 @@ body.nav-open {
   align-items: center;
   justify-content: center;
   padding: 2rem 1.5rem;
-  background: linear-gradient(160deg, var(--page-bg) 0%, var(--page-bg-alt) 50%, var(--border-light) 100%);
+  background: var(--page-bg);
 }
 
 .auth-page .auth-wrapper {
