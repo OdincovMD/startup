@@ -7,6 +7,13 @@ import { apiRequest } from "../../api/client";
 
 const RESEND_COOLDOWN_SEC = 60;
 
+const ROLE_DESCRIPTIONS = {
+  researcher: "Ищете научные команды, лаборатории и позиции, развиваете личный научный профиль.",
+  lab_admin: "Администрируете профиль организации, управляете лабораториями, оборудованием и вакансиями.",
+  lab_representative: "Представляете конкретную лабораторию, обновляете её профиль и публикуете вакансии.",
+  student: "Делаете первые шаги в науке: стажировки, учебные проекты и первые роли.",
+};
+
 export default function ProfileSummary({
   loading,
   error,
@@ -105,30 +112,6 @@ export default function ProfileSummary({
 
   return (
     <div className="profile-summary-card">
-      {profile.email_verified === false && (
-        <div className="profile-summary-verify-banner">
-          <p className="profile-summary-verify-banner__title">Подтвердите email</p>
-          <p>Для полного доступа к разделам сайта нужно подтвердить адрес почты.</p>
-          {resendVerifyStatus === "sent" && <p className="profile-summary-verify-banner--success">Письмо отправлено. Проверьте почту.</p>}
-          {resendVerifyStatus === "error" && <p className="profile-summary-verify-banner--error">Не удалось отправить. Попробуйте позже.</p>}
-          <div className="profile-summary-verify-banner__actions">
-            <button
-              type="button"
-              className="profile-summary-verify-banner__btn"
-              onClick={handleResendVerification}
-              disabled={resendVerifyStatus === "sending" || cooldownSecondsLeft > 0}
-            >
-              {resendVerifyStatus === "sending"
-                ? "Отправка…"
-                : cooldownSecondsLeft > 0
-                  ? `Запросить ещё раз (${cooldownSecondsLeft} сек)`
-                  : resendVerifyStatus === "sent"
-                    ? "Запросить ещё раз"
-                    : "Запросить письмо"}
-            </button>
-          </div>
-        </div>
-      )}
       <div className="profile-summary-header">
         <button
           type="button"
@@ -157,17 +140,6 @@ export default function ProfileSummary({
           <h2 className="profile-summary-name">
             {profile.full_name?.trim() || profile.mail || "Профиль"}
           </h2>
-          <div className="profile-summary-meta">
-            <span className="profile-summary-role-badge">{roleName}</span>
-            {profile.email_verified !== undefined && (
-              <>
-                <span className="profile-summary-meta__sep">•</span>
-                <span className={profile.email_verified ? "profile-summary-meta--verified" : "profile-summary-meta--unverified"}>
-                  {profile.email_verified ? "Email подтверждён" : "Email не подтверждён"}
-                </span>
-              </>
-            )}
-          </div>
           {fieldItems.length > 0 && (
             <ul className="profile-summary-fields">
               {fieldItems.map((f) => (
@@ -192,36 +164,102 @@ export default function ProfileSummary({
         </div>
       </div>
 
-      {profile?.has_password && (
-        <div className="profile-summary-security">
-          <Link to="/forgot-password" className="profile-summary-link">Сбросить пароль</Link>
+      <div className="profile-summary-account">
+        <span className="profile-summary-block-label">Управление аккаунтом</span>
+        <div className="profile-summary-account-grid">
+          <div
+            className={
+              "profile-summary-account-item" +
+              (profile.email_verified ? " profile-summary-account-item--success" : "")
+            }
+          >
+            <span className="profile-summary-account-title">Email</span>
+            <p className="profile-summary-account-text">
+              {profile.email_verified
+                ? "Адрес подтверждён. Можно использовать его для входа и уведомлений."
+                : "Email не подтверждён. Подтвердите адрес, чтобы получить полный доступ и уведомления."}
+            </p>
+            {!profile.email_verified && (
+              <>
+                <button
+                  type="button"
+                  className="profile-summary-account-btn"
+                  onClick={handleResendVerification}
+                  disabled={resendVerifyStatus === "sending" || cooldownSecondsLeft > 0}
+                >
+                  {resendVerifyStatus === "sending"
+                    ? "Отправка…"
+                    : cooldownSecondsLeft > 0
+                      ? `Запросить ещё раз (${cooldownSecondsLeft} сек)`
+                      : "Отправить письмо ещё раз"}
+                </button>
+                {resendVerifyStatus === "sent" && (
+                  <p className="profile-summary-account-hint profile-summary-account-hint--success">
+                    Письмо отправлено. Проверьте почту.
+                  </p>
+                )}
+                {resendVerifyStatus === "error" && (
+                  <p className="profile-summary-account-hint profile-summary-account-hint--error">
+                    Не удалось отправить письмо. Попробуйте позже.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
+          {profile?.has_password && (
+            <div className="profile-summary-account-item">
+              <span className="profile-summary-account-title">Пароль</span>
+              <p className="profile-summary-account-text">
+                Сбросьте пароль, если забыли его или хотите сменить доступ.
+              </p>
+              <Link to="/forgot-password" className="profile-summary-account-link">
+                Сбросить пароль
+              </Link>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {roles?.length > 0 && (
         <div className="profile-summary-role-block">
           <span className="profile-summary-block-label">Роль</span>
-          <div className="inline-form profile-summary-role-form">
-            <select
-              value={selectedRoleId ?? ""}
-              onChange={(e) => onRoleChange(e.target.value)}
-              className="profile-summary-role-select"
-            >
-              {roles.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {roleLabelByName?.(role.name) ?? role.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={onRoleSave}
-              disabled={roleSaving || selectedRoleId === String(profile.role_id)}
-            >
-              {roleSaving ? "Сохраняем..." : "Сохранить роль"}
-            </button>
+          <p className="profile-summary-role-desc">
+            Роль определяет доступ к управлению аккаунтом.
+          </p>
+          <div className="profile-summary-role-grid">
+            {roles.map((role) => {
+              const idStr = String(role.id);
+              const isActive = String(selectedRoleId ?? profile.role_id) === idStr;
+              const label = roleLabelByName?.(role.name) ?? role.name;
+              const description =
+                ROLE_DESCRIPTIONS[role.name] || "Роль определяет видимые разделы и права в системе.";
+              return (
+                <button
+                  key={role.id}
+                  type="button"
+                  className={`profile-role-card ${isActive ? "profile-role-card--selected" : ""}`}
+                  onClick={() => onRoleChange(idStr)}
+                  disabled={roleSaving}
+                  title={description}
+                >
+                  <span className="profile-role-card__title">{label}</span>
+                  <span className="profile-role-card__description">{description}</span>
+                </button>
+              );
+            })}
           </div>
+          <button
+            type="button"
+            className="primary-btn profile-role-save-btn"
+            onClick={onRoleSave}
+            disabled={
+              roleSaving ||
+              String(selectedRoleId ?? profile.role_id) === String(profile.role_id)
+            }
+          >
+            {roleSaving ? "Сохраняем..." : "Сохранить роль"}
+          </button>
         </div>
       )}
 

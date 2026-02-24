@@ -83,6 +83,8 @@ export default function StaffTab({
   const editEducationInputRef = useRef(null);
   const draftPhotoInputRef = useRef(null);
   const editPhotoInputRef = useRef(null);
+  const newEmployeeRef = useRef(null);
+  const listRef = useRef(null);
 
   useEffect(() => {
     onFileInputRefsReady?.([draftPhotoInputRef, editPhotoInputRef]);
@@ -96,6 +98,27 @@ export default function StaffTab({
   const [expandedNewEmployee, setExpandedNewEmployee] = useState(false);
   const [expandedEditEducation, setExpandedEditEducation] = useState(false);
   const [expandedEditPublications, setExpandedEditPublications] = useState(false);
+
+  const handleAddEmployeeClick = () => {
+    setExpandedNewEmployee(true);
+    requestAnimationFrame(() => {
+      if (newEmployeeRef.current) {
+        newEmployeeRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  };
+
+  const handleCreateEmployee = async () => {
+    const ok = await createEmployee();
+    if (ok) {
+      setExpandedNewEmployee(false);
+      requestAnimationFrame(() => {
+        if (listRef.current) {
+          listRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    }
+  };
 
   const handleEmployeeImport = async () => {
     if (!employeeEditId || !employeeImportInput?.trim() || !importEmployeeOpenAlex) return;
@@ -133,11 +156,11 @@ export default function StaffTab({
     <div className="profile-form">
       <div className="lab-tab-header">
         <p className="lab-tab-desc">Добавляйте сотрудников организации. Можно импортировать данные из OpenAlex.</p>
-        <button type="button" className="primary-btn lab-btn-add" onClick={() => setExpandedNewEmployee(true)}>
+        <button type="button" className="primary-btn lab-btn-add" onClick={handleAddEmployeeClick}>
           + Добавить сотрудника
         </button>
       </div>
-      <div className="profile-list">
+      <div className="profile-list" ref={listRef}>
         {orgEmployees.length === 0 && <p className="muted">Сотрудники пока не добавлены.</p>}
         {orgEmployees.map((employee) => (
           <div key={employee.id} className="profile-list-card employee-card">
@@ -347,7 +370,10 @@ export default function StaffTab({
         </div>
       )}
 
-      <div className={`profile-form-collapsible ${expandedNewEmployee ? "expanded" : ""}`}>
+      <div
+        ref={newEmployeeRef}
+        className={`profile-form-collapsible ${expandedNewEmployee ? "expanded" : ""}`}
+      >
         <button type="button" className="profile-form-collapsible-header" onClick={() => setExpandedNewEmployee((prev) => !prev)} aria-expanded={expandedNewEmployee}>
           Новый сотрудник
         </button>
@@ -453,7 +479,7 @@ export default function StaffTab({
             <label>Telegram <input value={employeeDraft.contacts?.telegram || ""} onChange={(e) => handleEmployeeContacts("telegram", e.target.value, false)} placeholder="@username" /></label>
           </div>
           <div className="lab-form-actions lab-form-actions--create">
-            <button className="primary-btn lab-btn-save" onClick={createEmployee} disabled={saving}>{saving ? "Сохранение…" : "Создать сотрудника"}</button>
+            <button className="primary-btn lab-btn-save" onClick={handleCreateEmployee} disabled={saving}>{saving ? "Сохранение…" : "Создать сотрудника"}</button>
           </div>
         </div>
       </div>

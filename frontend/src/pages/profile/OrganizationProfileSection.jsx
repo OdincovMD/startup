@@ -171,7 +171,6 @@ export default function OrganizationProfileSection({
 
       {orgTab === "labs" && (
         <>
-          <p className="profile-tab-desc">Добавляйте лаборатории, привязывайте к ним оборудование, задачи и сотрудников.</p>
         <LaboratoriesTab
           labDraft={labDraft}
           handleLabDraft={handleLabDraft}
@@ -208,7 +207,6 @@ export default function OrganizationProfileSection({
 
       {orgTab === "equipment" && (
         <>
-          <p className="profile-tab-desc">Опишите оборудование и привяжите его к лабораториям.</p>
         <EquipmentTab
           equipmentDraft={equipmentDraft}
           handleEquipmentDraft={handleEquipmentDraft}
@@ -329,7 +327,6 @@ export default function OrganizationProfileSection({
 
       {orgTab === "vacancies" && (
         <>
-          <p className="profile-tab-desc">Добавляйте позиции и связывайте их с лабораториями и запросами.</p>
         <VacanciesTab
           vacancyDraft={vacancyDraft}
           setVacancyDraft={setVacancyDraft}

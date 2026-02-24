@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 
 const STATUS_OPTIONS = [
   { value: "active", label: "Активный", hint: "Запрос открыт для откликов" },
@@ -31,24 +31,54 @@ export default function QueriesTab({
   saving,
 }) {
   const [expandedNewQuery, setExpandedNewQuery] = useState(false);
+  const newQueryRef = useRef(null);
+  const listRef = useRef(null);
+
+  const handleAddQueryClick = () => {
+    setExpandedNewQuery(true);
+    requestAnimationFrame(() => {
+      if (newQueryRef.current) {
+        newQueryRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  };
+
+  const handleCreateQuery = async () => {
+    const ok = await createQuery();
+    if (ok) {
+      setExpandedNewQuery(false);
+      requestAnimationFrame(() => {
+        if (listRef.current) {
+          listRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    }
+  };
 
   return (
     <div className="profile-form">
       <div className="lab-tab-header">
         <p className="lab-tab-desc">Создавайте запросы на решение задач, указывайте бюджет, сроки и грант. Привязывайте к лабораториям и сотрудникам.</p>
-        <button type="button" className="primary-btn lab-btn-add" onClick={() => setExpandedNewQuery(true)}>
+        <button type="button" className="primary-btn lab-btn-add" onClick={handleAddQueryClick}>
           + Добавить запрос
         </button>
       </div>
-      <div className="profile-list">
+      <div className="profile-list" ref={listRef}>
         {orgQueries.length === 0 && <p className="muted">Запросы пока не добавлены.</p>}
         {orgQueries.map((query) => (
           <div key={query.id} className="profile-list-card query-card">
             <div className="profile-list-content">
-              <div className="profile-list-title">{query.title}</div>
+              <div className="profile-list-title">
+                {query.title}
+                <span
+                  className={`org-detail-chip org-detail-chip--status ${query.is_published ? "org-detail-chip--published" : "org-detail-chip--draft"}`}
+                  title={query.is_published ? "Запрос опубликован" : "Черновик запроса"}
+                >
+                  {query.is_published ? "Опубликован" : "Черновик"}
+                </span>
+              </div>
               <div className="profile-list-text small muted">
-                {query.is_published ? "Опубликовано" : "Черновик"}
-                {query.status && ` · ${STATUS_OPTIONS.find((o) => o.value === query.status)?.label || query.status}`}
+                {query.status && `Статус: ${STATUS_OPTIONS.find((o) => o.value === query.status)?.label || query.status}`}
               </div>
               {query.task_description && (
                 <div className="profile-list-text" title={query.task_description}>
@@ -178,7 +208,10 @@ export default function QueriesTab({
         ))}
       </div>
 
-      <div className={`profile-form-collapsible ${expandedNewQuery ? "expanded" : ""}`}>
+      <div
+        ref={newQueryRef}
+        className={`profile-form-collapsible ${expandedNewQuery ? "expanded" : ""}`}
+      >
         <button type="button" className="profile-form-collapsible-header" onClick={() => setExpandedNewQuery((prev) => !prev)} aria-expanded={expandedNewQuery}>
           Новый запрос
         </button>
@@ -252,7 +285,7 @@ export default function QueriesTab({
             )}
           </div>
           <div className="lab-form-actions lab-form-actions--create">
-            <button className="primary-btn lab-btn-save" onClick={createQuery} disabled={saving}>{saving ? "Сохранение…" : "Создать запрос"}</button>
+            <button className="primary-btn lab-btn-save" onClick={handleCreateQuery} disabled={saving}>{saving ? "Сохранение…" : "Создать запрос"}</button>
           </div>
         </div>
       </div>

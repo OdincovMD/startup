@@ -8,10 +8,12 @@ const ORCID_ERROR_MESSAGES = {
   no_code: "ORCID не вернул код авторизации.",
   token_exchange_failed: "Не удалось получить данные от ORCID.",
   no_orcid: "ORCID не вернул идентификатор.",
+  orcid_already_linked:
+    "Этот ORCID уже привязан к другому аккаунту. Войдите в тот аккаунт, чтобы использовать его, или отвяжите ORCID там, чтобы привязать к текущему.",
 };
 
 export default function Login() {
-  const { login, loading } = useAuth();
+  const { login, loading, auth } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [form, setForm] = useState({ mail: "", password: "" });
   const [error, setError] = useState(null);
@@ -19,11 +21,20 @@ export default function Login() {
 
   useEffect(() => {
     const err = searchParams.get("error");
+
+    // Если пользователь уже авторизован и пришёл с ошибкой ORCID,
+    // не держим его на экране входа: возвращаем в профиль с понятным сообщением.
+    if (auth?.token && (err === "orcid_already_linked" || err === "invalid_state")) {
+      setSearchParams({}, { replace: true });
+      navigate("/profile?error=link_failed", { replace: true });
+      return;
+    }
+
     if (err && ORCID_ERROR_MESSAGES[err]) {
       setError(ORCID_ERROR_MESSAGES[err]);
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, auth, navigate]);
   const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
   const clearError = () => setError(null);

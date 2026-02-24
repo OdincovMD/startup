@@ -99,6 +99,20 @@ function getNotificationLink(n) {
   }
 }
 
+const NAVIGABLE_NOTIFICATION_TYPES = new Set([
+  "lab_join_request_created",
+  "lab_join_approved",
+  "lab_join_rejected",
+  "lab_join_removed",
+  "lab_deleted",
+  "org_join_request_created",
+  "org_join_approved",
+  "org_join_rejected",
+  "org_join_left",
+  "vacancy_response_created",
+  "vacancy_response_status_changed",
+]);
+
 export default function NotificationsDropdown() {
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -143,10 +157,12 @@ export default function NotificationsDropdown() {
       await apiRequest(`/profile/notifications/${n.id}/read`, { method: "PATCH" });
       setNotifications((prev) => prev.filter((x) => x.id !== n.id));
       loadUnread();
-      setOpen(false);
-      const { path, tab } = getNotificationLink(n);
-      navigate(tab ? `${path}?tab=${tab}` : path);
-      setTimeout(() => window.dispatchEvent(new CustomEvent("profile-refresh")), 100);
+      if (NAVIGABLE_NOTIFICATION_TYPES.has(n.type)) {
+        setOpen(false);
+        const { path, tab } = getNotificationLink(n);
+        navigate(tab ? `${path}?tab=${tab}` : path);
+        setTimeout(() => window.dispatchEvent(new CustomEvent("profile-refresh")), 100);
+      }
     } catch {
       /* ignore */
     }

@@ -169,7 +169,11 @@ export default function ProfileSidebar({
                     className="profile-sidebar__hide-org"
                     onClick={handleHideOrg}
                     title="Скрыть блок из меню"
-                    aria-label="Скрыть профиль организации из меню"
+                    aria-label={
+                      roleKey === "lab_representative"
+                        ? "Скрыть профиль лаборатории из меню"
+                        : "Скрыть профиль организации из меню"
+                    }
                   >
                     −
                   </button>
@@ -217,7 +221,9 @@ export default function ProfileSidebar({
               onClick={handleShowOrg}
               title="Вернуть блок в меню"
             >
-              Показать профиль организации
+              {roleKey === "lab_representative"
+                ? "Показать профиль лаборатории"
+                : "Показать профиль организации"}
             </button>
           </li>
         )}

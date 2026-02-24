@@ -177,6 +177,7 @@ export default function App() {
               </NavLink>
               {auth ? (
                 <div className="nav-drawer__user">
+                  <NotificationsDropdown />
                   <NavLink className={navLinkClass} to="/profile" onClick={closeMenu}>
                     Профиль
                   </NavLink>

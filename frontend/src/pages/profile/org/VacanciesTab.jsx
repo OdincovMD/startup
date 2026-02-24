@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 
 /**
  * Вкладка «Вакансии»: список вакансий, форма новой и редактирование.
@@ -25,6 +25,29 @@ export default function VacanciesTab({
   saving,
 }) {
   const [expandedNewVacancy, setExpandedNewVacancy] = useState(false);
+  const newVacancyRef = useRef(null);
+  const listRef = useRef(null);
+
+  const handleAddVacancyClick = () => {
+    setExpandedNewVacancy(true);
+    requestAnimationFrame(() => {
+      if (newVacancyRef.current) {
+        newVacancyRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  };
+
+  const handleCreateVacancy = async () => {
+    const ok = await createVacancy();
+    if (ok) {
+      setExpandedNewVacancy(false);
+      requestAnimationFrame(() => {
+        if (listRef.current) {
+          listRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    }
+  };
 
   const renderContactMeta = (vacancy) => {
     if (vacancy.contact_employee || vacancy.contact_employee_id) {
@@ -133,11 +156,11 @@ export default function VacanciesTab({
     <div className="profile-form">
       <div className="lab-tab-header">
         <p className="lab-tab-desc">Добавляйте вакансии, привязывайте к запросам и лабораториям. Укажите контактное лицо (сотрудника) или email и телефон для связи.</p>
-        <button type="button" className="primary-btn lab-btn-add" onClick={() => setExpandedNewVacancy(true)}>
+        <button type="button" className="primary-btn lab-btn-add" onClick={handleAddVacancyClick}>
           + Добавить вакансию
         </button>
       </div>
-      <div className="profile-list">
+      <div className="profile-list" ref={listRef}>
         {orgVacancies.length === 0 && <p className="muted">Вакансии пока не добавлены.</p>}
         {orgVacancies.map((vacancy) => (
           <div key={vacancy.id} className="profile-list-card">
@@ -213,7 +236,10 @@ export default function VacanciesTab({
         ))}
       </div>
 
-      <div className={`profile-form-collapsible ${expandedNewVacancy ? "expanded" : ""}`}>
+      <div
+        ref={newVacancyRef}
+        className={`profile-form-collapsible ${expandedNewVacancy ? "expanded" : ""}`}
+      >
         <button type="button" className="profile-form-collapsible-header" onClick={() => setExpandedNewVacancy((prev) => !prev)} aria-expanded={expandedNewVacancy}>
           Новая вакансия
         </button>
@@ -240,7 +266,7 @@ export default function VacanciesTab({
             {renderContactBlock(vacancyDraft, setVacancyDraft)}
           </div>
           <div className="lab-form-actions lab-form-actions--create">
-            <button className="primary-btn lab-btn-save" onClick={createVacancy} disabled={saving}>{saving ? "Сохранение…" : "Создать вакансию"}</button>
+            <button className="primary-btn lab-btn-save" onClick={handleCreateVacancy} disabled={saving}>{saving ? "Сохранение…" : "Создать вакансию"}</button>
           </div>
         </div>
       </div>

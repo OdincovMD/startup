@@ -31,6 +31,8 @@ export default function EquipmentTab({
 }) {
   const draftFilesInputRef = useRef(null);
   const editFilesInputRef = useRef(null);
+  const newEquipmentRef = useRef(null);
+  const listRef = useRef(null);
 
   useEffect(() => {
     onFileInputRefsReady?.([draftFilesInputRef, editFilesInputRef]);
@@ -49,6 +51,27 @@ export default function EquipmentTab({
     );
   };
 
+  const handleAddEquipmentClick = () => {
+    setExpandedNewEquipment(true);
+    requestAnimationFrame(() => {
+      if (newEquipmentRef.current) {
+        newEquipmentRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  };
+
+  const handleCreateEquipment = async () => {
+    const ok = await createEquipment();
+    if (ok) {
+      setExpandedNewEquipment(false);
+      requestAnimationFrame(() => {
+        if (listRef.current) {
+          listRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    }
+  };
+
   return (
     <div className="profile-form">
       <div className="lab-tab-header">
@@ -56,12 +79,12 @@ export default function EquipmentTab({
         <button
           type="button"
           className="primary-btn lab-btn-add"
-          onClick={() => setExpandedNewEquipment(true)}
+          onClick={handleAddEquipmentClick}
         >
           + Добавить оборудование
         </button>
       </div>
-      <div className="profile-list">
+      <div className="profile-list" ref={listRef}>
         {orgEquipment.length === 0 && <p className="muted">Оборудование пока не добавлено.</p>}
         {orgEquipment.map((item) => (
           <div key={item.id} className="profile-list-card">
@@ -230,7 +253,10 @@ export default function EquipmentTab({
         ))}
       </div>
 
-      <div className={`profile-form-collapsible ${expandedNewEquipment ? "expanded" : ""}`}>
+      <div
+        ref={newEquipmentRef}
+        className={`profile-form-collapsible ${expandedNewEquipment ? "expanded" : ""}`}
+      >
         <button
           type="button"
           className="profile-form-collapsible-header"
@@ -368,7 +394,7 @@ export default function EquipmentTab({
             )}
           </div>
           <div className="lab-form-actions lab-form-actions--create">
-            <button className="primary-btn lab-btn-save" onClick={createEquipment} disabled={saving}>
+            <button className="primary-btn lab-btn-save" onClick={handleCreateEquipment} disabled={saving}>
               {saving ? "Сохранение…" : "Создать оборудование"}
             </button>
           </div>

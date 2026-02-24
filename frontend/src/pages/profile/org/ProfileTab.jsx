@@ -25,7 +25,17 @@ export default function ProfileTab({
   return (
     <div className="profile-form profile-form--grouped org-profile-tab">
       <div className="profile-form-group">
-        <div className="profile-form-group-title">Основные данные</div>
+        <div className="profile-form-group-title">
+          Основные данные
+          {orgProfile && orgProfile.name && (
+            <span
+              className={`org-detail-chip org-detail-chip--status ${orgProfile.is_published ? "org-detail-chip--published" : "org-detail-chip--draft"}`}
+              style={{ marginLeft: "0.5rem" }}
+            >
+              {orgProfile.is_published ? "Опубликована" : "Черновик"}
+            </span>
+          )}
+        </div>
         <label>
           Название организации
           <input

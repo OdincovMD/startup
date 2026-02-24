@@ -24,6 +24,8 @@ export default function TasksTab({
   const [expandedNewTask, setExpandedNewTask] = useState(false);
   const draftLinkInputRef = useRef(null);
   const editLinkInputRef = useRef(null);
+  const newTaskRef = useRef(null);
+  const listRef = useRef(null);
 
   const addArticleLink = (isEdit) => {
     if (isEdit && taskEdit) {
@@ -86,15 +88,36 @@ export default function TasksTab({
 
   const linksList = (task) => (task?.article_links || []).filter(Boolean);
 
+  const handleAddTaskClick = () => {
+    setExpandedNewTask(true);
+    requestAnimationFrame(() => {
+      if (newTaskRef.current) {
+        newTaskRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  };
+
+  const handleCreateTask = async () => {
+    const ok = await createTask();
+    if (ok) {
+      setExpandedNewTask(false);
+      requestAnimationFrame(() => {
+        if (listRef.current) {
+          listRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    }
+  };
+
   return (
     <div className="profile-form">
       <div className="lab-tab-header">
         <p className="lab-tab-desc">Добавляйте решённые задачи, указывайте сроки и грант, привязывайте к лабораториям.</p>
-        <button type="button" className="primary-btn lab-btn-add" onClick={() => setExpandedNewTask(true)}>
+        <button type="button" className="primary-btn lab-btn-add" onClick={handleAddTaskClick}>
           + Добавить задачу
         </button>
       </div>
-      <div className="profile-list">
+      <div className="profile-list" ref={listRef}>
         {orgTasks.length === 0 && <p className="muted">Задачи пока не добавлены.</p>}
         {orgTasks.map((task) => (
           <div key={task.id} className="profile-list-card">
@@ -196,7 +219,10 @@ export default function TasksTab({
         ))}
       </div>
 
-      <div className={`profile-form-collapsible ${expandedNewTask ? "expanded" : ""}`}>
+      <div
+        ref={newTaskRef}
+        className={`profile-form-collapsible ${expandedNewTask ? "expanded" : ""}`}
+      >
         <button type="button" className="profile-form-collapsible-header" onClick={() => setExpandedNewTask((prev) => !prev)} aria-expanded={expandedNewTask}>
           Новая решённая задача
         </button>
@@ -246,7 +272,7 @@ export default function TasksTab({
             )}
           </div>
           <div className="lab-form-actions lab-form-actions--create">
-            <button className="primary-btn lab-btn-save" onClick={createTask} disabled={saving}>{saving ? "Сохранение…" : "Создать задачу"}</button>
+            <button className="primary-btn lab-btn-save" onClick={handleCreateTask} disabled={saving}>{saving ? "Сохранение…" : "Создать задачу"}</button>
           </div>
         </div>
       </div>

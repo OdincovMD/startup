@@ -130,6 +130,7 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const errorRef = useRef(null);
   const [orcidError, setOrcidError] = useState(null);
   const researcherFileInputRefs = React.useRef([]);
   const studentFileInputRefs = React.useRef([]);
@@ -138,6 +139,12 @@ export default function Profile() {
   const orgEquipmentFileInputRefs = React.useRef([]);
   const orgLabFileInputRefs = React.useRef([]);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (error && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [error]);
 
   const clearFileInputs = (refs) => {
     (refs?.current ?? refs)?.forEach((r) => r?.current && (r.current.value = ""));
@@ -1069,7 +1076,7 @@ export default function Profile() {
       };
       if (!payload.full_name) {
         setError("Укажите ФИО сотрудника.");
-        return;
+        return false;
       }
       const created = await apiRequest("/profile/organization/employees", {
         method: "POST",
@@ -1094,8 +1101,10 @@ export default function Profile() {
       });
       setEmployeeDraftPositionInput("");
       setShowDraftPublications(false);
+      return true;
     } catch (e) {
       setError(e.message);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -1279,7 +1288,7 @@ export default function Profile() {
       };
       if (!payload.name) {
         setError("Укажите название оборудования.");
-        return;
+        return false;
       }
       const created = await apiRequest("/profile/organization/equipment", {
         method: "POST",
@@ -1288,8 +1297,10 @@ export default function Profile() {
       setOrgEquipment((prev) => [created, ...prev]);
       clearFileInputs(orgEquipmentFileInputRefs);
       setEquipmentDraft({ name: "", description: "", characteristics: "", image_urls: [], laboratory_ids: [] });
+      return true;
     } catch (e) {
       setError(e.message);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -1324,7 +1335,7 @@ export default function Profile() {
       };
       if (!payload.name) {
         setError("Укажите название лаборатории.");
-        return;
+        return false;
       }
       const created = await apiRequest("/profile/organization/laboratories", {
         method: "POST",
@@ -1342,8 +1353,10 @@ export default function Profile() {
         equipment_ids: [],
         task_solution_ids: [],
       });
+      return true;
     } catch (e) {
       setError(e.message);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -1379,7 +1392,7 @@ export default function Profile() {
       };
       if (!payload.title) {
         setError("Укажите название задачи.");
-        return;
+        return false;
       }
       const created = await apiRequest("/profile/organization/tasks", {
         method: "POST",
@@ -1397,8 +1410,10 @@ export default function Profile() {
         external_solutions: "",
         laboratory_ids: [],
       });
+      return true;
     } catch (e) {
       setError(e.message);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -1539,8 +1554,10 @@ export default function Profile() {
         laboratory_ids: [],
         employee_ids: [],
       });
+      return true;
     } catch (e) {
       setError(e.message);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -1616,7 +1633,7 @@ export default function Profile() {
       const phone = (vacancyDraft.contact_phone || "").trim();
       if (!email || !phone) {
         setError("Укажите контактное лицо (сотрудника) или заполните email и телефон для связи.");
-        return;
+        return false;
       }
     }
     setSaving(true);
@@ -1649,8 +1666,10 @@ export default function Profile() {
         contact_email: "",
         contact_phone: "",
       });
+      return true;
     } catch (e) {
       setError(e.message);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -1945,7 +1964,7 @@ export default function Profile() {
         <h1 className="profile-page-title">Профиль</h1>
       </header>
       {error && (
-        <div className="profile-error-banner" role="alert">
+        <div ref={errorRef} className="profile-error-banner" role="alert">
           <span>{error}</span>
           <button type="button" onClick={clearError} aria-label="Закрыть">×</button>
         </div>
@@ -2212,6 +2231,14 @@ export default function Profile() {
             )}
           </div>
         </div>
+      </div>
+      <div className="profile-actions profile-actions--mobile">
+        <button type="button" className="ghost-btn" onClick={() => navigate("/")}>
+          На главную
+        </button>
+        <button type="button" className="primary-btn" onClick={logout}>
+          Выйти
+        </button>
       </div>
       <GalleryModal
         gallery={gallery}

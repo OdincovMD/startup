@@ -37,11 +37,34 @@ export default function LaboratoriesTab({
 }) {
   const draftFilesInputRef = useRef(null);
   const editFilesInputRef = useRef(null);
+  const newLabRef = useRef(null);
+  const listRef = useRef(null);
   const [expandedNewLab, setExpandedNewLab] = useState(false);
 
   useEffect(() => {
     onFileInputRefsReady?.([draftFilesInputRef, editFilesInputRef]);
   }, [onFileInputRefsReady]);
+
+  const handleAddLabClick = () => {
+    setExpandedNewLab(true);
+    requestAnimationFrame(() => {
+      if (newLabRef.current) {
+        newLabRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  };
+
+  const handleCreateLab = async () => {
+    const ok = await createLab();
+    if (ok) {
+      setExpandedNewLab(false);
+      requestAnimationFrame(() => {
+        if (listRef.current) {
+          listRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    }
+  };
 
   return (
     <div className="profile-form">
@@ -50,19 +73,24 @@ export default function LaboratoriesTab({
         <button
           type="button"
           className="primary-btn lab-btn-add"
-          onClick={() => setExpandedNewLab(true)}
+          onClick={handleAddLabClick}
         >
           + Добавить лабораторию
         </button>
       </div>
-      <div className="profile-list">
+      <div className="profile-list" ref={listRef}>
         {orgLabs.length === 0 && <p className="muted">Лаборатории пока не добавлены.</p>}
         {orgLabs.map((lab) => (
           <div key={lab.id} className="profile-list-card">
             <div className="profile-list-content">
-              <div className="profile-list-title">{lab.name}</div>
-              <div className="profile-list-text small muted">
-                {lab.is_published ? "Опубликовано" : "Черновик (видно только вам)"}
+              <div className="profile-list-title">
+                {lab.name}
+                <span
+                  className={`org-detail-chip org-detail-chip--status ${lab.is_published ? "org-detail-chip--published" : "org-detail-chip--draft"}`}
+                  title={lab.is_published ? "Лаборатория опубликована" : "Черновик — видно только вам"}
+                >
+                  {lab.is_published ? "Опубликовано" : "Черновик"}
+                </span>
               </div>
               {lab.head_employee && (
                 <div className="lab-head-badge">
@@ -335,7 +363,10 @@ export default function LaboratoriesTab({
         ))}
       </div>
 
-      <div className={`profile-form-collapsible ${expandedNewLab ? "expanded" : ""}`}>
+      <div
+        ref={newLabRef}
+        className={`profile-form-collapsible ${expandedNewLab ? "expanded" : ""}`}
+      >
         <button
           type="button"
           className="profile-form-collapsible-header"
@@ -553,7 +584,7 @@ export default function LaboratoriesTab({
         )}
       </div>
       <div className="lab-form-actions lab-form-actions--create">
-        <button className="primary-btn lab-btn-save" onClick={createLab} disabled={saving}>
+        <button className="primary-btn lab-btn-save" onClick={handleCreateLab} disabled={saving}>
           {saving ? "Сохранение…" : "Создать лабораторию"}
         </button>
       </div>
