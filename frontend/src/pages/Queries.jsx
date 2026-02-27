@@ -64,8 +64,8 @@ export default function Queries() {
     navigate(`/queries/${publicIdValue}`);
   };
 
-  const backToList = () => {
-    navigate("/queries");
+  const goBack = () => {
+    navigate(-1);
   };
 
   const openLab = (publicIdValue) => {
@@ -205,8 +205,8 @@ export default function Queries() {
             {!details && !loadingDetails && error && <p className="error">{error}</p>}
             {details && (
               <div className="org-details">
-                <button className="org-detail-back" onClick={backToList} type="button">
-                  ← Назад к списку
+                <button className="org-detail-back" onClick={goBack} type="button">
+                  ← Назад
                 </button>
                 <div className="org-detail-hero">
                   <div className="org-detail-hero__media">

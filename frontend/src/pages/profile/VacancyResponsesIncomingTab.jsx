@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
+import { useToast } from "../../ToastContext";
 
 const STATUS_OPTIONS = [
   { value: "new", label: "Новый" },
@@ -14,6 +15,7 @@ const STATUS_OPTIONS = [
 const STATUS_CHIP = { new: "Новый", accepted: "Принят", rejected: "Отклонён" };
 
 export default function VacancyResponsesIncomingTab({ onError }) {
+  const { showToast } = useToast();
   const [list, setList] = useState([]);
   const [vacancyStats, setVacancyStats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +58,7 @@ export default function VacancyResponsesIncomingTab({ onError }) {
         prev.map((r) => (r.id === responseId ? { ...r, status } : r))
       );
       window.dispatchEvent(new CustomEvent("profile-refresh"));
+      showToast("Статус обновлён");
     } catch (e) {
       onError?.(e.message);
     } finally {

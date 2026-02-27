@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     MAIL_FROM: str = ""
-    MAIL_FROM_NAME: str = "Synthesium"
+    MAIL_FROM_NAME: str = "Синтезум"
 
     @property
     def DATABASE_URL_pg(self) -> str:

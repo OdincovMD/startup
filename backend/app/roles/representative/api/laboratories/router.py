@@ -119,6 +119,12 @@ async def update_org_laboratory(
 
 @router.delete("/organization/laboratories/{laboratory_id}")
 async def delete_org_laboratory(laboratory_id: int, current_user=Depends(get_current_user)):
+    has_published = await AsyncOrm.has_published_vacancies_or_queries_for_lab(laboratory_id)
+    if has_published:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Снимите с публикации связанные запросы и вакансии, затем удалите лабораторию.",
+        )
     org = await AsyncOrm.get_organization_for_user(current_user.id)
     if org:
         deleted, lab_rep_user_id, lab_name = await AsyncOrm.delete_laboratory(

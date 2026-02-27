@@ -95,8 +95,11 @@ export default function App() {
     <div className="page">
       <header className="header">
         <div className="header__inner">
-          <Link className="logo" to="/" onClick={closeMenu}>Synthesium</Link>
-          <nav className="nav" aria-label="Основное меню">
+          <Link className="logo" to="/" onClick={closeMenu}>
+            Синтезум
+          </Link>
+          <div className="header__right">
+            <nav className="nav" aria-label="Основное меню">
             <NavLink className={navLinkClass} to="/laboratories" end={false}>
               Лаборатории
             </NavLink>
@@ -127,19 +130,27 @@ export default function App() {
                 Войти
               </Link>
             )}
-          </nav>
-          <button
-            type="button"
-            className="nav-burger"
-            aria-expanded={menuOpen}
-            aria-controls="nav-drawer"
-            aria-label={menuOpen ? "Закрыть меню" : "Открыть меню"}
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            <span className="nav-burger__line" />
-            <span className="nav-burger__line" />
-            <span className="nav-burger__line" />
-          </button>
+            </nav>
+            <div className="nav-mobile-actions">
+              {auth && (
+                <div className="nav-mobile-notifications">
+                  <NotificationsDropdown />
+                </div>
+              )}
+              <button
+                type="button"
+                className="nav-burger"
+                aria-expanded={menuOpen}
+                aria-controls="nav-drawer"
+                aria-label={menuOpen ? "Закрыть меню" : "Открыть меню"}
+                onClick={() => setMenuOpen((v) => !v)}
+              >
+                <span className="nav-burger__line" />
+                <span className="nav-burger__line" />
+                <span className="nav-burger__line" />
+              </button>
+            </div>
+          </div>
         </div>
         <div
           id="nav-drawer"
@@ -149,7 +160,7 @@ export default function App() {
           <div className="nav-drawer__backdrop" onClick={closeMenu} aria-hidden="true" />
           <div className="nav-drawer__panel">
             <div className="nav-drawer__header">
-              <div className="nav-drawer__brand">Synthesium</div>
+              <div className="nav-drawer__brand">Синтезум</div>
               <button
                 type="button"
                 className="nav-drawer__close"
@@ -177,7 +188,6 @@ export default function App() {
               </NavLink>
               {auth ? (
                 <div className="nav-drawer__user">
-                  <NotificationsDropdown />
                   <NavLink className={navLinkClass} to="/profile" onClick={closeMenu}>
                     Профиль
                   </NavLink>
@@ -230,7 +240,7 @@ export default function App() {
 
       <footer className="footer">
         <div className="footer__content">
-          <div className="footer__brand">Synthesium</div>
+          <div className="footer__brand">Синтезум</div>
           <p className="footer__grant">
             Проект реализован при поддержке Фонда содействия инновациям в рамках программы «Студенческий
             стартап» мероприятия «Платформа университетского технологического предпринимательства»
@@ -252,7 +262,7 @@ export default function App() {
             </NavLink>
           </div>
         </div>
-        <div className="footer__copy">© 2026 Synthesium</div>
+        <div className="footer__copy">© 2026 Синтезум</div>
       </footer>
     </div>
   );

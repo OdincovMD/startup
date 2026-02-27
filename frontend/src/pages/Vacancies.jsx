@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../ToastContext";
 import EmployeeModal from "./profile/EmployeeModal";
 
 const RESPONSE_STATUS_LABELS = { new: "Новый", accepted: "Принят", rejected: "Отклонен" };
@@ -24,6 +25,7 @@ function parseSkillsFromRequirements(requirements, description) {
 
 export default function Vacancies() {
   const { auth } = useAuth();
+  const { showToast } = useToast();
   const [vacancies, setVacancies] = useState([]);
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -103,6 +105,7 @@ export default function Vacancies() {
     try {
       const data = await apiRequest(`/vacancies/public/${selectedId}/respond`, { method: "POST" });
       setMyResponse({ has_response: true, id: data.id, status: data.status });
+      showToast("Отклик отправлен");
     } catch (e) {
       setRespondError(e.message || "Не удалось отправить отклик");
     } finally {
@@ -129,8 +132,8 @@ export default function Vacancies() {
     navigate(`/queries/${publicIdValue}`);
   };
 
-  const backToList = () => {
-    navigate("/vacancies");
+  const goBack = () => {
+    navigate(-1);
   };
 
   return (
@@ -230,8 +233,8 @@ export default function Vacancies() {
             {!details && !loadingDetails && error && <p className="error">{error}</p>}
             {details && (
               <div className="org-details">
-                <button className="org-detail-back" onClick={backToList} type="button">
-                  ← Назад к списку
+                <button className="org-detail-back" onClick={goBack} type="button">
+                  ← Назад
                 </button>
                 <div className="org-detail-hero">
                   <div className="org-detail-hero__media">

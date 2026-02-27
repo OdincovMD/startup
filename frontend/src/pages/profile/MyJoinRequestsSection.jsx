@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiRequest } from "../../api/client";
+import { useToast } from "../../ToastContext";
 
 const STATUS_CONFIG = {
   pending: { label: "На рассмотрении", className: "status-badge--pending" },
@@ -107,6 +108,7 @@ function LoadingSkeleton() {
 }
 
 export default function MyJoinRequestsSection({ roleKey, onError, creatorLabs = [] }) {
+  const { showToast } = useToast();
   const [data, setData] = useState({ lab: [], org: [] });
   const [loading, setLoading] = useState(true);
   const [joiningLab, setJoiningLab] = useState(false);
@@ -154,6 +156,7 @@ export default function MyJoinRequestsSection({ roleKey, onError, creatorLabs = 
       setShowLabForm(false);
       load();
       window.dispatchEvent(new CustomEvent("profile-refresh"));
+      showToast("Заявка отправлена");
     } catch (e) {
       onError?.(e.message);
     } finally {
@@ -177,6 +180,7 @@ export default function MyJoinRequestsSection({ roleKey, onError, creatorLabs = 
       setShowOrgForm(false);
       load();
       window.dispatchEvent(new CustomEvent("profile-refresh"));
+      showToast("Заявка отправлена");
     } catch (e) {
       onError?.(e.message);
     } finally {
@@ -189,6 +193,7 @@ export default function MyJoinRequestsSection({ roleKey, onError, creatorLabs = 
       await apiRequest(`/profile/join-requests/lab/${laboratoryId}`, { method: "DELETE" });
       load();
       window.dispatchEvent(new CustomEvent("profile-refresh"));
+      showToast("Вы покинули лабораторию");
     } catch (e) {
       onError?.(e.message);
     }
@@ -199,6 +204,7 @@ export default function MyJoinRequestsSection({ roleKey, onError, creatorLabs = 
       await apiRequest(`/profile/join-requests/org/${requestId}`, { method: "DELETE" });
       load();
       window.dispatchEvent(new CustomEvent("profile-refresh"));
+      showToast("Лаборатория отвязана от организации");
     } catch (e) {
       onError?.(e.message);
     }

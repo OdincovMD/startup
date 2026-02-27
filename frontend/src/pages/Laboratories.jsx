@@ -65,9 +65,9 @@ export default function Laboratories() {
     navigate(`/laboratories/${publicIdValue}`);
   };
 
-  const backToList = () => {
+  const goBack = () => {
     setError(null);
-    navigate("/laboratories");
+    navigate(-1);
   };
 
   const openQuery = (publicIdValue) => {
@@ -233,8 +233,8 @@ export default function Laboratories() {
             )}
             {!details && !loadingDetails && error && (
               <div className="org-detail-error">
-                <button className="org-detail-back" onClick={backToList} type="button">
-                  ← Назад к списку
+                <button className="org-detail-back" onClick={goBack} type="button">
+                  ← Назад
                 </button>
                 <div className="org-detail-error-banner" role="alert">
                   {error}
@@ -243,8 +243,8 @@ export default function Laboratories() {
             )}
             {details && (
               <div className="org-details">
-                <button className="org-detail-back" onClick={backToList} type="button">
-                  ← Назад к списку
+                <button className="org-detail-back" onClick={goBack} type="button">
+                  ← Назад
                 </button>
                 <LabDetailHero
                   details={details}

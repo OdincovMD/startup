@@ -166,7 +166,7 @@ export default function QueriesTab({
                     <div className="lab-employees-list">
                       {orgLabs.map((lab) => (
                         <label key={lab.id} className="lab-employee-chip">
-                          <input type="checkbox" checked={(queryEdit.laboratory_ids || []).includes(lab.id)} onChange={() => toggleQueryLab(lab.id, true)} />
+                          <input type="checkbox" checked={(queryEdit.laboratory_ids || []).includes(lab.id)} onChange={() => toggleQueryLab(lab.id, true, query)} />
                           <span className="lab-employee-chip-name">{lab.name}</span>
                         </label>
                       ))}

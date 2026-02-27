@@ -112,7 +112,7 @@ export default function StudentProfileSection({
             <input
               value={p.status || ""}
               onChange={(e) => handleStudentChange("status", e.target.value)}
-              placeholder="Ищу стажировку, открыт к предложениям..."
+              placeholder="Ищу практику/стажировку/вариант трудоустройства..."
             />
           </label>
           <label>
@@ -121,7 +121,7 @@ export default function StudentProfileSection({
               rows={4}
               value={p.summary || ""}
               onChange={(e) => handleStudentChange("summary", e.target.value)}
-              placeholder="Расскажите о себе, своих целях и интересах"
+              placeholder="Расскажите о себе, опыте работы (если имеется), своих целях и интересах"
             />
           </label>
         </div>
@@ -205,7 +205,7 @@ export default function StudentProfileSection({
               onChange={(skills) => handleStudentChange("skills", skills)}
               placeholder="Введите навык и нажмите запятую или Enter"
             />
-            <span className="profile-field-hint">Python, ML, SQL и т.д. — введите и нажмите запятую</span>
+            <span className="profile-field-hint">Python, SQL и т.д. — введите через запятую</span>
           </label>
           <label htmlFor="interests-input">
             Научные интересы
@@ -215,7 +215,7 @@ export default function StudentProfileSection({
               onChange={(interests) => handleStudentChange("research_interests", interests)}
               placeholder="Введите интерес и нажмите запятую или Enter"
             />
-            <span className="profile-field-hint">Биоинформатика, машинное обучение и т.д.</span>
+            <span className="profile-field-hint">Аналогично добавить</span>
           </label>
         </div>
 

@@ -8,7 +8,7 @@ export default function Privacy() {
         <div className="section-header">
           <h2>Политика конфиденциальности</h2>
           <p className="section-header__lead">
-            На этой странице будет размещён текст политики конфиденциальности сервиса Synthesium.
+            На этой странице будет размещён текст политики конфиденциальности сервиса Синтезум.
           </p>
         </div>
         <div className="org-detail-card org-detail-card--standalone">

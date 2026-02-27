@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { apiRequest } from "../../api/client";
+import { useToast } from "../../ToastContext";
 
 const ORCID_ERROR_MESSAGES = {
   link_failed: "Не удалось привязать ORCID. Попробуйте снова.",
+  invalid_link: "Ссылка недействительна. Попробуйте снова.",
+  link_expired: "Ссылка истекла. Попробуйте привязать ORCID снова.",
+  orcid_unavailable: "ORCID временно недоступен. Попробуйте позже.",
   orcid_already_linked:
     "Этот ORCID уже привязан к другому аккаунту. Войдите в тот аккаунт, чтобы использовать его, или отвяжите ORCID там, чтобы привязать к текущему.",
   user_not_found: "Пользователь не найден. Войдите снова.",
@@ -13,6 +17,7 @@ const ORCID_ERROR_MESSAGES = {
 };
 
 export default function OrcidProfileSection({ profile, orcidError, orcidLinked, onOrcidLinked, onOrcidErrorDismiss, compact, hidePasswordForm = false, onPasswordFormVisibilityChange }) {
+  const { showToast } = useToast();
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [settingPassword, setSettingPassword] = useState(false);
@@ -83,6 +88,7 @@ export default function OrcidProfileSection({ profile, orcidError, orcidLinked, 
       setShowSetPasswordForm(false);
       setError(null);
       onOrcidLinked?.();
+      showToast("Пароль установлен");
     } catch (e) {
       setPasswordFormError(e.message);
     } finally {
@@ -98,6 +104,7 @@ export default function OrcidProfileSection({ profile, orcidError, orcidLinked, 
     try {
       await apiRequest("/auth/orcid/unlink", { method: "DELETE" });
       onOrcidLinked?.();
+      showToast("ORCID отвязан");
     } catch (e) {
       const detail = e.message || "";
       if (detail.includes("requires_password_first") || detail === "requires_password_first") {

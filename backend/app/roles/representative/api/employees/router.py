@@ -91,7 +91,7 @@ async def create_org_employee(
         )
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Organization profile not found. Сначала заполните и сохраните профиль организации.",
+        detail="Сначала заполните и сохраните профиль организации.",
     )
 
 
@@ -281,6 +281,12 @@ async def import_employee_openalex(
 
 @router.delete("/organization/employees/{employee_id}")
 async def delete_org_employee(employee_id: int, current_user=Depends(get_current_user)):
+    has_published = await AsyncOrm.has_published_vacancies_as_contact_for_employee(employee_id)
+    if has_published:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Снимите с публикации вакансии, где указан этот сотрудник как контакт, или смените контактное лицо, затем удалите сотрудника.",
+        )
     org = await AsyncOrm.get_organization_for_user(current_user.id)
     if org:
         deleted, user_id_to_notify, lab_names = await AsyncOrm.delete_employee(employee_id, org.id)

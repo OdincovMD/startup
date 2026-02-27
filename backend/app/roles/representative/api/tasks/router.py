@@ -61,7 +61,7 @@ async def create_org_task(
         )
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Organization profile not found. Сначала заполните и сохраните профиль организации.",
+        detail="Сначала заполните и сохраните профиль организации.",
     )
 
 

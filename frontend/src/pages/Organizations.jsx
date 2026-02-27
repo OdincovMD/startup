@@ -55,9 +55,9 @@ export default function Organizations() {
     navigate(`/organizations/${publicIdValue}`);
   };
 
-  const backToList = () => {
+  const goBack = () => {
     setError(null);
-    navigate("/organizations");
+    navigate(-1);
   };
 
   const openGallery = (images, index = 0) => {
@@ -197,8 +197,8 @@ export default function Organizations() {
         {error && selectedId && (
           <div className="org-details-page">
             <div className="org-detail-error">
-              <button className="org-detail-back" onClick={backToList} type="button">
-                ← Назад к списку
+              <button className="org-detail-back" onClick={goBack} type="button">
+                ← Назад
               </button>
               <div className="org-detail-error-banner" role="alert">
                 {error}
@@ -227,8 +227,8 @@ export default function Organizations() {
             {!detailsMap[selectedId] && <p className="muted">Загружаем профиль...</p>}
             {detailsMap[selectedId] && (
               <div className="org-details">
-                <button className="org-detail-back" onClick={backToList} type="button">
-                  ← Назад к списку
+                <button className="org-detail-back" onClick={goBack} type="button">
+                  ← Назад
                 </button>
                 <OrganizationDetailHero details={detailsMap[selectedId]} />
                 <OrganizationSection

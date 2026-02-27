@@ -41,14 +41,14 @@ def _render(name: str, **kwargs: str) -> tuple[str, str | None]:
 
 def send_verification_email(to: str, verify_url: str) -> None:
     """Письмо с ссылкой для подтверждения email."""
-    subject = "Подтверждение email — Synthesium"
+    subject = "Подтверждение email — Синтезум"
     body_html, body_text = _render("verification", verify_url=verify_url)
     send_email(to, subject, body_html, body_text)
 
 
 def send_password_reset_email(to: str, reset_url: str) -> None:
     """Письмо со ссылкой для сброса пароля."""
-    subject = "Сброс пароля — Synthesium"
+    subject = "Сброс пароля — Синтезум"
     body_html, body_text = _render("password_reset", reset_url=reset_url)
     send_email(to, subject, body_html, body_text)
 

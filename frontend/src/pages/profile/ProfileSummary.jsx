@@ -207,7 +207,7 @@ export default function ProfileSummary({
             )}
           </div>
 
-          {profile?.has_password && (
+          {profile?.has_password && profile.email_verified && (
             <div className="profile-summary-account-item">
               <span className="profile-summary-account-title">Пароль</span>
               <p className="profile-summary-account-text">

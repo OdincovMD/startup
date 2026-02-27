@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -9,6 +9,7 @@ export default function VerifyEmail() {
   const { auth, updateUser } = useAuth();
   const [status, setStatus] = useState("loading"); // loading | success | error
   const [errorMessage, setErrorMessage] = useState(null);
+  const didVerifyRef = useRef(false);
 
   useEffect(() => {
     const token = searchParams.get("token");
@@ -17,7 +18,13 @@ export default function VerifyEmail() {
       setErrorMessage("Ссылка недействительна: отсутствует токен.");
       return;
     }
-    let cancelled = false;
+
+    // Защита от повторных запросов в dev/StrictMode и при повторных рендерах
+    if (didVerifyRef.current) {
+      return;
+    }
+    didVerifyRef.current = true;
+
     const verify = async () => {
       try {
         const user = await apiRequest("/auth/verify-email", {
@@ -25,20 +32,30 @@ export default function VerifyEmail() {
           body: JSON.stringify({ token }),
           skipAuth: true,
         });
-        if (!cancelled && auth?.token && user?.id != null) {
+        const hasSession = !!auth?.token;
+        if (hasSession && user?.id != null) {
           updateUser(user);
         }
-        if (!cancelled) setStatus("success");
-      } catch (e) {
-        if (!cancelled) {
-          setStatus("error");
-          setErrorMessage(e.message || "Ссылка недействительна или истекла.");
+        setStatus("success");
+        // Редирект: с того же устройства — в профиль, с другого — на вход
+        if (hasSession) {
+          navigate("/profile", { replace: true });
+        } else {
+          navigate("/login?verified=1", { replace: true });
         }
+      } catch (e) {
+        let msg = e.message || "Ссылка недействительна или истекла.";
+        if (msg.includes("Сессия истекла")) {
+          msg =
+            "Ссылка недействительна, истекла или уже была использована. " +
+            "Если вы уже подтверждали email, просто войдите в аккаунт.";
+        }
+        setStatus("error");
+        setErrorMessage(msg);
       }
     };
     verify();
-    return () => { cancelled = true; };
-  }, [searchParams, auth?.token, updateUser]);
+  }, [searchParams, auth?.token, updateUser, navigate]);
 
   if (status === "loading") {
     return (

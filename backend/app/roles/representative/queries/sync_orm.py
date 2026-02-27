@@ -2093,6 +2093,36 @@ class SyncOrm:
             return session.scalars(stmt).first()
 
     @staticmethod
+    def get_query_for_org(
+        query_id: int, organization_id: int
+    ) -> Optional[models.OrganizationQuery]:
+        with session_factory() as session:
+            stmt = (
+                select(models.OrganizationQuery)
+                .options(selectinload(models.OrganizationQuery.laboratories))
+                .where(
+                    models.OrganizationQuery.id == query_id,
+                    models.OrganizationQuery.organization_id == organization_id,
+                )
+            )
+            return session.scalars(stmt).first()
+
+    @staticmethod
+    def get_query_for_creator(
+        query_id: int, creator_user_id: int
+    ) -> Optional[models.OrganizationQuery]:
+        with session_factory() as session:
+            stmt = (
+                select(models.OrganizationQuery)
+                .options(selectinload(models.OrganizationQuery.laboratories))
+                .where(
+                    models.OrganizationQuery.id == query_id,
+                    models.OrganizationQuery.creator_user_id == creator_user_id,
+                )
+            )
+            return session.scalars(stmt).first()
+
+    @staticmethod
     def set_query_published(
         query_id: int,
         organization_id: int,
@@ -2371,6 +2401,61 @@ class SyncOrm:
                 .where(models.VacancyOrganization.id == vacancy_id)
             )
             return session.scalars(stmt).first()
+
+    @staticmethod
+    def has_published_vacancies_as_contact_for_employee(employee_id: int) -> bool:
+        """Есть ли опубликованные вакансии, где сотрудник указан контактным лицом."""
+        with session_factory() as session:
+            count = session.scalar(
+                select(func.count()).select_from(models.VacancyOrganization).where(
+                    models.VacancyOrganization.contact_employee_id == employee_id,
+                    models.VacancyOrganization.is_published.is_(True),
+                )
+            ) or 0
+            return count > 0
+
+    @staticmethod
+    def get_vacancy_for_org(vacancy_id: int, organization_id: int) -> Optional[models.VacancyOrganization]:
+        with session_factory() as session:
+            stmt = select(models.VacancyOrganization).where(
+                models.VacancyOrganization.id == vacancy_id,
+                models.VacancyOrganization.organization_id == organization_id,
+            )
+            return session.scalars(stmt).first()
+
+    @staticmethod
+    def get_vacancy_for_creator(vacancy_id: int, creator_user_id: int) -> Optional[models.VacancyOrganization]:
+        with session_factory() as session:
+            stmt = select(models.VacancyOrganization).where(
+                models.VacancyOrganization.id == vacancy_id,
+                models.VacancyOrganization.creator_user_id == creator_user_id,
+            )
+            return session.scalars(stmt).first()
+
+    @staticmethod
+    def has_published_vacancies_or_queries_for_lab(laboratory_id: int) -> bool:
+        """Есть ли опубликованные вакансии или запросы, привязанные к лаборатории."""
+        with session_factory() as session:
+            vac_count = session.scalar(
+                select(func.count()).select_from(models.VacancyOrganization).where(
+                    models.VacancyOrganization.laboratory_id == laboratory_id,
+                    models.VacancyOrganization.is_published.is_(True),
+                )
+            ) or 0
+            if vac_count > 0:
+                return True
+            ql = models.query_laboratories
+            from sqlalchemy import exists
+            has_pub_query = session.scalar(
+                select(
+                    exists().where(
+                        ql.c.laboratory_id == laboratory_id,
+                        models.OrganizationQuery.id == ql.c.query_id,
+                        models.OrganizationQuery.is_published.is_(True),
+                    )
+                )
+            )
+            return bool(has_pub_query)
 
     @staticmethod
     def get_vacancy_by_public_id(public_id: str) -> Optional[models.VacancyOrganization]:
@@ -3417,10 +3502,10 @@ class SyncOrm:
             for ri in rows:
                 if not ri or not isinstance(ri, (list, tuple)):
                     continue
-            for item in ri:
-                if isinstance(item, str) and item.strip() and item.strip() not in seen:
-                    seen.add(item.strip())
-                    interests.append(item.strip())
+                for item in ri:
+                    if isinstance(item, str) and item.strip() and item.strip() not in seen:
+                        seen.add(item.strip())
+                        interests.append(item.strip())
             responses_count = session.scalar(
                 select(func.count()).select_from(models.VacancyResponse)
             ) or 0

@@ -672,6 +672,22 @@ class AsyncOrm:
         )
 
     @staticmethod
+    async def get_query_for_org(
+        query_id: int, organization_id: int
+    ) -> Optional[models.OrganizationQuery]:
+        return await asyncio.to_thread(
+            SyncOrm.get_query_for_org, query_id, organization_id
+        )
+
+    @staticmethod
+    async def get_query_for_creator(
+        query_id: int, creator_user_id: int
+    ) -> Optional[models.OrganizationQuery]:
+        return await asyncio.to_thread(
+            SyncOrm.get_query_for_creator, query_id, creator_user_id
+        )
+
+    @staticmethod
     async def set_query_published(
         query_id: int,
         organization_id: int,
@@ -773,6 +789,34 @@ class AsyncOrm:
     @staticmethod
     async def get_vacancy(vacancy_id: int) -> Optional[models.VacancyOrganization]:
         return await asyncio.to_thread(SyncOrm.get_vacancy, vacancy_id)
+
+    @staticmethod
+    async def get_vacancy_for_org(
+        vacancy_id: int, organization_id: int
+    ) -> Optional[models.VacancyOrganization]:
+        return await asyncio.to_thread(
+            SyncOrm.get_vacancy_for_org, vacancy_id, organization_id
+        )
+
+    @staticmethod
+    async def get_vacancy_for_creator(
+        vacancy_id: int, creator_user_id: int
+    ) -> Optional[models.VacancyOrganization]:
+        return await asyncio.to_thread(
+            SyncOrm.get_vacancy_for_creator, vacancy_id, creator_user_id
+        )
+
+    @staticmethod
+    async def has_published_vacancies_or_queries_for_lab(laboratory_id: int) -> bool:
+        return await asyncio.to_thread(
+            SyncOrm.has_published_vacancies_or_queries_for_lab, laboratory_id
+        )
+
+    @staticmethod
+    async def has_published_vacancies_as_contact_for_employee(employee_id: int) -> bool:
+        return await asyncio.to_thread(
+            SyncOrm.has_published_vacancies_as_contact_for_employee, employee_id
+        )
 
     @staticmethod
     async def get_vacancy_by_public_id(public_id: str) -> Optional[models.VacancyOrganization]:

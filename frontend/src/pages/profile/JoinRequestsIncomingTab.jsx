@@ -4,8 +4,10 @@
  */
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
+import { useToast } from "../../ToastContext";
 
 export default function JoinRequestsIncomingTab({ roleKey, onError }) {
+  const { showToast } = useToast();
   const [labRequests, setLabRequests] = useState([]);
   const [orgRequests, setOrgRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +48,7 @@ export default function JoinRequestsIncomingTab({ roleKey, onError }) {
       await apiRequest(`/profile/join-requests/lab/${id}/approve`, { method: "POST" });
       load();
       window.dispatchEvent(new CustomEvent("profile-refresh"));
+      showToast("Заявка принята");
     } catch (e) {
       onError?.(e.message);
     } finally {
@@ -59,6 +62,7 @@ export default function JoinRequestsIncomingTab({ roleKey, onError }) {
       await apiRequest(`/profile/join-requests/lab/${id}/reject`, { method: "POST" });
       load();
       window.dispatchEvent(new CustomEvent("profile-refresh"));
+      showToast("Заявка отклонена");
     } catch (e) {
       onError?.(e.message);
     } finally {
@@ -72,6 +76,7 @@ export default function JoinRequestsIncomingTab({ roleKey, onError }) {
       await apiRequest(`/profile/join-requests/org/${id}/approve`, { method: "POST" });
       load();
       window.dispatchEvent(new CustomEvent("profile-refresh"));
+      showToast("Заявка принята");
     } catch (e) {
       onError?.(e.message);
     } finally {
@@ -85,6 +90,7 @@ export default function JoinRequestsIncomingTab({ roleKey, onError }) {
       await apiRequest(`/profile/join-requests/org/${id}/reject`, { method: "POST" });
       load();
       window.dispatchEvent(new CustomEvent("profile-refresh"));
+      showToast("Заявка отклонена");
     } catch (e) {
       onError?.(e.message);
     } finally {

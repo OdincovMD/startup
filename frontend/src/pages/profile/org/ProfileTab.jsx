@@ -98,8 +98,9 @@ export default function ProfileTab({
         </label>
       </div>
 
-      <div className="profile-form-group org-profile-ror-wrap">
-        <OrgOpenAlexSection orgProfile={orgProfile} onOrgRorLinked={onOrgRorLinked} compact />
+      <div className="profile-form-group">
+        <div className="profile-form-group-title">OpenAlex / ROR</div>
+        <OrgOpenAlexSection orgProfile={orgProfile} onOrgRorLinked={onOrgRorLinked} compact hideLabel />
       </div>
 
       <div className="profile-actions-wrap">

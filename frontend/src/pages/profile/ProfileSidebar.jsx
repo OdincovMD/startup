@@ -49,15 +49,17 @@ function getItemsForRole(roleKey) {
 }
 
 const ORG_GROUP_DATA = "Данные организации";
+const ORG_GROUP_DATA_LAB = "Данные лаборатории";
 const ORG_GROUP_CONTENT = "Контент";
 const ORG_GROUP_RECRUIT = "Набор и отклики";
 
-function getOrgSubItems(showProfileTab) {
+function getOrgSubItems(showProfileTab, roleKey) {
+  const dataGroup = roleKey === "lab_representative" ? ORG_GROUP_DATA_LAB : ORG_GROUP_DATA;
   return [
-    ...(showProfileTab ? [{ id: "profile", label: "Профиль", group: ORG_GROUP_DATA }] : []),
-    { id: "labs", label: "Лаборатории", group: ORG_GROUP_DATA },
-    { id: "equipment", label: "Оборудование", group: ORG_GROUP_DATA },
-    { id: "staff", label: "Сотрудники", group: ORG_GROUP_DATA },
+    ...(showProfileTab ? [{ id: "profile", label: "Профиль", group: dataGroup }] : []),
+    { id: "labs", label: "Лаборатории", group: dataGroup },
+    { id: "equipment", label: "Оборудование", group: dataGroup },
+    { id: "staff", label: "Сотрудники", group: dataGroup },
     { id: "tasks", label: "Задачи", group: ORG_GROUP_CONTENT },
     { id: "queries", label: "Запросы", group: ORG_GROUP_CONTENT },
     { id: "vacancies", label: "Вакансии", group: ORG_GROUP_RECRUIT },
@@ -117,7 +119,7 @@ export default function ProfileSidebar({
     onSectionChange("organization");
   };
 
-  const orgSubItems = isOrgRole ? getOrgSubItems(showProfileTab) : [];
+  const orgSubItems = isOrgRole ? getOrgSubItems(showProfileTab, roleKey) : [];
   const showOrgInList = isOrgRole && !orgSectionHidden;
 
   return (
@@ -128,16 +130,21 @@ export default function ProfileSidebar({
           if (item.id !== "organization") {
             return (
               <li key={item.id} className="profile-sidebar__list-item">
-                <button
-                  type="button"
-                  className={`profile-sidebar__item ${currentSection === item.id ? "profile-sidebar__item--active" : ""} ${itemLocked ? "profile-sidebar__item--locked" : ""}`}
-                  onClick={() => !itemLocked && onSectionChange(item.id)}
-                  aria-current={currentSection === item.id ? "page" : undefined}
-                  disabled={itemLocked}
+                <span
+                  className={itemLocked ? "profile-sidebar__item-wrap profile-sidebar__item-wrap--locked" : "profile-sidebar__item-wrap"}
                   title={itemLocked ? "Подтвердите email для доступа" : undefined}
                 >
-                  {item.label}
-                </button>
+                  <button
+                    type="button"
+                    className={`profile-sidebar__item ${currentSection === item.id ? "profile-sidebar__item--active" : ""} ${itemLocked ? "profile-sidebar__item--locked" : ""}`}
+                    onClick={() => !itemLocked && onSectionChange(item.id)}
+                    aria-current={currentSection === item.id ? "page" : undefined}
+                    disabled={itemLocked}
+                    aria-describedby={itemLocked ? undefined : undefined}
+                  >
+                    {item.label}
+                  </button>
+                </span>
               </li>
             );
           }
@@ -149,6 +156,10 @@ export default function ProfileSidebar({
               className={`profile-sidebar__list-item profile-sidebar__list-item--with-children${expanded ? " profile-sidebar__list-item--expanded" : ""} ${locked ? " profile-sidebar__list-item--locked" : ""}`}
             >
               <div className="profile-sidebar__parent-row">
+                <span
+                  className={locked ? "profile-sidebar__item-wrap profile-sidebar__item-wrap--locked profile-sidebar__item-wrap--parent" : "profile-sidebar__item-wrap profile-sidebar__item-wrap--parent"}
+                  title={locked ? "Подтвердите email для доступа" : undefined}
+                >
                 <button
                   type="button"
                   className={`profile-sidebar__item profile-sidebar__item--parent ${isOrgSection ? "profile-sidebar__item--active" : ""} ${locked ? "profile-sidebar__item--locked" : ""}`}
@@ -156,13 +167,13 @@ export default function ProfileSidebar({
                   aria-expanded={expanded}
                   aria-current={isOrgSection ? "page" : undefined}
                   disabled={locked}
-                  title={locked ? "Подтвердите email для доступа" : undefined}
                 >
                   <span>{item.label}</span>
                   <span className="profile-sidebar__expand-icon" aria-hidden="true">
                     {expanded ? "▼" : "▶"}
                   </span>
                 </button>
+                </span>
                 {!locked && (
                   <button
                     type="button"

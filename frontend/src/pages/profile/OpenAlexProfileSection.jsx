@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { apiRequest } from "../../api/client";
+import { useToast } from "../../ToastContext";
 
 const OpenAlexIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden>
@@ -10,6 +11,7 @@ const OpenAlexIcon = () => (
 );
 
 export default function OpenAlexProfileSection({ profile, onOpenAlexLinked, compact }) {
+  const { showToast } = useToast();
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -42,6 +44,7 @@ export default function OpenAlexProfileSection({ profile, onOpenAlexLinked, comp
       });
       await onOpenAlexLinked?.();
       setInputValue("");
+      showToast("OpenAlex ID привязан");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -56,6 +59,7 @@ export default function OpenAlexProfileSection({ profile, onOpenAlexLinked, comp
     try {
       await apiRequest("/profile/openalex/unlink", { method: "DELETE" });
       await onOpenAlexLinked?.();
+      showToast("OpenAlex ID отвязан");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -69,6 +73,7 @@ export default function OpenAlexProfileSection({ profile, onOpenAlexLinked, comp
     try {
       await apiRequest("/profile/openalex/import", { method: "POST" });
       await onOpenAlexLinked?.();
+      showToast("Данные обновлены");
     } catch (e) {
       setError(e.message);
     } finally {

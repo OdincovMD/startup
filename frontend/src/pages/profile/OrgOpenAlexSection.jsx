@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { apiRequest } from "../../api/client";
+import { useToast } from "../../ToastContext";
 
 const RorIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden>
@@ -7,7 +8,8 @@ const RorIcon = () => (
   </svg>
 );
 
-export default function OrgOpenAlexSection({ orgProfile, onOrgRorLinked, compact = false }) {
+export default function OrgOpenAlexSection({ orgProfile, onOrgRorLinked, compact = false, hideLabel = false }) {
+  const { showToast } = useToast();
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -40,6 +42,7 @@ export default function OrgOpenAlexSection({ orgProfile, onOrgRorLinked, compact
       });
       await onOrgRorLinked?.();
       setInputValue("");
+      showToast("ROR ID привязан");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -54,6 +57,7 @@ export default function OrgOpenAlexSection({ orgProfile, onOrgRorLinked, compact
     try {
       await apiRequest("/profile/organization/openalex/unlink", { method: "DELETE" });
       await onOrgRorLinked?.();
+      showToast("ROR ID отвязан");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -67,6 +71,7 @@ export default function OrgOpenAlexSection({ orgProfile, onOrgRorLinked, compact
     try {
       await apiRequest("/profile/organization/openalex/import", { method: "POST" });
       await onOrgRorLinked?.();
+      showToast("Данные обновлены");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -86,7 +91,7 @@ export default function OrgOpenAlexSection({ orgProfile, onOrgRorLinked, compact
           </p>
         </>
       )}
-      {compact && <div className="org-ror-section__label">OpenAlex / ROR</div>}
+      {compact && !hideLabel && <div className="profile-form-group-title">OpenAlex / ROR</div>}
       {error && (
         <div className="auth-alert auth-alert-error org-ror-error" role="alert">
           <span>{error}</span>
@@ -120,7 +125,6 @@ export default function OrgOpenAlexSection({ orgProfile, onOrgRorLinked, compact
             <RorIcon />
             ROR ID не привязан
           </p>
-          <p className="org-ror-status__hint">Импорт названия, адреса, сайта и аватара из OpenAlex</p>
           <div className="org-ror-link-row">
             <input
               type="text"
@@ -131,7 +135,7 @@ export default function OrgOpenAlexSection({ orgProfile, onOrgRorLinked, compact
             />
             <button
               type="button"
-              className="profile-btn-integration profile-btn-integration--ror"
+              className="profile-btn-integration profile-btn-integration--openalex"
               onClick={handleLink}
               disabled={linking}
             >

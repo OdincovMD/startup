@@ -6,6 +6,10 @@ import React, { useState, useRef } from "react";
  * Связанный запрос и лаборатория — карточка выбранного + очистка или select.
  * Контакт: либо сотрудник (карточка + очистка/select), либо при отсутствии — обязательные email и телефон.
  */
+const ERR_REMOVE_CONTACT =
+  "Снимите вакансию с публикации, затем удалите контактное лицо.";
+const ERR_REMOVE_LAB = "Снимите вакансию с публикации, затем удалите лабораторию.";
+
 export default function VacanciesTab({
   vacancyDraft,
   setVacancyDraft,
@@ -23,6 +27,7 @@ export default function VacanciesTab({
   deleteVacancy,
   toggleVacancyPublish,
   saving,
+  onError,
 }) {
   const [expandedNewVacancy, setExpandedNewVacancy] = useState(false);
   const newVacancyRef = useRef(null);
@@ -89,14 +94,21 @@ export default function VacanciesTab({
     );
   };
 
-  const renderLinkedLab = (laboratoryId, setState) => {
+  const renderLinkedLab = (laboratoryId, setState, isPublished = false) => {
     const selected = orgLabs.find((l) => l.id === laboratoryId);
+    const handleClear = () => {
+      if (isPublished && onError) {
+        onError(ERR_REMOVE_LAB);
+        return;
+      }
+      setState((prev) => ({ ...prev, laboratory_id: null }));
+    };
     return (
       <div className="query-linked-task-block">
         {selected ? (
           <div className="query-linked-task-selected">
             <span className="query-linked-task-title">{selected.name}</span>
-            <button type="button" className="query-linked-task-clear" onClick={() => setState((prev) => ({ ...prev, laboratory_id: null }))} aria-label="Очистить">×</button>
+            <button type="button" className="query-linked-task-clear" onClick={handleClear} aria-label="Очистить">×</button>
           </div>
         ) : (
           <select
@@ -114,16 +126,26 @@ export default function VacanciesTab({
     );
   };
 
-  const renderContactBlock = (state, setState) => {
+  const renderContactBlock = (state, setState, isPublished = false) => {
     const selectedEmp = state.contact_employee_id ? orgEmployees.find((e) => e.id === state.contact_employee_id) : null;
     const showEmailPhone = !state.contact_employee_id;
+    const handleClearContact = () => {
+      if (isPublished && onError) {
+        const hasFallback = ((state.contact_email || "").trim() && (state.contact_phone || "").trim());
+        if (!hasFallback) {
+          onError(ERR_REMOVE_CONTACT);
+          return;
+        }
+      }
+      setState((prev) => ({ ...prev, contact_employee_id: null, contact_email: prev.contact_email || "", contact_phone: prev.contact_phone || "" }));
+    };
     return (
       <>
         <div className="query-linked-task-block">
           {selectedEmp ? (
             <div className="query-linked-task-selected">
               <span className="query-linked-task-title">{selectedEmp.full_name}</span>
-              <button type="button" className="query-linked-task-clear" onClick={() => setState((prev) => ({ ...prev, contact_employee_id: null, contact_email: prev.contact_email || "", contact_phone: prev.contact_phone || "" }))} aria-label="Очистить">×</button>
+              <button type="button" className="query-linked-task-clear" onClick={handleClearContact} aria-label="Очистить">×</button>
             </div>
           ) : (
             <select
@@ -209,11 +231,11 @@ export default function VacanciesTab({
                 <div className="profile-form-group">
                   <div className="profile-form-group-title">Лаборатория</div>
                   <p className="profile-field-hint query-linked-hint">Лаборатория, в которой открыта вакансия.</p>
-                  {renderLinkedLab(vacancyEdit.laboratory_id, setVacancyEdit)}
+                  {renderLinkedLab(vacancyEdit.laboratory_id, setVacancyEdit, vacancy.is_published)}
                 </div>
                 <div className="profile-form-group">
                   <div className="profile-form-group-title">Контакт для связи</div>
-                  {renderContactBlock(vacancyEdit, setVacancyEdit)}
+                  {renderContactBlock(vacancyEdit, setVacancyEdit, vacancy.is_published)}
                 </div>
                 <div className="lab-form-actions">
                   <button className="primary-btn lab-btn-save" onClick={updateVacancy} disabled={saving}>{saving ? "Сохранение…" : "Сохранить"}</button>

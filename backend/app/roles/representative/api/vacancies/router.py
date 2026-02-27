@@ -70,8 +70,16 @@ async def create_org_vacancy(
         )
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Organization profile not found. Сначала заполните и сохраните профиль организации.",
+        detail="Сначала заполните и сохраните профиль организации.",
     )
+
+
+def _vacancy_has_contact(contact_employee_id, contact_email, contact_phone) -> bool:
+    if contact_employee_id:
+        return True
+    email = (contact_email or "").strip()
+    phone = (contact_phone or "").strip()
+    return bool(email and phone)
 
 
 @router.put("/organization/vacancies/{vacancy_id}", response_model=VacancyOrganizationRead)
@@ -88,6 +96,27 @@ async def update_org_vacancy(
         if ("laboratory_id" in patch and "query_id" in patch
                 and laboratory_id is None and query_id is None):
             require_lab_link_for_lab_rep(laboratory_ids=None, laboratory_id=None, query_id=None)
+    # Проверка: нельзя удалять контакт или лабораторию у опубликованной вакансии
+    vacancy = None
+    if org:
+        vacancy = await AsyncOrm.get_vacancy_for_org(vacancy_id, org.id)
+    elif is_lab_representative(current_user):
+        vacancy = await AsyncOrm.get_vacancy_for_creator(vacancy_id, current_user.id)
+    if vacancy and getattr(vacancy, "is_published", False):
+        eff_contact_id = patch.get("contact_employee_id", vacancy.contact_employee_id)
+        eff_email = patch.get("contact_email", vacancy.contact_email)
+        eff_phone = patch.get("contact_phone", vacancy.contact_phone)
+        if "contact_employee_id" in patch and patch["contact_employee_id"] is None:
+            if not _vacancy_has_contact(None, eff_email, eff_phone):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Снимите вакансию с публикации, затем удалите контактное лицо.",
+                )
+        if "laboratory_id" in patch and patch["laboratory_id"] is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Снимите вакансию с публикации, затем удалите лабораторию.",
+            )
     if org:
         vacancy = await AsyncOrm.update_vacancy(
             vacancy_id,
@@ -146,14 +175,32 @@ async def set_vacancy_publish_state(
     current_user=Depends(get_current_user),
 ):
     org = await AsyncOrm.get_organization_for_user(current_user.id)
+    vacancy_before = None
+    if org:
+        vacancy_before = await AsyncOrm.get_vacancy_for_org(vacancy_id, org.id)
+    elif is_lab_representative(current_user):
+        vacancy_before = await AsyncOrm.get_vacancy_for_creator(vacancy_id, current_user.id)
+    if not vacancy_before:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacancy not found")
+    if payload.is_published:
+        if not _vacancy_has_contact(
+            vacancy_before.contact_employee_id,
+            vacancy_before.contact_email,
+            vacancy_before.contact_phone,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Нельзя опубликовать вакансию без контактного лица. Укажите сотрудника или email и телефон.",
+            )
+        if not vacancy_before.laboratory_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Нельзя опубликовать вакансию без лаборатории. Привяжите лабораторию.",
+            )
     if org:
         vacancy = await AsyncOrm.set_vacancy_published(vacancy_id, org.id, payload.is_published)
-    elif is_lab_representative(current_user):
+    else:
         vacancy = await AsyncOrm.set_vacancy_published_for_creator(
             vacancy_id, current_user.id, payload.is_published
         )
-    else:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
-    if not vacancy:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacancy not found")
     return vacancy

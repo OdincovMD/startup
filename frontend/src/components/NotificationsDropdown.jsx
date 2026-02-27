@@ -113,13 +113,41 @@ const NAVIGABLE_NOTIFICATION_TYPES = new Set([
   "vacancy_response_status_changed",
 ]);
 
+const PANEL_ANIMATION_MS = 250;
+
 export default function NotificationsDropdown() {
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [entering, setEntering] = useState(false);
   const [loading, setLoading] = useState(false);
   const ref = useRef(null);
+
+  useEffect(() => {
+    if (open && !closing && entering) {
+      const raf = requestAnimationFrame(() => {
+        requestAnimationFrame(() => setEntering(false));
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [open, closing, entering]);
+
+  const closePanel = () => {
+    if (!open && !closing) return;
+    if (closing) return;
+    setClosing(true);
+  };
+
+  useEffect(() => {
+    if (!closing) return;
+    const t = setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+    }, PANEL_ANIMATION_MS);
+    return () => clearTimeout(t);
+  }, [closing]);
 
   const loadUnread = async () => {
     try {
@@ -158,7 +186,7 @@ export default function NotificationsDropdown() {
       setNotifications((prev) => prev.filter((x) => x.id !== n.id));
       loadUnread();
       if (NAVIGABLE_NOTIFICATION_TYPES.has(n.type)) {
-        setOpen(false);
+        closePanel();
         const { path, tab } = getNotificationLink(n);
         navigate(tab ? `${path}?tab=${tab}` : path);
         setTimeout(() => window.dispatchEvent(new CustomEvent("profile-refresh")), 100);
@@ -170,16 +198,16 @@ export default function NotificationsDropdown() {
 
   useEffect(() => {
     const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target)) closePanel();
     };
     document.addEventListener("click", handler);
     return () => document.removeEventListener("click", handler);
-  }, []);
+  }, [open, closing]);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") closePanel();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -190,7 +218,7 @@ export default function NotificationsDropdown() {
       <button
         type="button"
         className="notifications-trigger"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => (open ? closePanel() : (setEntering(true), setOpen(true)))}
         aria-expanded={open}
         aria-haspopup="true"
         aria-label={unreadCount ? `Уведомления: ${unreadCount} непрочитанных` : "Уведомления"}
@@ -207,8 +235,12 @@ export default function NotificationsDropdown() {
           </span>
         )}
       </button>
-      {open && (
-        <div className="notifications-panel" role="dialog" aria-label="Список уведомлений">
+      {(open || closing) && (
+        <div
+          className={`notifications-panel ${entering ? "notifications-panel--entering" : ""} ${closing ? "notifications-panel--closing" : ""}`}
+          role="dialog"
+          aria-label="Список уведомлений"
+        >
           <div className="notifications-panel-header">
             <span className="notifications-panel-title">Уведомления</span>
             {unreadCount > 0 && (

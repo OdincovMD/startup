@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../ToastContext";
 import ProfileSummary from "./profile/ProfileSummary";
 import StudentProfileSection from "./profile/StudentProfileSection";
 import ResearcherProfileSection from "./profile/ResearcherProfileSection";
@@ -24,6 +25,7 @@ const EMPTY_ORG_PROFILE = {
 
 export default function Profile() {
   const { auth, logout } = useAuth();
+  const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [profile, setProfile] = useState(null);
   const [roles, setRoles] = useState([]);
@@ -138,6 +140,7 @@ export default function Profile() {
   const orgStaffFileInputRefs = React.useRef([]);
   const orgEquipmentFileInputRefs = React.useRef([]);
   const orgLabFileInputRefs = React.useRef([]);
+  const pendingLabEditIdRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -207,6 +210,42 @@ export default function Profile() {
     return r?.display_name ?? name;
   };
 
+  const loadLabs = async () => {
+    try {
+      const labsList = await apiRequest("/profile/organization/laboratories");
+      setOrgLabs(labsList);
+    } catch (e) {
+      if (e.name !== "AbortError") setError(e.message);
+    }
+  };
+
+  const loadEquipment = async () => {
+    try {
+      const list = await apiRequest("/profile/organization/equipment");
+      setOrgEquipment(list);
+    } catch (e) {
+      if (e.name !== "AbortError") setError(e.message);
+    }
+  };
+
+  const loadTasks = async () => {
+    try {
+      const list = await apiRequest("/profile/organization/tasks");
+      setOrgTasks(list);
+    } catch (e) {
+      if (e.name !== "AbortError") setError(e.message);
+    }
+  };
+
+  const loadEmployees = async () => {
+    try {
+      const list = await apiRequest("/profile/organization/employees");
+      setOrgEmployees(list);
+    } catch (e) {
+      if (e.name !== "AbortError") setError(e.message);
+    }
+  };
+
   const loadOrganizationSection = async (signal) => {
     const opts = signal ? { signal } : {};
     const [equipmentList, labsList, employeesList, tasksList, queriesList, vacanciesList] =
@@ -239,7 +278,7 @@ export default function Profile() {
   const orcidErrorFromUrl = searchParams.get("error");
 
   useEffect(() => {
-    if (orcidErrorFromUrl && ["link_failed", "orcid_already_linked", "user_not_found"].includes(orcidErrorFromUrl)) {
+    if (orcidErrorFromUrl && ["link_failed", "orcid_already_linked", "user_not_found", "invalid_link", "link_expired", "orcid_unavailable"].includes(orcidErrorFromUrl)) {
       setOrcidError(orcidErrorFromUrl);
       setSearchParams({}, { replace: true });
     }
@@ -377,6 +416,7 @@ export default function Profile() {
         body: JSON.stringify(payload),
       });
       setProfile(data);
+      showToast("Сохранено");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -422,6 +462,7 @@ export default function Profile() {
       } else {
         setResearcherProfile(null);
       }
+      showToast("Роль сохранена");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -501,6 +542,7 @@ export default function Profile() {
         body: formData,
       });
       setOrgProfile((prev) => ({ ...(prev || {}), avatar_url: response.public_url }));
+      showToast("Логотип загружен");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -537,6 +579,7 @@ export default function Profile() {
       });
       const updatedUser = await apiRequest("/users/me");
       setProfile(updatedUser);
+      showToast("Фото загружено");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -624,6 +667,7 @@ export default function Profile() {
       });
       setOrgProfile(data);
       orgAvatarInputRef.current?.current && (orgAvatarInputRef.current.current.value = "");
+      showToast("Сохранено");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -640,6 +684,7 @@ export default function Profile() {
         body: JSON.stringify({ is_published: Boolean(nextState) }),
       });
       setOrgProfile(updated);
+      showToast(nextState ? "Организация опубликована" : "Публикация снята");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -656,6 +701,7 @@ export default function Profile() {
         body: JSON.stringify({ is_published: Boolean(nextState) }),
       });
       setOrgLabs((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      showToast(nextState ? "Лаборатория опубликована" : "Публикация снята");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -672,6 +718,7 @@ export default function Profile() {
         body: JSON.stringify({ is_published: Boolean(nextState) }),
       });
       setOrgQueries((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      showToast(nextState ? "Запрос опубликован" : "Публикация снята");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -688,6 +735,7 @@ export default function Profile() {
         body: JSON.stringify({ is_published: Boolean(nextState) }),
       });
       setOrgVacancies((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      showToast(nextState ? "Вакансия опубликована" : "Публикация снята");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -863,18 +911,33 @@ export default function Profile() {
     });
   };
 
-  const startEditLab = (item) => {
-    setEditingLabId(item.id);
-    setLabEdit({
-      name: item.name || "",
-      description: item.description || "",
-      activities: item.activities || "",
-      image_urls: item.image_urls || [],
-      employee_ids: (item.employees || []).map((employee) => employee.id),
-      head_employee_id: item.head_employee_id ?? item.head_employee?.id ?? null,
-      equipment_ids: (item.equipment || []).map((equipment) => equipment.id),
-      task_solution_ids: (item.task_solutions || []).map((task) => task.id),
-    });
+  const startEditLab = async (item) => {
+    const id = item.id;
+    pendingLabEditIdRef.current = id;
+    setEditingLabId(id);
+    setLabEdit(null);
+    try {
+      const labsList = await apiRequest("/profile/organization/laboratories");
+      if (pendingLabEditIdRef.current !== id) return;
+      setOrgLabs(labsList);
+      const lab = labsList.find((l) => l.id === id) || item;
+      if (pendingLabEditIdRef.current !== id) return;
+      setLabEdit({
+        name: lab.name || "",
+        description: lab.description || "",
+        activities: lab.activities || "",
+        image_urls: lab.image_urls || [],
+        employee_ids: (lab.employees || []).map((e) => e.id),
+        head_employee_id: lab.head_employee_id ?? lab.head_employee?.id ?? null,
+        equipment_ids: (lab.equipment || []).map((e) => e.id),
+        task_solution_ids: (lab.task_solutions || []).map((t) => t.id),
+      });
+    } catch (e) {
+      if (pendingLabEditIdRef.current === id) {
+        setError(e.message);
+        setEditingLabId(null);
+      }
+    }
   };
 
   const cancelEditEquipment = () => {
@@ -886,6 +949,20 @@ export default function Profile() {
     setEditingLabId(null);
     setLabEdit(null);
   };
+
+  // Синхронизация labEdit при обновлении orgLabs (напр. после создания сотрудника с привязкой к лаборатории)
+  useEffect(() => {
+    if (!editingLabId || !labEdit) return;
+    const lab = orgLabs.find((l) => l.id === editingLabId);
+    if (!lab) return;
+    setLabEdit((prev) => ({
+      ...prev,
+      equipment_ids: (lab.equipment || []).map((e) => e.id),
+      task_solution_ids: (lab.task_solutions || []).map((t) => t.id),
+      employee_ids: (lab.employees || []).map((e) => e.id),
+      head_employee_id: lab.head_employee_id ?? lab.head_employee?.id ?? null,
+    }));
+  }, [orgLabs, editingLabId]);
 
   const handleEquipmentEditChange = (field, value) => {
     setEquipmentEdit((prev) => ({ ...prev, [field]: value }));
@@ -1019,6 +1096,8 @@ export default function Profile() {
       setOrgEquipment((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       clearFileInputs(orgEquipmentFileInputRefs);
       cancelEditEquipment();
+      loadLabs();
+      showToast("Сохранено");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1046,8 +1125,12 @@ export default function Profile() {
         body: JSON.stringify(payload),
       });
       setOrgLabs((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      loadEquipment();
+      loadTasks();
+      loadEmployees();
       clearFileInputs(orgLabFileInputRefs);
       cancelEditLab();
+      showToast("Сохранено");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1083,6 +1166,7 @@ export default function Profile() {
         body: JSON.stringify(payload),
       });
       setOrgEmployees((prev) => [created, ...prev]);
+      loadLabs();
       clearFileInputs(orgStaffFileInputRefs);
       setEmployeeDraft({
         full_name: "",
@@ -1101,6 +1185,7 @@ export default function Profile() {
       });
       setEmployeeDraftPositionInput("");
       setShowDraftPublications(false);
+      showToast("Сотрудник создан");
       return true;
     } catch (e) {
       setError(e.message);
@@ -1164,6 +1249,8 @@ export default function Profile() {
       setOrgEmployees((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       clearFileInputs(orgStaffFileInputRefs);
       cancelEditEmployee();
+      loadLabs();
+      showToast("Сохранено");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1227,6 +1314,7 @@ export default function Profile() {
           hindex_openalex: updated.hindex_openalex,
         });
       }
+      showToast("Данные импортированы");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1240,10 +1328,12 @@ export default function Profile() {
     try {
       await apiRequest(`/profile/organization/employees/${employeeId}`, { method: "DELETE" });
       setOrgEmployees((prev) => prev.filter((item) => item.id !== employeeId));
+      loadLabs();
       if (employeePreview?.id === employeeId) {
         setEmployeePreview(null);
       }
       setRefreshKey((k) => k + 1);
+      showToast("Сотрудник удалён");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1295,8 +1385,10 @@ export default function Profile() {
         body: JSON.stringify(payload),
       });
       setOrgEquipment((prev) => [created, ...prev]);
+      loadLabs();
       clearFileInputs(orgEquipmentFileInputRefs);
       setEquipmentDraft({ name: "", description: "", characteristics: "", image_urls: [], laboratory_ids: [] });
+      showToast("Оборудование создано");
       return true;
     } catch (e) {
       setError(e.message);
@@ -1312,6 +1404,8 @@ export default function Profile() {
     try {
       await apiRequest(`/profile/organization/equipment/${equipmentId}`, { method: "DELETE" });
       setOrgEquipment((prev) => prev.filter((item) => item.id !== equipmentId));
+      loadLabs();
+      showToast("Оборудование удалено");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1353,6 +1447,7 @@ export default function Profile() {
         equipment_ids: [],
         task_solution_ids: [],
       });
+      showToast("Лаборатория создана");
       return true;
     } catch (e) {
       setError(e.message);
@@ -1368,6 +1463,10 @@ export default function Profile() {
     try {
       await apiRequest(`/profile/organization/laboratories/${labId}`, { method: "DELETE" });
       setOrgLabs((prev) => prev.filter((item) => item.id !== labId));
+      loadEquipment();
+      loadTasks();
+      loadEmployees();
+      showToast("Лаборатория удалена");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1399,6 +1498,7 @@ export default function Profile() {
         body: JSON.stringify(payload),
       });
       setOrgTasks((prev) => [created, ...prev]);
+      loadLabs();
       setTaskDraft({
         title: "",
         task_description: "",
@@ -1410,6 +1510,7 @@ export default function Profile() {
         external_solutions: "",
         laboratory_ids: [],
       });
+      showToast("Задача создана");
       return true;
     } catch (e) {
       setError(e.message);
@@ -1465,6 +1566,8 @@ export default function Profile() {
       });
       setOrgTasks((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       cancelEditTask();
+      loadLabs();
+      showToast("Сохранено");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1478,6 +1581,8 @@ export default function Profile() {
     try {
       await apiRequest(`/profile/organization/tasks/${taskId}`, { method: "DELETE" });
       setOrgTasks((prev) => prev.filter((item) => item.id !== taskId));
+      loadLabs();
+      showToast("Задача удалена");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1485,14 +1590,17 @@ export default function Profile() {
     }
   };
 
-  const toggleQueryLab = (labId, isEdit = false) => {
+  const toggleQueryLab = (labId, isEdit = false, query = null) => {
     const setter = isEdit ? setQueryEdit : setQueryDraft;
     setter((prev) => {
       if (!prev) return prev;
       const current = prev.laboratory_ids || [];
-      const next = current.includes(labId)
-        ? current.filter((id) => id !== labId)
-        : [...current, labId];
+      const isRemoving = current.includes(labId);
+      const next = isRemoving ? current.filter((id) => id !== labId) : [...current, labId];
+      if (isEdit && isRemoving && next.length === 0 && query?.is_published) {
+        setError("Снимите запрос с публикации, затем удалите лабораторию.");
+        return prev;
+      }
       return { ...prev, laboratory_ids: next };
     });
   };
@@ -1542,6 +1650,8 @@ export default function Profile() {
         body: JSON.stringify(payload),
       });
       setOrgQueries((prev) => [created, ...prev]);
+      loadLabs();
+      loadEmployees();
       setQueryDraft({
         title: "",
         task_description: "",
@@ -1554,6 +1664,7 @@ export default function Profile() {
         laboratory_ids: [],
         employee_ids: [],
       });
+      showToast("Запрос создан");
       return true;
     } catch (e) {
       setError(e.message);
@@ -1607,6 +1718,9 @@ export default function Profile() {
       });
       setOrgQueries((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       cancelEditQuery();
+      loadLabs();
+      loadEmployees();
+      showToast("Сохранено");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1620,6 +1734,8 @@ export default function Profile() {
     try {
       await apiRequest(`/profile/organization/queries/${queryId}`, { method: "DELETE" });
       setOrgQueries((prev) => prev.filter((item) => item.id !== queryId));
+      loadEmployees();
+      showToast("Запрос удалён");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1666,6 +1782,7 @@ export default function Profile() {
         contact_email: "",
         contact_phone: "",
       });
+      showToast("Вакансия создана");
       return true;
     } catch (e) {
       setError(e.message);
@@ -1725,6 +1842,7 @@ export default function Profile() {
       });
       setOrgVacancies((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       cancelEditVacancy();
+      showToast("Сохранено");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1738,6 +1856,7 @@ export default function Profile() {
     try {
       await apiRequest(`/profile/organization/vacancies/${vacancyId}`, { method: "DELETE" });
       setOrgVacancies((prev) => prev.filter((item) => item.id !== vacancyId));
+      showToast("Вакансия удалена");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1771,6 +1890,7 @@ export default function Profile() {
       });
       setStudentProfile(data);
       clearFileInputs(studentFileInputRefs);
+      showToast("Сохранено");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1881,6 +2001,7 @@ export default function Profile() {
       });
       setResearcherProfile(data);
       clearFileInputs(researcherFileInputRefs);
+      showToast("Сохранено");
     } catch (e) {
       setError(e.message);
     } finally {

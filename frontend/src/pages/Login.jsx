@@ -17,10 +17,12 @@ export default function Login() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [form, setForm] = useState({ mail: "", password: "" });
   const [error, setError] = useState(null);
+  const [verifiedMessage, setVerifiedMessage] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     const err = searchParams.get("error");
+    const verified = searchParams.get("verified");
 
     // Если пользователь уже авторизован и пришёл с ошибкой ORCID,
     // не держим его на экране входа: возвращаем в профиль с понятным сообщением.
@@ -30,7 +32,10 @@ export default function Login() {
       return;
     }
 
-    if (err && ORCID_ERROR_MESSAGES[err]) {
+    if (verified === "1") {
+      setVerifiedMessage(true);
+      setSearchParams({}, { replace: true });
+    } else if (err && ORCID_ERROR_MESSAGES[err]) {
       setError(ORCID_ERROR_MESSAGES[err]);
       setSearchParams({}, { replace: true });
     }
@@ -69,6 +74,11 @@ export default function Login() {
           </p>
 
           <form className="auth-form-modern" onSubmit={handleSubmit}>
+            {verifiedMessage && (
+              <div className="auth-alert auth-alert-success" role="status">
+                Email подтверждён. Войдите в аккаунт.
+              </div>
+            )}
             {error && (
               <div className="auth-alert auth-alert-error" role="alert">
                 {error}

@@ -68,7 +68,7 @@ async def create_org_query(
         )
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Organization profile not found. Сначала заполните и сохраните профиль организации.",
+        detail="Сначала заполните и сохраните профиль организации.",
     )
 
 
@@ -84,6 +84,19 @@ async def update_org_query(
     employee_ids = patch.get("employee_ids")
     if is_lab_representative(current_user) and "laboratory_ids" in patch:
         require_lab_link_for_lab_rep(laboratory_ids=laboratory_ids)
+    # Проверка: нельзя удалять лабораторию у опубликованного запроса
+    query_before = None
+    if org:
+        query_before = await AsyncOrm.get_query_for_org(query_id, org.id)
+    elif is_lab_representative(current_user):
+        query_before = await AsyncOrm.get_query_for_creator(query_id, current_user.id)
+    if query_before and getattr(query_before, "is_published", False) and "laboratory_ids" in patch:
+        new_labs = laboratory_ids if laboratory_ids is not None else []
+        if not new_labs:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Снимите запрос с публикации, затем удалите лабораторию.",
+            )
     if org:
         query = await AsyncOrm.update_query(
             query_id,
@@ -142,14 +155,24 @@ async def set_query_publish_state(
     current_user=Depends(get_current_user),
 ):
     org = await AsyncOrm.get_organization_for_user(current_user.id)
+    query_before = None
+    if org:
+        query_before = await AsyncOrm.get_query_for_org(query_id, org.id)
+    elif is_lab_representative(current_user):
+        query_before = await AsyncOrm.get_query_for_creator(query_id, current_user.id)
+    if not query_before:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Query not found")
+    if payload.is_published:
+        labs = getattr(query_before, "laboratories", None) or []
+        if not labs:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Нельзя опубликовать запрос без лаборатории. Привяжите хотя бы одну лабораторию.",
+            )
     if org:
         query = await AsyncOrm.set_query_published(query_id, org.id, payload.is_published)
-    elif is_lab_representative(current_user):
+    else:
         query = await AsyncOrm.set_query_published_for_creator(
             query_id, current_user.id, payload.is_published
         )
-    else:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
-    if not query:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Query not found")
     return query
