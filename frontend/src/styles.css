@@ -1303,6 +1303,15 @@ body.nav-open {
   margin-top: 0.3rem;
 }
 
+.profile-field-hint.profile-field-warning {
+  color: var(--warning, #b45309);
+  background: rgba(245, 158, 11, 0.1);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border-left: 3px solid var(--warning, #eab308);
+  margin-top: 0.5rem;
+}
+
 /* ===== PROFILE PAGE ===== */
 .profile-page {
   padding: 1.5rem clamp(1.2rem, 4vw, 3rem) 3rem;
@@ -7425,6 +7434,107 @@ a.request-card__title:hover {
   .cookie-banner__btn {
     margin-left: 0;
     margin-top: 0.25rem;
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+/* ----- Release notes banner (временно, для разработки) ----- */
+.release-banner {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 51;
+  pointer-events: none;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  display: flex;
+  justify-content: center;
+  padding-inline: clamp(0.75rem, 3vw, 1.5rem);
+}
+
+.release-banner__inner {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 1180px;
+  border-radius: var(--radius-md);
+  padding: clamp(0.75rem, 2.5vw, 1rem) clamp(1rem, 4vw, 1.5rem);
+  margin-bottom: clamp(0.75rem, 3vw, 1rem);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(0.75rem, 3vw, 1rem);
+  box-shadow: var(--shadow-md);
+}
+
+.release-banner__content {
+  flex: 1;
+  max-height: 65vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.release-banner__title {
+  display: block;
+  font-size: clamp(0.875rem, 2.2vw, 0.9375rem);
+  margin-bottom: 0.25rem;
+  color: var(--text-primary);
+}
+
+.release-banner__version {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.release-banner__list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: clamp(0.75rem, 2vw, 0.8125rem);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.release-banner__list li {
+  margin-bottom: 0.25rem;
+}
+
+.release-banner__list li:last-child {
+  margin-bottom: 0;
+}
+
+.release-banner__btn {
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.5rem 1.125rem;
+  font-size: clamp(0.8125rem, 2vw, 0.875rem);
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.release-banner__btn:hover {
+  background: var(--accent-soft);
+}
+
+.release-banner__btn:active {
+  transform: translateY(1px);
+}
+
+@media (max-width: 640px) {
+  .release-banner__inner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .release-banner__btn {
     width: 100%;
     min-height: 44px;
   }

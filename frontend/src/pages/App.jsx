@@ -18,6 +18,7 @@ import Privacy from "./Privacy";
 import { useAuth } from "../auth/AuthContext";
 import NotificationsDropdown from "../components/NotificationsDropdown";
 import CookieBanner from "../components/CookieBanner";
+import ReleaseBanner from "../components/ReleaseBanner";
 import { getOrCreateSessionId, getEntityFromPath, sendEvents } from "../analytics";
 
 const navLinkClass = ({ isActive }) => `nav-link${isActive ? " nav-link--active" : ""}`;
@@ -237,6 +238,7 @@ export default function App() {
       </div>
 
       <CookieBanner />
+      <ReleaseBanner />
 
       <footer className="footer">
         <div className="footer__content">

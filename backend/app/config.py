@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     MAIL_FROM: str = ""
     MAIL_FROM_NAME: str = "Синтезум"
 
+    # Шаблон URL профиля кандидата для писем об отклике. {user_id} — плейсхолдер.
+    # Пример: https://pi-hardbox.ru/profile/{user_id}
+    # Пусто — ссылка в письме не добавляется (до внедрения платной подписки).
+    PROFILE_PUBLIC_URL_TEMPLATE: Optional[str] = None
+
     @property
     def DATABASE_URL_pg(self) -> str:
         """

@@ -129,6 +129,8 @@ export default function VacanciesTab({
   const renderContactBlock = (state, setState, isPublished = false) => {
     const selectedEmp = state.contact_employee_id ? orgEmployees.find((e) => e.id === state.contact_employee_id) : null;
     const showEmailPhone = !state.contact_employee_id;
+    const contactHasNoEmail =
+      selectedEmp && !(selectedEmp.contacts?.email || selectedEmp.contacts?.mail);
     const handleClearContact = () => {
       if (isPublished && onError) {
         const hasFallback = ((state.contact_email || "").trim() && (state.contact_phone || "").trim());
@@ -143,10 +145,17 @@ export default function VacanciesTab({
       <>
         <div className="query-linked-task-block">
           {selectedEmp ? (
-            <div className="query-linked-task-selected">
-              <span className="query-linked-task-title">{selectedEmp.full_name}</span>
-              <button type="button" className="query-linked-task-clear" onClick={handleClearContact} aria-label="Очистить">×</button>
-            </div>
+            <>
+              <div className="query-linked-task-selected">
+                <span className="query-linked-task-title">{selectedEmp.full_name}</span>
+                <button type="button" className="query-linked-task-clear" onClick={handleClearContact} aria-label="Очистить">×</button>
+              </div>
+              {contactHasNoEmail && (
+                <p className="profile-field-hint profile-field-warning" role="alert">
+                  У контактного лица не указан email. Для получения откликов будет использоваться email вашего личного аккаунта.
+                </p>
+              )}
+            </>
           ) : (
             <select
               className="query-linked-task-select"

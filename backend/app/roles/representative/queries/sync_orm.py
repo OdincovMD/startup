@@ -2469,6 +2469,10 @@ class SyncOrm:
                     selectinload(models.VacancyOrganization.contact_employee).selectinload(
                         models.Employee.laboratories
                     ),
+                    selectinload(models.VacancyOrganization.contact_employee).selectinload(
+                        models.Employee.user
+                    ),
+                    selectinload(models.VacancyOrganization.creator),
                 )
                 .where(models.VacancyOrganization.public_id == public_id)
             )
