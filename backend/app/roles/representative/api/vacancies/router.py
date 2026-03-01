@@ -1,4 +1,5 @@
 """Vacancies view — CRUD для вакансий."""
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -11,6 +12,9 @@ from app.roles.representative.schemas import (
 )
 from app.roles.representative.api._helpers import is_lab_representative, require_lab_link_for_lab_rep
 from app.queries.async_orm import AsyncOrm
+from app.services.elasticsearch import index_vacancy, delete_vacancy
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -151,6 +155,13 @@ async def update_org_vacancy(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not vacancy:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacancy not found")
+    try:
+        if getattr(vacancy, "is_published", False):
+            await index_vacancy(vacancy)
+        else:
+            await delete_vacancy(vacancy.id)
+    except Exception as e:
+        logger.warning("Elasticsearch sync failed for vacancy %s: %s", vacancy.id, e)
     return vacancy
 
 
@@ -165,6 +176,10 @@ async def delete_org_vacancy(vacancy_id: int, current_user=Depends(get_current_u
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacancy not found")
+    try:
+        await delete_vacancy(vacancy_id)
+    except Exception as e:
+        logger.warning("Elasticsearch delete failed for vacancy %s: %s", vacancy_id, e)
     return {"status": "ok"}
 
 
@@ -203,4 +218,11 @@ async def set_vacancy_publish_state(
         vacancy = await AsyncOrm.set_vacancy_published_for_creator(
             vacancy_id, current_user.id, payload.is_published
         )
+    try:
+        if payload.is_published:
+            await index_vacancy(vacancy)
+        else:
+            await delete_vacancy(vacancy_id)
+    except Exception as e:
+        logger.warning("Elasticsearch sync failed for vacancy %s: %s", vacancy_id, e)
     return vacancy

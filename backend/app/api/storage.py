@@ -3,11 +3,14 @@ Direct upload endpoints for S3-compatible storage.
 """
 
 import asyncio
+import logging
 import os
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from app.api.deps import get_current_user
+
+logger = logging.getLogger(__name__)
 from app.schemas import StorageUploadResponse
 from app.storage.s3 import upload_bytes
 
@@ -51,12 +54,24 @@ async def upload_image(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported file type")
 
     data = await file.read()
-    public_url, key = await asyncio.to_thread(
-        upload_bytes,
-        category,
-        current_user.id,
-        file.filename or "image",
-        file.content_type or "application/octet-stream",
-        data,
-    )
-    return StorageUploadResponse(public_url=public_url, key=key)
+    try:
+        public_url, key = await asyncio.to_thread(
+            upload_bytes,
+            category,
+            current_user.id,
+            file.filename or "image",
+            file.content_type or "application/octet-stream",
+            data,
+        )
+        logger.info(
+            "File uploaded: user_id=%s category=%s key=%s size=%d content_type=%s",
+            current_user.id,
+            category,
+            key,
+            len(data),
+            file.content_type or "application/octet-stream",
+        )
+        return StorageUploadResponse(public_url=public_url, key=key)
+    except Exception as e:
+        logger.exception("Upload failed for user_id=%s category=%s: %s", current_user.id, category, e)
+        raise

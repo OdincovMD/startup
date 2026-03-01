@@ -8,6 +8,7 @@ POST /orcid/complete — дорегистрация после ORCID (email, р�
 """
 
 import asyncio
+import logging
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
@@ -36,6 +37,7 @@ from app.queries.async_orm import AsyncOrm
 from app.api.deps import get_current_user
 from app.services.email import send_verification_email, send_password_reset_email
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 ORCID_STATE_COOKIE = "orcid_state"
@@ -71,8 +73,10 @@ async def register(user_in: UserCreate):
         token = await AsyncOrm.create_verification_token(user.id)
         verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/verify-email?token={token}"
         await asyncio.to_thread(send_verification_email, user.mail, verify_url)
+        logger.info("User registered: id=%s role_id=%s", user.id, user_in.role_id)
         return user_to_read(user)
     except ValueError as e:
+        logger.warning("Registration failed: %s", e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
@@ -80,10 +84,13 @@ async def register(user_in: UserCreate):
 async def login(payload: LoginRequest):
     user = await AsyncOrm.get_user_by_mail(payload.mail)
     if not user or not user.hash_parameter:
+        logger.warning("Login failed: user not found or no password")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not await AsyncOrm.verify_password(payload.password, user.hash_parameter):
+        logger.warning("Login failed: invalid password for user_id=%s", user.id)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     token = _create_access_token(str(user.id), getattr(user, "token_version", 0))
+    logger.info("User logged in: id=%s", user.id)
     return TokenResponse(access_token=token, user=user_to_read(user))
 
 
@@ -91,7 +98,9 @@ async def login(payload: LoginRequest):
 async def verify_email(payload: EmailVerificationRequest):
     user = await AsyncOrm.verify_email_by_token(payload.token)
     if not user:
+        logger.warning("Email verification failed: invalid token")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")
+    logger.info("Email verified: user_id=%s", user.id)
     return user_to_read(user)
 
 
@@ -135,6 +144,7 @@ async def forgot_password(payload: ForgotPasswordRequest):
         token = await AsyncOrm.create_password_reset_token(user.id)
         reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?token={token}"
         await asyncio.to_thread(send_password_reset_email, user.mail, reset_url)
+        logger.info("Password reset email sent: user_id=%s", user.id)
     return {"detail": GENERIC_FORGOT_PASSWORD_RESPONSE}
 
 
@@ -146,9 +156,12 @@ async def reset_password(payload: ResetPasswordRequest):
     except ValueError as e:
         if "отличаться" in str(e):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        logger.warning("Password reset failed: %s", e)
         raise
     if not user:
+        logger.warning("Password reset failed: invalid or expired token")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Недействительная или просроченная ссылка")
+    logger.info("Password reset completed: user_id=%s", user.id)
     return user_to_read(user)
 
 
@@ -157,8 +170,10 @@ async def set_password(payload: SetPasswordRequest, user: User = Depends(get_cur
     """Установить пароль для пользователя, зарегистрированного через ORCID (без пароля)."""
     try:
         await AsyncOrm.update_user_password(user.id, payload.password)
+        logger.info("Password set for user_id=%s", user.id)
         return {"detail": "Пароль установлен"}
     except ValueError as e:
+        logger.warning("Set password failed for user_id=%s: %s", user.id, e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
@@ -251,6 +266,7 @@ async def orcid_unlink(user: User = Depends(get_current_user)):
         )
     try:
         await AsyncOrm.unlink_orcid(user.id)
+        logger.info("ORCID unlinked: user_id=%s", user.id)
         return {"detail": "ORCID unlinked"}
     except ValueError as e:
         if str(e) == "requires_password_first":
@@ -317,6 +333,7 @@ async def orcid_callback(
             user = await AsyncOrm.get_user(user_id)
             if user:
                 await AsyncOrm.link_orcid_to_user(user_id, orcid)
+                logger.info("ORCID linked to user_id=%s", user_id)
                 response = RedirectResponse(url=f"{frontend}/profile?orcid=linked", status_code=302)
             else:
                 response = RedirectResponse(
@@ -325,6 +342,7 @@ async def orcid_callback(
                 )
         except ValueError as e:
             err_msg = str(e)
+            logger.warning("ORCID link failed for link_uid=%s: %s", link_uid, err_msg)
             if "уже привязан" in err_msg or "already" in err_msg.lower():
                 reason = "orcid_already_linked"
             else:
@@ -340,6 +358,7 @@ async def orcid_callback(
     user = await AsyncOrm.get_user_by_orcid(orcid)
     if user:
         token = _create_access_token(str(user.id), getattr(user, "token_version", 0))
+        logger.info("ORCID login: user_id=%s", user.id)
         response = RedirectResponse(url=f"{frontend}/auth/callback?token={token}", status_code=302)
     else:
         name_enc = quote(name, safe="")
@@ -362,7 +381,9 @@ async def orcid_complete(payload: OrcidCompleteRequest):
             role_id=payload.role_id,
             full_name=payload.full_name,
         )
+        logger.info("ORCID user registered: id=%s role_id=%s", user.id, payload.role_id)
     except ValueError as e:
+        logger.warning("ORCID complete failed: %s", e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     verify_token = await AsyncOrm.create_verification_token(user.id)
     verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/verify-email?token={verify_token}"

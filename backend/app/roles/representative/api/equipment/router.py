@@ -1,8 +1,12 @@
 """Equipment view — CRUD для оборудования."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_current_user
+
+logger = logging.getLogger(__name__)
 from app.roles.representative.schemas import (
     OrganizationEquipmentCreate,
     OrganizationEquipmentRead,
@@ -31,7 +35,7 @@ async def create_org_equipment(
 ):
     org = await AsyncOrm.get_organization_for_user(current_user.id)
     if org:
-        return await AsyncOrm.create_equipment_for_org(
+        eq = await AsyncOrm.create_equipment_for_org(
             org.id,
             creator_user_id=current_user.id,
             name=payload.name,
@@ -40,9 +44,11 @@ async def create_org_equipment(
             image_urls=payload.image_urls,
             laboratory_ids=payload.laboratory_ids,
         )
+        logger.info("Equipment created: id=%s org_id=%s", eq.id, org.id)
+        return eq
     if is_lab_representative(current_user):
         require_lab_link_for_lab_rep(payload.laboratory_ids)
-        return await AsyncOrm.create_equipment_for_org(
+        eq = await AsyncOrm.create_equipment_for_org(
             None,
             creator_user_id=current_user.id,
             name=payload.name,
@@ -51,6 +57,8 @@ async def create_org_equipment(
             image_urls=payload.image_urls,
             laboratory_ids=payload.laboratory_ids,
         )
+        logger.info("Equipment created: id=%s creator_user_id=%s", eq.id, current_user.id)
+        return eq
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Сначала заполните и сохраните профиль организации.",
@@ -92,6 +100,7 @@ async def update_org_equipment(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not equipment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipment not found")
+    logger.info("Equipment updated: id=%s", equipment_id)
     return equipment
 
 
@@ -106,4 +115,5 @@ async def delete_org_equipment(equipment_id: int, current_user=Depends(get_curre
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipment not found")
+    logger.info("Equipment deleted: id=%s", equipment_id)
     return {"status": "ok"}

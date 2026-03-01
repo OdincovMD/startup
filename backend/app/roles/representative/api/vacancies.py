@@ -5,9 +5,14 @@ GET / — список вакансий,
 GET /{vacancy_id} — получение вакансии по ID.
 """
 
-from fastapi import APIRouter, HTTPException, status, Depends
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.roles.representative.schemas import VacancyOrganizationCreate, VacancyOrganizationRead
+
+logger = logging.getLogger(__name__)
+
 from app.queries.async_orm import AsyncOrm
 from app.api.deps import get_current_user
 
@@ -24,7 +29,7 @@ async def create_vacancy(vacancy_in: VacancyOrganizationCreate, _user=Depends(ge
             detail="Organization does not exist",
         )
     try:
-        return await AsyncOrm.create_vacancy(
+        vac = await AsyncOrm.create_vacancy(
             organization_id=vacancy_in.organization_id,
             creator_user_id=_user.id,
             name=vacancy_in.name,
@@ -35,7 +40,10 @@ async def create_vacancy(vacancy_in: VacancyOrganizationCreate, _user=Depends(ge
             laboratory_id=vacancy_in.laboratory_id,
             contact_employee_id=vacancy_in.contact_employee_id,
         )
+        logger.info("Vacancy created: id=%s org_id=%s name=%s", vac.id, vacancy_in.organization_id, vac.name)
+        return vac
     except Exception as e:
+        logger.warning("Vacancy creation failed: org_id=%s: %s", vacancy_in.organization_id, e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": "VACANCY_CREATION_FAILURE", "message": str(e)},

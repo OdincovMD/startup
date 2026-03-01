@@ -2,12 +2,16 @@
 API для привязки и импорта данных OpenAlex (профиль организации).
 """
 
+import logging
+
 from sqlalchemy.exc import IntegrityError
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
+
+logger = logging.getLogger(__name__)
 from app.queries.async_orm import AsyncOrm
 from app.services.openalex import (
     fetch_institution_by_ror,
@@ -52,6 +56,7 @@ async def link_ror(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный ROR ID")
     institution = fetch_institution_by_ror(ror_id)
     if not institution:
+        logger.warning("ROR link failed: institution not found ror_id=%s", ror_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Организация не найдена в OpenAlex. Проверьте ROR ID.",
@@ -71,6 +76,7 @@ async def link_ror(
         address=mapped.get("address"),
         website=mapped.get("website"),
     )
+    logger.info("ROR linked to organization: org_id=%s ror_id=%s", org.id, ror_id)
     return {"ror_id": updated.ror_id, "display_name": institution.get("display_name")}
 
 
@@ -86,6 +92,7 @@ async def unlink_ror(current_user=Depends(get_current_user)):
     if not org:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
     await AsyncOrm.update_organization_ror(org.id, None)
+    logger.info("ROR unlinked from organization: org_id=%s", org.id)
     return {"ok": True}
 
 
@@ -119,4 +126,5 @@ async def import_org_openalex(current_user=Depends(get_current_user)):
         address=mapped.get("address"),
         website=mapped.get("website"),
     )
+    logger.info("Organization OpenAlex import completed: org_id=%s ror_id=%s", updated.id, org.ror_id)
     return {"ok": True, "organization_id": updated.id}

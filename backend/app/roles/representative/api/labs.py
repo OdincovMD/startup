@@ -20,14 +20,17 @@ router = APIRouter(prefix="/labs", tags=["labs"])
 async def create_lab(lab_in: OrganizationCreate, _user=Depends(get_current_user)):
     """Создание новой организации."""
     try:
-        return await AsyncOrm.create_organization(
+        org = await AsyncOrm.create_organization(
             name=lab_in.name,
             avatar_url=lab_in.avatar_url,
             description=lab_in.description,
             address=lab_in.address,
             website=lab_in.website,
         )
+        logger.info("Organization created: id=%s name=%s", org.id, org.name)
+        return org
     except Exception as e:
+        logger.warning("Organization creation failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": "LAB_CREATION_FAILURE", "message": str(e)},

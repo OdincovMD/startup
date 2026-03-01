@@ -23,14 +23,35 @@ function parseSkillsFromRequirements(requirements, description) {
   return [...new Set(parts)].slice(0, 6);
 }
 
+const SEARCH_DEBOUNCE_MS = 350;
+const VACANCIES_PAGE_SIZE = 20;
+
+const EMPLOYMENT_TYPES = [
+  { value: "", label: "Любой тип занятости" },
+  { value: "Полная занятость", label: "Полная занятость" },
+  { value: "Частичная занятость", label: "Частичная занятость" },
+  { value: "Стажировка", label: "Стажировка" },
+  { value: "Вахта", label: "Вахта" },
+  { value: "Подработка", label: "Подработка" },
+];
+
 export default function Vacancies() {
   const { auth } = useAuth();
   const { showToast } = useToast();
   const [vacancies, setVacancies] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchDebounced, setSearchDebounced] = useState("");
+  const [employmentType, setEmploymentType] = useState("");
+  const [organizationId, setOrganizationId] = useState("");
+  const [laboratoryId, setLaboratoryId] = useState("");
+  const [organizations, setOrganizations] = useState([]);
+  const [laboratories, setLaboratories] = useState([]);
   const [employeePreview, setEmployeePreview] = useState(null);
   const [showEmployeePublications, setShowEmployeePublications] = useState(false);
   const [myResponse, setMyResponse] = useState(null);
@@ -41,11 +62,56 @@ export default function Vacancies() {
   const selectedId = useMemo(() => (publicId ? String(publicId) : null), [publicId]);
 
   useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(searchQuery.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    async function loadOptions() {
+      try {
+        const [orgs, labs] = await Promise.all([
+          apiRequest("/labs/"),
+          apiRequest("/laboratories/"),
+        ]);
+        setOrganizations(orgs || []);
+        setLaboratories(labs || []);
+      } catch {
+        // ignore
+      }
+    }
+    loadOptions();
+  }, []);
+
+  const hasFilters = searchDebounced || employmentType || organizationId || laboratoryId;
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchDebounced, employmentType, organizationId, laboratoryId]);
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setSearchDebounced("");
+    setEmploymentType("");
+    setOrganizationId("");
+    setLaboratoryId("");
+    setPage(1);
+  };
+
+  useEffect(() => {
     async function loadVacancies() {
       try {
         setLoading(true);
-        const data = await apiRequest("/vacancies/");
-        setVacancies(data);
+        const params = new URLSearchParams();
+        params.set("page", String(page));
+        params.set("size", String(VACANCIES_PAGE_SIZE));
+        if (searchDebounced) params.set("q", searchDebounced);
+        if (employmentType) params.set("employment_type", employmentType);
+        if (organizationId) params.set("organization_id", organizationId);
+        if (laboratoryId) params.set("laboratory_id", laboratoryId);
+        const data = await apiRequest(`/vacancies/?${params.toString()}`);
+        const items = Array.isArray(data) ? data : (data?.items || []);
+        setVacancies(items);
+        setTotal(Array.isArray(data) ? items.length : (data?.total ?? items.length));
       } catch (e) {
         setError(e.message);
       } finally {
@@ -53,7 +119,7 @@ export default function Vacancies() {
       }
     }
     loadVacancies();
-  }, []);
+  }, [searchDebounced, employmentType, organizationId, laboratoryId, page]);
 
   useEffect(() => {
     async function loadDetails() {
@@ -140,91 +206,213 @@ export default function Vacancies() {
     <main className="main">
       <section className="section">
         {!selectedId && (
-          <div className="section-header">
-            <h2>Вакансии</h2>
-            <p>Опубликованные вакансии платформы. Откройте карточку, чтобы увидеть описание и контакты.</p>
-          </div>
-        )}
-        {loading && !selectedId && (
-          <div className="org-cards-grid labs-skeleton-grid" aria-busy="true" role="status" aria-label="Загрузка">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <article key={i} className="org-card-modern">
-                <div className="org-card-modern__media">
-                  <div className="skeleton" aria-hidden="true" style={{ width: "100%", aspectRatio: 1 }} />
+          <>
+            <div className="section-header vacancy-list-header">
+              <div className="section-header__row">
+                <h2>Вакансии</h2>
+                <div className="vacancy-search">
+                  <div className={`vacancy-search__bar ${loading ? "vacancy-search__bar--loading" : ""}`}>
+                    <span className="vacancy-search__icon" aria-hidden="true">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8" />
+                        <path d="m21 21-4.35-4.35" />
+                      </svg>
+                    </span>
+                    <input
+                      type="search"
+                      className="vacancy-search__input"
+                      placeholder="Название, навыки, лаборатория…"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      aria-label="Поиск по вакансиям"
+                      autoComplete="off"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        className="vacancy-search__clear"
+                        onClick={() => setSearchQuery("")}
+                        aria-label="Очистить поиск"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="org-card-modern__body">
-                  <div className="skeleton" aria-hidden="true" style={{ height: "1.125rem", width: "80%" }} />
-                  <div className="skeleton" aria-hidden="true" style={{ height: "0.875rem" }} />
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-        {error && <p className="error">{error}</p>}
-
-        {!loading && !error && !selectedId && (
-          <div className="org-cards-grid">
-            {vacancies.length === 0 ? (
-              <div className="lab-empty-block org-empty-block">
-                <p className="lab-empty">Опубликованные вакансии пока не добавлены.</p>
-                <p className="lab-empty-hint">Организации публикуют вакансии в разделе «Профиль».</p>
               </div>
-            ) : (
-              vacancies.map((vacancy) => {
-                const skills = parseSkillsFromRequirements(vacancy.requirements, vacancy.description);
-                return (
-                  <article
-                    key={vacancy.id}
-                    className="vacancy-card"
-                    onClick={() => vacancy.public_id && openVacancy(vacancy.public_id)}
-                    role={vacancy.public_id ? "button" : undefined}
-                    tabIndex={vacancy.public_id ? 0 : undefined}
-                    onKeyDown={(e) => {
-                      if (vacancy.public_id && (e.key === "Enter" || e.key === " ")) {
-                        e.preventDefault();
-                        openVacancy(vacancy.public_id);
-                      }
-                    }}
-                  >
-                    <div className="vacancy-card__accent" aria-hidden="true" />
-                    <div className="vacancy-card__inner">
-                      <div className="vacancy-card__header">
-                        <span className="vacancy-card__icon" aria-hidden="true">
-                          {vacancy.name ? vacancy.name.charAt(0).toUpperCase() : "V"}
-                        </span>
-                        <div className="vacancy-card__headline">
-                          <h3 className="vacancy-card__title">{vacancy.name || "Вакансия"}</h3>
-                          {vacancy.employment_type && (
-                            <span className="vacancy-card__type">{vacancy.employment_type}</span>
-                          )}
+              <p>Опубликованные вакансии платформы. Откройте карточку, чтобы увидеть описание и контакты.</p>
+            </div>
+            <div className="vacancy-layout">
+              <div className="vacancy-main">
+                {loading && (
+                  <div className="org-cards-grid labs-skeleton-grid" aria-busy="true" role="status" aria-label="Загрузка">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                      <article key={i} className="org-card-modern">
+                        <div className="org-card-modern__media">
+                          <div className="skeleton" aria-hidden="true" style={{ width: "100%", aspectRatio: 1 }} />
                         </div>
-                      </div>
-                      {vacancy.created_at && (
-                        <p className="vacancy-card__date">
-                          <span className="vacancy-card__date-label">Опубликовано</span> {formatVacancyDate(vacancy.created_at)}
-                        </p>
-                      )}
-                      {skills.length > 0 && (
-                        <div className="vacancy-card__skills" aria-label="Навыки">
-                          {skills.map((skill, i) => (
-                            <span key={i} className="vacancy-card__skill">
-                              {skill}
-                            </span>
-                          ))}
+                        <div className="org-card-modern__body">
+                          <div className="skeleton" aria-hidden="true" style={{ height: "1.125rem", width: "80%" }} />
+                          <div className="skeleton" aria-hidden="true" style={{ height: "0.875rem" }} />
                         </div>
-                      )}
-                      {vacancy.public_id && (
-                        <span className="vacancy-card__cta">
-                          Открыть вакансию
-                          <span className="vacancy-card__cta-arrow" aria-hidden="true">→</span>
-                        </span>
+                      </article>
+                    ))}
+                  </div>
+                )}
+                {error && <p className="error">{error}</p>}
+                {!loading && !error && (
+                  <>
+                    <div className="org-cards-grid">
+                      {vacancies.length === 0 ? (
+                        <div className="lab-empty-block org-empty-block vacancy-empty">
+                          <p className="lab-empty">
+                            {hasFilters
+                              ? "По вашему запросу ничего не найдено."
+                              : "Опубликованные вакансии пока не добавлены."}
+                          </p>
+                          <p className="lab-empty-hint">
+                            {hasFilters
+                              ? "Попробуйте изменить поисковый запрос или сбросить фильтры."
+                              : "Организации публикуют вакансии в разделе «Профиль»."}
+                          </p>
+                        </div>
+                      ) : (
+                        vacancies.map((vacancy) => {
+                          const skills = parseSkillsFromRequirements(vacancy.requirements, vacancy.description);
+                          return (
+                            <article
+                              key={vacancy.id}
+                              className="vacancy-card"
+                              onClick={() => vacancy.public_id && openVacancy(vacancy.public_id)}
+                              role={vacancy.public_id ? "button" : undefined}
+                              tabIndex={vacancy.public_id ? 0 : undefined}
+                              onKeyDown={(e) => {
+                                if (vacancy.public_id && (e.key === "Enter" || e.key === " ")) {
+                                  e.preventDefault();
+                                  openVacancy(vacancy.public_id);
+                                }
+                              }}
+                            >
+                              <div className="vacancy-card__accent" aria-hidden="true" />
+                              <div className="vacancy-card__inner">
+                                <div className="vacancy-card__header">
+                                  <span className="vacancy-card__icon" aria-hidden="true">
+                                    {vacancy.name ? vacancy.name.charAt(0).toUpperCase() : "V"}
+                                  </span>
+                                  <div className="vacancy-card__headline">
+                                    <h3 className="vacancy-card__title">{vacancy.name || "Вакансия"}</h3>
+                                    {vacancy.employment_type && (
+                                      <span className="vacancy-card__type">{vacancy.employment_type}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                {vacancy.created_at && (
+                                  <p className="vacancy-card__date">
+                                    <span className="vacancy-card__date-label">Опубликовано</span> {formatVacancyDate(vacancy.created_at)}
+                                  </p>
+                                )}
+                                {skills.length > 0 && (
+                                  <div className="vacancy-card__skills" aria-label="Навыки">
+                                    {skills.map((skill, i) => (
+                                      <span key={i} className="vacancy-card__skill">
+                                        {skill}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {vacancy.public_id && (
+                                  <span className="vacancy-card__cta">
+                                    Открыть вакансию
+                                    <span className="vacancy-card__cta-arrow" aria-hidden="true">→</span>
+                                  </span>
+                                )}
+                              </div>
+                            </article>
+                          );
+                        })
                       )}
                     </div>
-                  </article>
-                );
-              })
-            )}
-          </div>
+                    {total > VACANCIES_PAGE_SIZE && (
+                      <div className="vacancy-pagination">
+                        <span className="vacancy-pagination__info">
+                          Показано {(page - 1) * VACANCIES_PAGE_SIZE + 1}–{Math.min(page * VACANCIES_PAGE_SIZE, total)} из {total}
+                        </span>
+                        <div className="vacancy-pagination__buttons">
+                          <button
+                            type="button"
+                            className="vacancy-pagination__btn"
+                            disabled={page <= 1}
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                          >
+                            Назад
+                          </button>
+                          <button
+                            type="button"
+                            className="vacancy-pagination__btn"
+                            disabled={page * VACANCIES_PAGE_SIZE >= total}
+                            onClick={() => setPage((p) => p + 1)}
+                          >
+                            Вперёд
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              <aside className="vacancy-sidebar">
+                <div className="vacancy-filters">
+                  <h3 className="vacancy-filters__title">Фильтры</h3>
+                  <div className="vacancy-filters__field">
+                    <label htmlFor="vacancy-filter-employment" className="vacancy-filters__label">Тип занятости</label>
+                    <select
+                      id="vacancy-filter-employment"
+                      className="vacancy-filters__select"
+                      value={employmentType}
+                      onChange={(e) => setEmploymentType(e.target.value)}
+                    >
+                      {EMPLOYMENT_TYPES.map((opt) => (
+                        <option key={opt.value || "_"} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="vacancy-filters__field">
+                    <label htmlFor="vacancy-filter-org" className="vacancy-filters__label">Организация</label>
+                    <select
+                      id="vacancy-filter-org"
+                      className="vacancy-filters__select"
+                      value={organizationId}
+                      onChange={(e) => setOrganizationId(e.target.value)}
+                    >
+                      <option value="">Все организации</option>
+                      {organizations.map((org) => (
+                        <option key={org.id} value={org.id}>{org.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="vacancy-filters__field">
+                    <label htmlFor="vacancy-filter-lab" className="vacancy-filters__label">Лаборатория</label>
+                    <select
+                      id="vacancy-filter-lab"
+                      className="vacancy-filters__select"
+                      value={laboratoryId}
+                      onChange={(e) => setLaboratoryId(e.target.value)}
+                    >
+                      <option value="">Все лаборатории</option>
+                      {laboratories.map((lab) => (
+                        <option key={lab.id} value={lab.id}>{lab.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {hasFilters && (
+                    <button type="button" className="vacancy-filters__reset" onClick={resetFilters}>
+                      Сбросить фильтры
+                    </button>
+                  )}
+                </div>
+              </aside>
+            </div>
+          </>
         )}
 
         {selectedId && (

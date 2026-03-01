@@ -2,10 +2,14 @@
 API для привязки и импорта данных OpenAlex (профиль пользователя).
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
+
+logger = logging.getLogger(__name__)
 from app.queries.async_orm import AsyncOrm
 from app.services.openalex import (
     fetch_author_by_id,
@@ -44,11 +48,13 @@ async def link_openalex(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный OpenAlex ID")
     author = fetch_author_by_id(openalex_id)
     if not author:
+        logger.warning("OpenAlex link failed: author not found openalex_id=%s", openalex_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Автор не найден в OpenAlex. Проверьте ID.",
         )
     await AsyncOrm.update_user_openalex(current_user.id, openalex_id)
+    logger.info("OpenAlex linked: user_id=%s openalex_id=%s", current_user.id, openalex_id)
     if _is_researcher(current_user):
         works = fetch_author_works(openalex_id, per_page=25)
         mapped = map_author_to_researcher(author, works)
@@ -67,6 +73,7 @@ async def link_openalex(
 async def unlink_openalex(current_user=Depends(get_current_user)):
     """Отвязать OpenAlex ID."""
     await AsyncOrm.update_user_openalex(current_user.id, None)
+    logger.info("OpenAlex unlinked: user_id=%s", current_user.id)
     return {"ok": True}
 
 
@@ -118,4 +125,5 @@ async def import_openalex(current_user=Depends(get_current_user)):
         publications=mapped.get("publications"),
         hindex_openalex=mapped.get("hindex_openalex"),
     )
+    logger.info("OpenAlex import completed: user_id=%s researcher_id=%s openalex_id=%s", current_user.id, researcher.id, openalex_id)
     return {"ok": True, "researcher_id": researcher.id}

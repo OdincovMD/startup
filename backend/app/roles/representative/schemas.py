@@ -95,6 +95,13 @@ class VacancyOrganizationUpdate(BaseModel):
     employment_type: Optional[str] = None
     is_published: Optional[bool] = None
 
+class VacancyListResponse(BaseModel):
+    """Response: items, total, page, size."""
+
+    items: List[VacancyOrganizationRead]
+    total: int
+    page: int
+    size: int
 
 # =========================
 #     VACANCY RESPONSES

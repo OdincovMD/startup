@@ -60,6 +60,9 @@ Thumbs.db
 *.log
 .docker/
 
+# Логи backend (монтируются из контейнера)
+logs/
+
 # Local config / secrets
 *.pem
 secrets/

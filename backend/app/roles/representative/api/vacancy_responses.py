@@ -2,9 +2,13 @@
 API откликов на вакансии: список для работодателя, смена статуса, «мои отклики» для соискателя.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_current_user
+
+logger = logging.getLogger(__name__)
 from app.roles.representative.schemas import VacancyResponseRead, VacancyResponseStatusUpdate
 from app.queries.async_orm import AsyncOrm
 
@@ -29,6 +33,7 @@ async def update_vacancy_response_status(
         response_id, current_user.id, payload.status
     )
     if not updated:
+        logger.warning("Update vacancy response status failed: response_id=%s user_id=%s not found", response_id, current_user.id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Отклик не найден")
     # Уведомление соискателю о смене статуса
     applicant_user_id = updated.get("user_id")
@@ -43,6 +48,7 @@ async def update_vacancy_response_status(
                 "status": updated["status"],
             },
         )
+    logger.info("Vacancy response status updated: response_id=%s status=%s vacancy_id=%s", response_id, payload.status, updated.get("vacancy_id"))
     return updated
 
 

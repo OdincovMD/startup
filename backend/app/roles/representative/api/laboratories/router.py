@@ -1,9 +1,13 @@
 """Laboratories view — CRUD для лабораторий."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
+
+logger = logging.getLogger(__name__)
 
 
 class PublishToggle(BaseModel):
@@ -58,8 +62,10 @@ async def create_org_laboratory(
             equipment_ids=payload.equipment_ids,
             task_solution_ids=payload.task_solution_ids,
         )
+        logger.info("Laboratory created: id=%s org_id=%s", lab.id, org.id)
+        return lab
     if is_lab_representative(current_user):
-        return await AsyncOrm.create_laboratory_for_org(
+        lab = await AsyncOrm.create_laboratory_for_org(
             None,
             creator_user_id=current_user.id,
             name=payload.name,
@@ -71,6 +77,8 @@ async def create_org_laboratory(
             equipment_ids=payload.equipment_ids,
             task_solution_ids=payload.task_solution_ids,
         )
+        logger.info("Laboratory created: id=%s creator_user_id=%s", lab.id, current_user.id)
+        return lab
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Organization profile not found. Сначала заполните и сохраните профиль организации.",
@@ -114,6 +122,7 @@ async def update_org_laboratory(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not lab:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Laboratory not found")
+    logger.info("Laboratory updated: id=%s", laboratory_id)
     return lab
 
 
@@ -138,6 +147,7 @@ async def delete_org_laboratory(laboratory_id: int, current_user=Depends(get_cur
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Laboratory not found")
+    logger.info("Laboratory deleted: id=%s", laboratory_id)
     # Уведомление представителю лаборатории о том, что лаборатория удалена/отвязана
     if lab_rep_user_id and lab_name:
         await AsyncOrm.create_notification(
@@ -166,4 +176,5 @@ async def set_lab_publish_state(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not lab:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Laboratory not found")
+    logger.info("Laboratory publish state set: id=%s is_published=%s", laboratory_id, is_published)
     return lab

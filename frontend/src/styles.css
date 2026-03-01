@@ -7109,6 +7109,329 @@ a.request-card__title:hover {
   min-width: 280px;
 }
 
+/* ----- Поиск вакансий (современный UI: иконка, поле, очистка, статус) ----- */
+.vacancy-search {
+  flex: 1;
+  min-width: 0;
+  max-width: 420px;
+  margin-left: auto;
+}
+
+.vacancy-search__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.5rem;
+  background: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.5rem 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vacancy-search__bar:hover {
+  border-color: var(--accent-soft);
+}
+
+.vacancy-search__bar:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+  outline: none;
+}
+
+.vacancy-search__bar--loading {
+  position: relative;
+}
+
+.vacancy-search__bar--loading::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  border-radius: 0 0 12px 12px;
+  animation: vacancy-search-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes vacancy-search-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vacancy-search__bar--loading::after {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+.vacancy-search__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.vacancy-search__bar:focus-within .vacancy-search__icon {
+  color: var(--accent);
+}
+
+.vacancy-search__input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  color: var(--text-primary-alt);
+  padding: 0.35rem 0;
+}
+
+.vacancy-search__input::placeholder {
+  color: var(--text-muted);
+}
+
+.vacancy-search__input:focus {
+  outline: none;
+}
+
+.vacancy-search__clear {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--border-light);
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.vacancy-search__clear:hover,
+.vacancy-search__clear:focus-visible {
+  background: var(--border);
+  color: var(--text-primary-alt);
+}
+
+.vacancy-search__clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.vacancy-search__status {
+  margin: 0.4rem 0 0 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.vacancy-search__status--empty {
+  color: var(--text-secondary);
+}
+
+.vacancy-search__status-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* ----- Layout вакансий: контент слева, фильтры справа (как на маркетплейсах) ----- */
+.vacancy-list-header {
+  margin-bottom: 1.25rem;
+}
+
+.vacancy-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.vacancy-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.vacancy-sidebar {
+  flex-shrink: 0;
+  width: 260px;
+  position: sticky;
+  top: calc(var(--header-height, 60px) + 1rem);
+}
+
+/* ----- Панель фильтров вакансий (в сайдбаре справа) ----- */
+.vacancy-filters {
+  background: var(--card-bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.vacancy-filters__title {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary-alt);
+}
+
+.vacancy-filters__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.vacancy-filters__field:last-of-type {
+  margin-bottom: 0;
+}
+
+.vacancy-filters__label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.vacancy-filters__select {
+  width: 100%;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  color: var(--text-primary-alt);
+  background: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.vacancy-filters__select:hover {
+  border-color: var(--accent-soft);
+}
+
+.vacancy-filters__select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-bg);
+}
+
+.vacancy-filters__reset {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.vacancy-filters__reset:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+@media (max-width: 900px) {
+  .vacancy-layout {
+    flex-direction: column-reverse;
+    gap: 1rem;
+  }
+
+  .vacancy-sidebar {
+    position: static;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .vacancy-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem;
+    min-width: 0;
+    max-width: 100%;
+    /* Совпадает с vacancy-card: тот же фон, тень, скругление */
+    background: var(--card-bg);
+    box-shadow: var(--shadow-sm);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .vacancy-filters__title {
+    margin: 0 0 0.25rem 0;
+    font-size: 0.9375rem;
+  }
+
+  .vacancy-filters__field {
+    margin-bottom: 0;
+  }
+
+  .vacancy-filters__reset {
+    margin-top: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+}
+
+/* ----- Пагинация вакансий ----- */
+.vacancy-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.vacancy-pagination__info {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.vacancy-pagination__buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.vacancy-pagination__btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: var(--text-primary-alt);
+  background: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.vacancy-pagination__btn:hover:not(:disabled) {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+.vacancy-pagination__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .section {
   display: flex;
   flex-direction: column;
@@ -7117,6 +7440,18 @@ a.request-card__title:hover {
 
 .section-header {
   animation: fadeInUp 0.4s ease-out both;
+}
+
+.section-header__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.section-header__row h2 {
+  margin: 0;
 }
 
 .section-header h2 {
@@ -7630,9 +7965,11 @@ a.request-card__title:hover {
     align-items: stretch;
   }
 
-  .search-input {
+  .search-input,
+  .vacancy-search {
     flex: 1;
     min-width: auto;
+    max-width: none;
   }
 
   .cta {
@@ -7685,8 +8022,10 @@ a.request-card__title:hover {
     grid-template-columns: 1fr;
   }
 
-  .search-input {
+  .search-input,
+  .vacancy-search {
     width: 100%;
+    max-width: none;
   }
 
   .footer-links {

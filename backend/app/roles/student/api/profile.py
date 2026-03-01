@@ -2,9 +2,13 @@
 Роуты FastAPI для профиля студента.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends
 
 from app.api.deps import get_current_user
+
+logger = logging.getLogger(__name__)
 from app.roles.student.schemas import StudentRead, StudentUpdate
 from app.queries.async_orm import AsyncOrm
 
@@ -34,4 +38,5 @@ async def upsert_student_profile(
         education=patch.get("education"),
         research_interests=patch.get("research_interests"),
     )
+    logger.info("Student profile upserted: user_id=%s student_id=%s", current_user.id, student.id)
     return student

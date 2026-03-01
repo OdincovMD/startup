@@ -2,6 +2,8 @@
 Зависимости API: проверка JWT и получение текущего пользователя.
 """
 
+import logging
+
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -9,6 +11,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.config import settings
 from app.queries.async_orm import AsyncOrm
 
+logger = logging.getLogger(__name__)
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -16,6 +19,7 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ):
     if not credentials:
+        logger.warning("Auth failed: no credentials")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     try:
@@ -26,13 +30,16 @@ async def get_current_user(
         )
         user_id = int(payload.get("sub"))
     except Exception:
+        logger.warning("Auth failed: invalid token")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
     user = await AsyncOrm.get_user(user_id)
     if not user:
+        logger.warning("Auth failed: user not found user_id=%s", user_id)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     token_version = payload.get("v", 0)
     if getattr(user, "token_version", 0) != token_version:
+        logger.warning("Auth failed: token version mismatch user_id=%s", user_id)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     return user
 

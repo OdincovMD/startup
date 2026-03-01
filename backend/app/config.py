@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     # Пусто — ссылка в письме не добавляется (до внедрения платной подписки).
     PROFILE_PUBLIC_URL_TEMPLATE: Optional[str] = None
 
+    ELASTICSEARCH_URL: str = "http://localhost:9200"
+    ELASTICSEARCH_REQUEST_TIMEOUT: int = 60  # индекс может инициализироваться до 1 мин
+    VACANCIES_INDEX: str = "vacancies"
+
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "plain"  # plain | json
+    LOG_FILE_PATH: Optional[str] = None  # если задан — пишем в файл (для монтирования на хост)
+
     @property
     def DATABASE_URL_pg(self) -> str:
         """

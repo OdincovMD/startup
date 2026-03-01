@@ -1,9 +1,13 @@
 """Employees view — CRUD для сотрудников."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
+
+logger = logging.getLogger(__name__)
 from app.roles.representative.schemas import EmployeeCreate, EmployeeRead, EmployeeUpdate
 from app.roles.representative.api._helpers import is_lab_representative, require_lab_link_for_lab_rep
 from app.queries.async_orm import AsyncOrm
@@ -53,7 +57,7 @@ async def create_org_employee(
 ):
     org = await AsyncOrm.get_organization_for_user(current_user.id)
     if org:
-        return await AsyncOrm.create_employee_for_org(
+        emp = await AsyncOrm.create_employee_for_org(
             org.id,
             creator_user_id=current_user.id,
             full_name=payload.full_name,
@@ -70,9 +74,11 @@ async def create_org_employee(
             contacts=payload.contacts,
             laboratory_ids=payload.laboratory_ids,
         )
+        logger.info("Employee created: id=%s org_id=%s", emp.id, org.id)
+        return emp
     if is_lab_representative(current_user):
         require_lab_link_for_lab_rep(payload.laboratory_ids)
-        return await AsyncOrm.create_employee_for_org(
+        emp = await AsyncOrm.create_employee_for_org(
             None,
             creator_user_id=current_user.id,
             full_name=payload.full_name,
@@ -89,6 +95,8 @@ async def create_org_employee(
             contacts=payload.contacts,
             laboratory_ids=payload.laboratory_ids,
         )
+        logger.info("Employee created: id=%s org_id=None creator_user_id=%s", emp.id, current_user.id)
+        return emp
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Сначала заполните и сохраните профиль организации.",
@@ -160,6 +168,7 @@ async def update_org_employee(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not employee:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+    logger.info("Employee updated: id=%s", employee_id)
     return employee
 
 
@@ -276,6 +285,7 @@ async def import_employee_openalex(
         )
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+    logger.info("Employee OpenAlex import completed: employee_id=%s openalex_id=%s", employee_id, openalex_id)
     return updated
 
 
@@ -298,6 +308,7 @@ async def delete_org_employee(employee_id: int, current_user=Depends(get_current
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+    logger.info("Employee deleted: id=%s org_id=%s", employee_id, org.id if org else None)
     # Уведомление соискателю, что его отвязали от лаборатории
     if user_id_to_notify:
         await AsyncOrm.create_notification(

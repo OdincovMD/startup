@@ -1,8 +1,12 @@
 """Tasks view — CRUD для задач (task solutions)."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_current_user
+
+logger = logging.getLogger(__name__)
 from app.roles.representative.schemas import (
     OrganizationTaskSolutionCreate,
     OrganizationTaskSolutionRead,
@@ -31,7 +35,7 @@ async def create_org_task(
 ):
     org = await AsyncOrm.get_organization_for_user(current_user.id)
     if org:
-        return await AsyncOrm.create_task_solution_for_org(
+        task = await AsyncOrm.create_task_solution_for_org(
             org.id,
             creator_user_id=current_user.id,
             title=payload.title,
@@ -44,9 +48,11 @@ async def create_org_task(
             external_solutions=payload.external_solutions,
             laboratory_ids=payload.laboratory_ids,
         )
+        logger.info("Task created: id=%s org_id=%s", task.id, org.id)
+        return task
     if is_lab_representative(current_user):
         require_lab_link_for_lab_rep(payload.laboratory_ids)
-        return await AsyncOrm.create_task_solution_for_org(
+        task = await AsyncOrm.create_task_solution_for_org(
             None,
             creator_user_id=current_user.id,
             title=payload.title,
@@ -59,6 +65,8 @@ async def create_org_task(
             external_solutions=payload.external_solutions,
             laboratory_ids=payload.laboratory_ids,
         )
+        logger.info("Task created: id=%s creator_user_id=%s", task.id, current_user.id)
+        return task
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Сначала заполните и сохраните профиль организации.",
@@ -108,6 +116,7 @@ async def update_org_task(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    logger.info("Task updated: id=%s", task_id)
     return task
 
 
@@ -122,4 +131,5 @@ async def delete_org_task(task_id: int, current_user=Depends(get_current_user)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    logger.info("Task deleted: id=%s", task_id)
     return {"status": "ok"}

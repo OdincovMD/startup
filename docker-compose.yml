@@ -45,10 +45,15 @@ services:
     container_name: labportal_backend
     env_file:
       - .env
+    environment:
+      - ELASTICSEARCH_URL=${ELASTICSEARCH_URL}
+      - LOG_FILE_PATH=/app/logs/app.log
     expose:
       - "${BACKEND_PORT}"
     depends_on:
       postgres:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${BACKEND_PORT}/health"]
@@ -65,6 +70,7 @@ services:
           target: /app
     volumes:
       - ./backend:/app
+      - ./logs:/app/logs
 
   postgres:
     image: postgres:16-alpine
@@ -88,6 +94,30 @@ services:
     networks:
       - app-network
 
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: labportal_elasticsearch
+    env_file:
+      - .env
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - cluster.routing.allocation.disk.watermark.low=95%
+      - cluster.routing.allocation.disk.watermark.high=97%
+      - cluster.routing.allocation.disk.watermark.flood_stage=99%
+    ports:
+      - "${ELASTICSEARCH_PORT_HOST}:${ELASTICSEARCH_PORT}"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:${ELASTICSEARCH_PORT}/_cluster/health | grep -q 'green\\|yellow'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
   minio:
     image: minio/minio:latest
     container_name: labportal_minio
@@ -95,8 +125,8 @@ services:
       - .env
     command: server /data --console-address ":${MINIO_CONSOLE_PORT}"
     ports:
-      - "9000:9000"
-      - "${MINIO_CONSOLE_PORT}:${MINIO_CONSOLE_PORT}"
+      - "${MINIO_PORT_HOST}:${MINIO_PORT}"
+      - "${MINIO_CONSOLE_PORT_HOST}:${MINIO_CONSOLE_PORT}"
     volumes:
       - minio_data:/data
     networks:
@@ -108,4 +138,5 @@ networks:
 
 volumes:
   postgres_data:
+  elasticsearch_data:
   minio_data:

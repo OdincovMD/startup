@@ -3,23 +3,42 @@
 Создание таблиц, начальные данные, подготовка хранилища.
 """
 
+import asyncio
+
 import app.models  # noqa: F401 — регистрация моделей в metadata
 from app.database import Base, sync_engine
 from app.core.queries.sync_orm import SyncOrm as UserSyncOrm
 from app.storage.s3 import ensure_bucket_ready
+from app.services.elasticsearch import reindex_vacancies_if_empty
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def create_tables() -> None:
     """Создание всех таблиц в БД."""
     Base.metadata.create_all(sync_engine)
+    logger.info("Database tables created")
 
 
 def seed_roles() -> None:
     """Создание базовых ролей, если их нет."""
     for name in ("student", "researcher", "lab_admin", "lab_representative"):
         UserSyncOrm.get_or_create_role(name)
+    logger.info("Roles seeded")
 
 
 def ensure_storage() -> None:
     """Проверка и подготовка S3-хранилища (bucket, CORS, policy)."""
     ensure_bucket_ready()
+    logger.info("Storage bucket ready")
+
+
+async def ensure_elasticsearch_indexes() -> None:
+    """Создание индексов Elasticsearch при старте и первичная индексация, если индекс пуст."""
+    try:
+        await reindex_vacancies_if_empty()
+        logger.info("Elasticsearch indexes ready")
+    except Exception as e:
+        logger.warning("Elasticsearch initial indexing failed: %s", e, exc_info=True)

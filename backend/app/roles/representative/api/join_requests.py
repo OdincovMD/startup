@@ -2,10 +2,14 @@
 API для заявок на присоединение: Исследователь→Лаборатория, Лаборатория→Организация.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
+
+logger = logging.getLogger(__name__)
 from app.queries.async_orm import AsyncOrm
 from app.roles.representative.api._helpers import is_lab_representative
 
@@ -67,8 +71,10 @@ async def create_lab_join_request(
     try:
         req = await AsyncOrm.create_lab_join_request(researcher.id, lab.id)
         await _notify_lab_join_created(lab, researcher.full_name or "", req.id)
+        logger.info("Lab join request created: request_id=%s researcher_id=%s lab_id=%s", req.id, researcher.id, lab.id)
         return {"id": req.id, "status": req.status, "laboratory_id": lab.id}
     except ValueError as e:
+        logger.warning("Lab join request failed: researcher_id=%s lab_id=%s: %s", researcher.id, lab.id, e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
@@ -85,7 +91,9 @@ async def leave_laboratory(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Профиль исследователя не найден")
     ok = await AsyncOrm.leave_laboratory(researcher.id, laboratory_id)
     if not ok:
+        logger.warning("Leave laboratory failed: researcher_id=%s lab_id=%s not member", researcher.id, laboratory_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Вы не состоите в этой лаборатории")
+    logger.info("Researcher left laboratory: researcher_id=%s lab_id=%s", researcher.id, laboratory_id)
     return {"ok": True}
 
 
@@ -122,8 +130,10 @@ async def create_org_join_request(
     try:
         req = await AsyncOrm.create_org_join_request(lab.id, org.id)
         await _notify_org_join_created(org.id, lab.name or "", req.id)
+        logger.info("Org join request created: request_id=%s lab_id=%s org_id=%s", req.id, lab.id, org.id)
         return {"id": req.id, "status": req.status, "laboratory_id": lab.id, "organization_id": org.id}
     except ValueError as e:
+        logger.warning("Org join request failed: lab_id=%s org_id=%s: %s", lab.id, org.id, e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
@@ -234,6 +244,7 @@ async def approve_lab_join_request(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет прав на обработку этой заявки")
     updated = await AsyncOrm.approve_lab_join_request(request_id)
     if not updated:
+        logger.warning("Approve lab join failed: request_id=%s already processed", request_id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Заявка уже обработана")
     researcher_user_id = req.researcher.user_id if req.researcher else None
     if researcher_user_id:
@@ -242,6 +253,7 @@ async def approve_lab_join_request(
             "lab_join_approved",
             {"lab_name": lab.name, "lab_public_id": getattr(lab, "public_id", None)},
         )
+    logger.info("Lab join request approved: request_id=%s lab_id=%s", request_id, lab.id)
     return {"ok": True, "status": "approved"}
 
 
@@ -268,6 +280,7 @@ async def reject_lab_join_request(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет прав на обработку этой заявки")
     updated = await AsyncOrm.reject_lab_join_request(request_id)
     if not updated:
+        logger.warning("Reject lab join failed: request_id=%s already processed", request_id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Заявка уже обработана")
     researcher_user_id = req.researcher.user_id if req.researcher else None
     if researcher_user_id:
@@ -276,6 +289,7 @@ async def reject_lab_join_request(
             "lab_join_rejected",
             {"lab_name": lab.name, "lab_public_id": getattr(lab, "public_id", None)},
         )
+    logger.info("Lab join request rejected: request_id=%s lab_id=%s", request_id, lab.id)
     return {"ok": True, "status": "rejected"}
 
 
@@ -321,6 +335,7 @@ async def approve_org_join_request(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет прав на обработку этой заявки")
     updated = await AsyncOrm.approve_org_join_request(request_id)
     if not updated:
+        logger.warning("Approve org join failed: request_id=%s already processed", request_id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Заявка уже обработана")
     lab = req.laboratory
     if lab and lab.creator_user_id:
@@ -329,6 +344,7 @@ async def approve_org_join_request(
             "org_join_approved",
             {"org_name": org.name, "org_public_id": getattr(org, "public_id", None)},
         )
+    logger.info("Org join request approved: request_id=%s org_id=%s lab_id=%s", request_id, org.id, lab.id if lab else None)
     return {"ok": True, "status": "approved"}
 
 
@@ -348,6 +364,7 @@ async def reject_org_join_request(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет прав на обработку этой заявки")
     updated = await AsyncOrm.reject_org_join_request(request_id)
     if not updated:
+        logger.warning("Reject org join failed: request_id=%s already processed", request_id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Заявка уже обработана")
     lab = req.laboratory
     if lab and lab.creator_user_id:
@@ -356,6 +373,7 @@ async def reject_org_join_request(
             "org_join_rejected",
             {"org_name": org.name, "org_public_id": getattr(org, "public_id", None)},
         )
+    logger.info("Org join request rejected: request_id=%s org_id=%s", request_id, org.id)
     return {"ok": True, "status": "rejected"}
 
 
@@ -369,6 +387,7 @@ async def leave_organization(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступно только для представителя лаборатории")
     result = await AsyncOrm.leave_organization(request_id, current_user.id)
     if not result:
+        logger.warning("Leave organization failed: request_id=%s user_id=%s not found", request_id, current_user.id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена или уже обработана")
     user_ids = await AsyncOrm.get_lab_admin_user_ids_for_organization(result["org_id"])
     for uid in user_ids:
@@ -377,4 +396,5 @@ async def leave_organization(
             "org_join_left",
             {"lab_name": result["lab_name"], "org_name": result["org_name"]},
         )
+    logger.info("Lab left organization: request_id=%s org_id=%s lab_id=%s", request_id, result["org_id"], result.get("lab_id"))
     return {"ok": True}

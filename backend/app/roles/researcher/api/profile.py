@@ -2,9 +2,13 @@
 Роуты FastAPI для профиля исследователя.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_current_user
+
+logger = logging.getLogger(__name__)
 from app.roles.researcher.schemas import ResearcherRead, ResearcherUpdate
 from app.queries.async_orm import AsyncOrm
 
@@ -53,4 +57,5 @@ async def upsert_researcher_profile(
         resume_url=patch.get("resume_url"),
         document_urls=patch.get("document_urls"),
     )
+    logger.info("Researcher profile upserted: user_id=%s researcher_id=%s", current_user.id, researcher.id)
     return researcher

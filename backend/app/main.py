@@ -3,15 +3,14 @@
 Инициализирует базу данных, создаёт подключение к s3 и регистрирует роутеры.
 """
 
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.bootstrap import create_tables, ensure_storage, seed_roles
-from app.storage.s3 import LOCALHOST_STORAGE_PREFIX, _public_base_url
+from app.logging_config import setup_logging
+from app.bootstrap import create_tables, ensure_storage, seed_roles, ensure_elasticsearch_indexes
+from app.middleware import StorageUrlRewriteMiddleware
 from app.api import profile, storage, analytics
 from app.core.api import auth, users, roles
 from app.jobs.openalex_sync import sync_openalex_data
@@ -33,31 +32,6 @@ app = FastAPI(
     openapi_url=None
 )
 
-class StorageUrlRewriteMiddleware(BaseHTTPMiddleware):
-    """Подменяет localhost-URL хранилища на публичный для доступа через туннель."""
-
-    async def dispatch(self, request, call_next):
-        response = await call_next(request)
-        ct = response.headers.get("content-type", "")
-        if response.status_code != 200 or "application/json" not in ct:
-            return response
-        body = b""
-        async for chunk in response.body_iterator:
-            body += chunk
-        text = body.decode("utf-8", errors="replace")
-        if LOCALHOST_STORAGE_PREFIX in text:
-            public = _public_base_url()
-            text = text.replace(LOCALHOST_STORAGE_PREFIX, public)
-        new_body = text.encode("utf-8")
-        headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
-        return Response(
-            content=new_body,
-            status_code=response.status_code,
-            headers=headers,
-            media_type=ct,
-        )
-
-
 app.add_middleware(StorageUrlRewriteMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -69,10 +43,12 @@ app.add_middleware(
 
 
 @app.on_event("startup")
-def on_startup():
+async def on_startup():
+    setup_logging()
     create_tables()
     seed_roles()
     ensure_storage()
+    await ensure_elasticsearch_indexes()
     scheduler.add_job(sync_openalex_data, "cron", hour=3, minute=0)
     scheduler.start()
 

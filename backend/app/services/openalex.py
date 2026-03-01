@@ -3,11 +3,14 @@
 Авторы, работы, организации (institutions).
 """
 
+import logging
 from typing import Optional
 
 import httpx
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def _api_url(path: str, params: Optional[dict] = None) -> tuple[str, dict]:
@@ -47,6 +50,7 @@ def fetch_author_by_id(openalex_id: str) -> Optional[dict]:
     with httpx.Client(timeout=30.0) as client:
         resp = client.get(url, params=params)
         if resp.status_code != 200:
+            logger.warning("OpenAlex fetch_author_by_id failed: openalex_id=%s status=%s", openalex_id, resp.status_code)
             return None
         return resp.json()
 
@@ -61,6 +65,7 @@ def fetch_author_works(openalex_id: str, per_page: int = 25) -> list[dict]:
     with httpx.Client(timeout=30.0) as client:
         resp = client.get(url, params=query_params)
         if resp.status_code != 200:
+            logger.warning("OpenAlex fetch_author_works failed: openalex_id=%s status=%s", openalex_id, resp.status_code)
             return []
         data = resp.json()
         return data.get("results", [])
@@ -125,6 +130,7 @@ def fetch_institution_by_ror(ror_id: str) -> Optional[dict]:
     with httpx.Client(timeout=30.0) as client:
         resp = client.get(url, params=params)
         if resp.status_code != 200:
+            logger.warning("OpenAlex fetch_institution_by_ror failed: ror_id=%s status=%s", ror_id, resp.status_code)
             return None
         return resp.json()
 
@@ -137,6 +143,7 @@ def fetch_institution_by_openalex_id(openalex_id: str) -> Optional[dict]:
     with httpx.Client(timeout=30.0) as client:
         resp = client.get(url, params=params)
         if resp.status_code != 200:
+            logger.warning("OpenAlex fetch_institution_by_openalex_id failed: openalex_id=%s status=%s", openalex_id, resp.status_code)
             return None
         return resp.json()
 

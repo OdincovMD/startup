@@ -2,10 +2,13 @@
 API уведомлений: список и отметка прочитанным.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/notifications", tags=["profile-notifications"])
 
 
@@ -46,8 +49,10 @@ async def mark_notification_read(
 
     n = await AsyncOrm.mark_notification_read(notification_id, current_user.id)
     if not n:
+        logger.warning("Mark notification read failed: notification_id=%s user_id=%s not found", notification_id, current_user.id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Уведомление не найдено")
     await AsyncOrm.delete_notification(notification_id, current_user.id)
+    logger.info("Notification marked read and deleted: notification_id=%s user_id=%s", notification_id, current_user.id)
     return {"ok": True}
 
 
@@ -61,5 +66,7 @@ async def delete_notification(
 
     ok = await AsyncOrm.delete_notification(notification_id, current_user.id)
     if not ok:
+        logger.warning("Delete notification failed: notification_id=%s user_id=%s not found", notification_id, current_user.id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Уведомление не найдено")
+    logger.info("Notification deleted: notification_id=%s user_id=%s", notification_id, current_user.id)
     return {"ok": True}
