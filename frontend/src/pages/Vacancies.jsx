@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -24,6 +25,7 @@ function parseSkillsFromRequirements(requirements, description) {
 }
 
 const SEARCH_DEBOUNCE_MS = 350;
+const SUGGEST_DEBOUNCE_MS = 180;
 const VACANCIES_PAGE_SIZE = 20;
 
 const EMPLOYMENT_TYPES = [
@@ -57,6 +59,13 @@ export default function Vacancies() {
   const [myResponse, setMyResponse] = useState(null);
   const [respondLoading, setRespondLoading] = useState(false);
   const [respondError, setRespondError] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsVisible, setSuggestionsVisible] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const searchInputRef = useRef(null);
+  const searchWrapRef = useRef(null);
+  const [dropdownPosition, setDropdownPosition] = useState(null);
   const { publicId } = useParams();
   const navigate = useNavigate();
   const selectedId = useMemo(() => (publicId ? String(publicId) : null), [publicId]);
@@ -65,6 +74,80 @@ export default function Vacancies() {
     const t = setTimeout(() => setSearchDebounced(searchQuery.trim()), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [searchQuery]);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      setSuggestionsLoading(false);
+      setSuggestionsVisible(false);
+      return;
+    }
+    setSuggestionsVisible(true);
+    setSuggestionsLoading(true);
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const data = await apiRequest(`/vacancies/suggest?q=${encodeURIComponent(q)}&limit=10`);
+        if (!cancelled) {
+          setSuggestions(data?.suggestions || []);
+          setHighlightedIndex(-1);
+        }
+      } catch {
+        if (!cancelled) setSuggestions([]);
+      } finally {
+        if (!cancelled) setSuggestionsLoading(false);
+      }
+    }, SUGGEST_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [searchQuery]);
+
+  const hideSuggestions = useCallback(() => {
+    setSuggestionsVisible(false);
+    setHighlightedIndex(-1);
+  }, []);
+
+  const updateDropdownPosition = useCallback(() => {
+    if (searchWrapRef.current) {
+      const rect = searchWrapRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (suggestionsVisible) {
+      updateDropdownPosition();
+      window.addEventListener("scroll", updateDropdownPosition, true);
+      window.addEventListener("resize", updateDropdownPosition);
+      return () => {
+        window.removeEventListener("scroll", updateDropdownPosition, true);
+        window.removeEventListener("resize", updateDropdownPosition);
+      };
+    } else {
+      setDropdownPosition(null);
+    }
+  }, [suggestionsVisible, updateDropdownPosition]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        searchWrapRef.current &&
+        !searchWrapRef.current.contains(e.target) &&
+        !e.target.closest("[data-vacancy-suggestions]")
+      ) {
+        hideSuggestions();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [hideSuggestions]);
 
   useEffect(() => {
     async function loadOptions() {
@@ -88,6 +171,10 @@ export default function Vacancies() {
     setPage(1);
   }, [searchDebounced, employmentType, organizationId, laboratoryId]);
 
+  useEffect(() => {
+    if (selectedId) hideSuggestions();
+  }, [selectedId, hideSuggestions]);
+
   const resetFilters = () => {
     setSearchQuery("");
     setSearchDebounced("");
@@ -95,6 +182,7 @@ export default function Vacancies() {
     setOrganizationId("");
     setLaboratoryId("");
     setPage(1);
+    hideSuggestions();
   };
 
   useEffect(() => {
@@ -210,7 +298,7 @@ export default function Vacancies() {
             <div className="section-header vacancy-list-header">
               <div className="section-header__row">
                 <h2>Вакансии</h2>
-                <div className="vacancy-search">
+                <div className="vacancy-search" ref={searchWrapRef}>
                   <div className={`vacancy-search__bar ${loading ? "vacancy-search__bar--loading" : ""}`}>
                     <span className="vacancy-search__icon" aria-hidden="true">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -219,13 +307,43 @@ export default function Vacancies() {
                       </svg>
                     </span>
                     <input
+                      ref={searchInputRef}
                       type="search"
                       className="vacancy-search__input"
                       placeholder="Название, навыки, лаборатория…"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => searchQuery.trim().length >= 2 && setSuggestionsVisible(true)}
+                      onKeyDown={(e) => {
+                        if (!suggestionsVisible || suggestions.length === 0) return;
+                        if (e.key === "Escape") {
+                          e.preventDefault();
+                          hideSuggestions();
+                          return;
+                        }
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setHighlightedIndex((i) => (i < suggestions.length - 1 ? i + 1 : -1));
+                          return;
+                        }
+                        if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          setHighlightedIndex((i) => (i <= 0 ? -1 : i - 1));
+                          return;
+                        }
+                        if (e.key === "Enter" && highlightedIndex >= 0 && suggestions[highlightedIndex]) {
+                          e.preventDefault();
+                          setSearchQuery(suggestions[highlightedIndex]);
+                          hideSuggestions();
+                          return;
+                        }
+                      }}
                       aria-label="Поиск по вакансиям"
                       autoComplete="off"
+                      aria-autocomplete="list"
+                      aria-expanded={suggestionsVisible && suggestions.length > 0}
+                      aria-controls="vacancy-suggestions-list"
+                      aria-activedescendant={highlightedIndex >= 0 ? `suggestion-${highlightedIndex}` : undefined}
                     />
                     {searchQuery && (
                       <button
@@ -629,6 +747,51 @@ export default function Vacancies() {
           setShowEmployeePublications(false);
         }}
       />
+
+      {typeof document !== "undefined" &&
+        document.body &&
+        suggestionsVisible &&
+        (suggestions.length > 0 || suggestionsLoading) &&
+        dropdownPosition &&
+        createPortal(
+          <ul
+            data-vacancy-suggestions
+            id="vacancy-suggestions-list"
+            className="vacancy-search__suggestions vacancy-search__suggestions--portal"
+            role="listbox"
+            style={{
+              position: "fixed",
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+            }}
+          >
+            {suggestionsLoading && suggestions.length === 0 ? (
+              <li className="vacancy-search__suggestion-item vacancy-search__suggestion-item--loading" role="option">
+                Загрузка…
+              </li>
+            ) : (
+              suggestions.map((text, i) => (
+                <li
+                  key={`${text}-${i}`}
+                  id={`suggestion-${i}`}
+                  role="option"
+                  className={`vacancy-search__suggestion-item ${i === highlightedIndex ? "vacancy-search__suggestion-item--highlighted" : ""}`}
+                  aria-selected={i === highlightedIndex}
+                  onMouseEnter={() => setHighlightedIndex(i)}
+                  onClick={() => {
+                    setSearchQuery(text);
+                    hideSuggestions();
+                    searchInputRef.current?.focus();
+                  }}
+                >
+                  {text}
+                </li>
+              ))
+            )}
+          </ul>,
+          document.body
+        )}
     </main>
   );
 }

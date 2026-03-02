@@ -1,10 +1,11 @@
 """
 Публичные роуты FastAPI для работы с запросами организаций.
-GET /queries/ — список опубликованных запросов,
+GET /queries/suggest — подсказки для автодополнения,
+GET /queries/ — список опубликованных запросов (с поиском по q),
 GET /queries/public/{public_id}/details — детали запроса по public_id.
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.roles.representative.schemas import (
     OrganizationQueryRead,
@@ -16,6 +17,7 @@ from app.roles.representative.schemas import (
     VacancyOrganizationRead,
 )
 from app.queries.async_orm import AsyncOrm
+from app.services.elasticsearch import search_queries, suggest_queries
 
 from datetime import datetime
 from typing import List, Optional
@@ -36,14 +38,56 @@ class QueryDetails(OrganizationQueryBase):
 router = APIRouter(prefix="/queries", tags=["queries"])
 
 
+@router.get("/suggest")
+async def suggest_queries_endpoint(
+    q: str = Query("", min_length=0),
+    limit: int = Query(10, ge=1, le=20),
+):
+    """Подсказки для автодополнения поиска запросов."""
+    suggestions = await suggest_queries(q=q.strip(), limit=limit)
+    return {"suggestions": suggestions}
+
+
 @router.get("/", response_model=list[OrganizationQueryRead])
-async def list_queries():
-    """Список опубликованных запросов для публичного каталога."""
+async def list_queries(
+    q: str = Query("", min_length=0),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    status: Optional[str] = Query(None),
+    laboratory_id: Optional[int] = Query(None, ge=1),
+    deadline_year_from: Optional[int] = Query(None),
+    deadline_year_to: Optional[int] = Query(None),
+    budget_contains: Optional[str] = Query(None),
+):
+    """Список опубликованных запросов. При q или любом фильтре — поиск через Elasticsearch."""
+    q_stripped = (q or "").strip()
+    has_search_or_filters = bool(
+        q_stripped
+        or (status and status.strip())
+        or laboratory_id is not None
+        or deadline_year_from is not None
+        or deadline_year_to is not None
+        or (budget_contains and budget_contains.strip())
+    )
+    if has_search_or_filters:
+        try:
+            result = await search_queries(
+                q=q_stripped,
+                page=page,
+                size=size,
+                status=status,
+                laboratory_id=laboratory_id,
+                deadline_year_from=deadline_year_from,
+                deadline_year_to=deadline_year_to,
+                budget_contains=budget_contains,
+            )
+            return result.get("items", [])
+        except Exception:
+            return []
     try:
         queries = await AsyncOrm.list_published_queries()
-        # Фильтруем вакансии только опубликованные
-        for q in queries:
-            q.vacancies = [v for v in (q.vacancies or []) if getattr(v, "is_published", False)]
+        for query in queries:
+            query.vacancies = [v for v in (query.vacancies or []) if getattr(v, "is_published", False)]
         return queries
     except Exception as e:
         raise HTTPException(

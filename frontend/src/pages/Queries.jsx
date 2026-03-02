@@ -1,9 +1,19 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import EmployeeModal from "./profile/EmployeeModal";
 
 const QUERY_STATUS_LABELS = { active: "Активный", paused: "На паузе", closed: "Закрыт" };
+const QUERY_STATUS_OPTIONS = [
+  { value: "", label: "Любой" },
+  { value: "active", label: "Активный" },
+  { value: "paused", label: "На паузе" },
+  { value: "closed", label: "Закрыт" },
+];
+const DEADLINE_YEARS = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 2 + i);
+const SEARCH_DEBOUNCE_MS = 350;
+const SUGGEST_DEBOUNCE_MS = 180;
 
 function formatQueryDate(value) {
   if (!value) return "";
@@ -20,16 +30,144 @@ export default function Queries() {
   const [error, setError] = useState(null);
   const [employeePreview, setEmployeePreview] = useState(null);
   const [showEmployeePublications, setShowEmployeePublications] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchDebounced, setSearchDebounced] = useState("");
+  const [status, setStatus] = useState("");
+  const [laboratoryId, setLaboratoryId] = useState("");
+  const [deadlineYearFrom, setDeadlineYearFrom] = useState("");
+  const [deadlineYearTo, setDeadlineYearTo] = useState("");
+  const [budgetContains, setBudgetContains] = useState("");
+  const [budgetDebounced, setBudgetDebounced] = useState("");
+  const [laboratories, setLaboratories] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsVisible, setSuggestionsVisible] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const searchInputRef = useRef(null);
+  const searchWrapRef = useRef(null);
+  const [dropdownPosition, setDropdownPosition] = useState(null);
   const { publicId } = useParams();
   const navigate = useNavigate();
   const selectedId = useMemo(() => (publicId ? String(publicId) : null), [publicId]);
 
   useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(searchQuery.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setBudgetDebounced(budgetContains.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [budgetContains]);
+
+  useEffect(() => {
+    async function loadLaboratories() {
+      try {
+        const data = await apiRequest("/laboratories/");
+        setLaboratories(Array.isArray(data) ? data : []);
+      } catch {
+        setLaboratories([]);
+      }
+    }
+    loadLaboratories();
+  }, []);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      setSuggestionsLoading(false);
+      setSuggestionsVisible(false);
+      return;
+    }
+    setSuggestionsVisible(true);
+    setSuggestionsLoading(true);
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const data = await apiRequest(`/queries/suggest?q=${encodeURIComponent(q)}&limit=10`);
+        if (!cancelled) {
+          setSuggestions(data?.suggestions || []);
+          setHighlightedIndex(-1);
+        }
+      } catch {
+        if (!cancelled) setSuggestions([]);
+      } finally {
+        if (!cancelled) setSuggestionsLoading(false);
+      }
+    }, SUGGEST_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [searchQuery]);
+
+  const hideSuggestions = useCallback(() => {
+    setSuggestionsVisible(false);
+    setHighlightedIndex(-1);
+  }, []);
+
+  const updateDropdownPosition = useCallback(() => {
+    if (searchWrapRef.current) {
+      const rect = searchWrapRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (suggestionsVisible) {
+      updateDropdownPosition();
+      window.addEventListener("scroll", updateDropdownPosition, true);
+      window.addEventListener("resize", updateDropdownPosition);
+      return () => {
+        window.removeEventListener("scroll", updateDropdownPosition, true);
+        window.removeEventListener("resize", updateDropdownPosition);
+      };
+    } else {
+      setDropdownPosition(null);
+    }
+  }, [suggestionsVisible, updateDropdownPosition]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        searchWrapRef.current &&
+        !searchWrapRef.current.contains(e.target) &&
+        !e.target.closest("[data-query-suggestions]")
+      ) {
+        hideSuggestions();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [hideSuggestions]);
+
+  useEffect(() => {
+    if (selectedId) hideSuggestions();
+  }, [selectedId, hideSuggestions]);
+
+  const hasFilters = Boolean(
+    searchDebounced || status || laboratoryId || deadlineYearFrom || deadlineYearTo || budgetDebounced
+  );
+
+  useEffect(() => {
     async function loadQueries() {
       try {
         setLoading(true);
-        const data = await apiRequest("/queries/");
-        setQueries(data);
+        const params = new URLSearchParams();
+        if (searchDebounced) params.set("q", searchDebounced);
+        if (status) params.set("status", status);
+        if (laboratoryId) params.set("laboratory_id", laboratoryId);
+        if (deadlineYearFrom) params.set("deadline_year_from", deadlineYearFrom);
+        if (deadlineYearTo) params.set("deadline_year_to", deadlineYearTo);
+        if (budgetDebounced) params.set("budget_contains", budgetDebounced);
+        const url = params.toString() ? `/queries/?${params.toString()}` : "/queries/";
+        const data = await apiRequest(url);
+        setQueries(Array.isArray(data) ? data : []);
       } catch (e) {
         setError(e.message);
       } finally {
@@ -37,7 +175,7 @@ export default function Queries() {
       }
     }
     loadQueries();
-  }, []);
+  }, [searchDebounced, status, laboratoryId, deadlineYearFrom, deadlineYearTo, budgetDebounced]);
 
   useEffect(() => {
     async function loadDetails() {
@@ -78,38 +216,128 @@ export default function Queries() {
     navigate(`/vacancies/${publicIdValue}`);
   };
 
+  const resetFilters = () => {
+    setSearchQuery("");
+    setSearchDebounced("");
+    setStatus("");
+    setLaboratoryId("");
+    setDeadlineYearFrom("");
+    setDeadlineYearTo("");
+    setBudgetContains("");
+    hideSuggestions();
+  };
+
   return (
     <main className="main">
       <section className="section">
         {!selectedId && (
-          <div className="section-header">
-            <h2>Запросы</h2>
-            <p>Заявки на R&D с описанием, бюджетом и грантами. Откройте карточку для деталей и связанных лабораторий.</p>
-          </div>
-        )}
-        {loading && !selectedId && (
-          <div className="org-cards-grid labs-skeleton-grid" aria-busy="true" role="status" aria-label="Загрузка">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <article key={i} className="org-card-modern">
-                <div className="org-card-modern__media">
-                  <div className="skeleton" aria-hidden="true" style={{ width: "100%", aspectRatio: 1 }} />
+          <>
+            <div className="section-header query-list-header">
+              <div className="section-header__row">
+                <h2>Запросы</h2>
+                <div className="query-search" ref={searchWrapRef}>
+                  <div className={`query-search__bar ${loading ? "query-search__bar--loading" : ""}`}>
+                    <span className="query-search__icon" aria-hidden="true">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8" />
+                        <path d="m21 21-4.35-4.35" />
+                      </svg>
+                    </span>
+                    <input
+                      ref={searchInputRef}
+                      type="search"
+                      className="query-search__input"
+                      placeholder="Название, описание, организация…"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => searchQuery.trim().length >= 2 && setSuggestionsVisible(true)}
+                      onKeyDown={(e) => {
+                        if (!suggestionsVisible || suggestions.length === 0) return;
+                        if (e.key === "Escape") {
+                          e.preventDefault();
+                          hideSuggestions();
+                          return;
+                        }
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setHighlightedIndex((i) => (i < suggestions.length - 1 ? i + 1 : -1));
+                          return;
+                        }
+                        if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          setHighlightedIndex((i) => (i <= 0 ? -1 : i - 1));
+                          return;
+                        }
+                        if (e.key === "Enter" && highlightedIndex >= 0 && suggestions[highlightedIndex]) {
+                          e.preventDefault();
+                          setSearchQuery(suggestions[highlightedIndex]);
+                          hideSuggestions();
+                          return;
+                        }
+                      }}
+                      aria-label="Поиск по запросам"
+                      autoComplete="off"
+                      aria-autocomplete="list"
+                      aria-expanded={suggestionsVisible && suggestions.length > 0}
+                      aria-controls="query-suggestions-list"
+                      aria-activedescendant={highlightedIndex >= 0 ? `query-suggestion-${highlightedIndex}` : undefined}
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        className="query-search__clear"
+                        onClick={() => setSearchQuery("")}
+                        aria-label="Очистить поиск"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="org-card-modern__body">
-                  <div className="skeleton" aria-hidden="true" style={{ height: "1.125rem", width: "80%" }} />
-                  <div className="skeleton" aria-hidden="true" style={{ height: "0.875rem" }} />
-                </div>
-              </article>
-            ))}
-          </div>
+              </div>
+              <p>Заявки на R&D с описанием, бюджетом и грантами. Откройте карточку для деталей и связанных лабораторий.</p>
+            </div>
+          </>
         )}
-        {error && <p className="error">{error}</p>}
+        {!selectedId && (
+          <div className="query-layout">
+            <div className="query-main">
+              {loading && (
+                <div className="org-cards-grid labs-skeleton-grid" aria-busy="true" role="status" aria-label="Загрузка">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <article key={i} className="org-card-modern">
+                      <div className="org-card-modern__media">
+                        <div className="skeleton" aria-hidden="true" style={{ width: "100%", aspectRatio: 1 }} />
+                      </div>
+                      <div className="org-card-modern__body">
+                        <div className="skeleton" aria-hidden="true" style={{ height: "1.125rem", width: "80%" }} />
+                        <div className="skeleton" aria-hidden="true" style={{ height: "0.875rem" }} />
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+              {error && <p className="error">{error}</p>}
 
-        {!loading && !error && !selectedId && (
-          <div className="org-cards-grid">
+              {!loading && !error && (
+                <div className="org-cards-grid">
             {queries.length === 0 ? (
-              <div className="lab-empty-block org-empty-block">
-                <p className="lab-empty">Публичные запросы пока не добавлены.</p>
-                <p className="lab-empty-hint">Организации добавляют запросы в разделе «Профиль».</p>
+              <div className="lab-empty-block org-empty-block query-empty">
+                <p className="lab-empty">
+                  {hasFilters
+                    ? "По вашему запросу ничего не найдено."
+                    : "Публичные запросы пока не добавлены."}
+                </p>
+                <p className="lab-empty-hint">
+                  {hasFilters
+                    ? "Попробуйте изменить поисковый запрос или сбросить фильтры."
+                    : "Организации добавляют запросы в разделе «Профиль»."}
+                </p>
+                {hasFilters && (
+                  <button type="button" className="primary-btn lab-empty-reset" onClick={resetFilters}>
+                    Сбросить фильтры
+                  </button>
+                )}
               </div>
             ) : (
               queries.map((query) => (
@@ -196,6 +424,85 @@ export default function Queries() {
                 </article>
               ))
             )}
+                </div>
+              )}
+            </div>
+            <aside className="query-sidebar">
+              <div className="query-filters">
+                <h3 className="query-filters__title">Фильтры</h3>
+                <div className="query-filters__field">
+                  <label htmlFor="query-filter-status" className="query-filters__label">Статус</label>
+                  <select
+                    id="query-filter-status"
+                    className="query-filters__select"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                  >
+                    {QUERY_STATUS_OPTIONS.map((opt) => (
+                      <option key={opt.value || "_"} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="query-filters__field">
+                  <label htmlFor="query-filter-lab" className="query-filters__label">Лаборатория</label>
+                  <select
+                    id="query-filter-lab"
+                    className="query-filters__select"
+                    value={laboratoryId}
+                    onChange={(e) => setLaboratoryId(e.target.value)}
+                  >
+                    <option value="">Все лаборатории</option>
+                    {laboratories.map((lab) => (
+                      <option key={lab.id} value={lab.id}>{lab.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="query-filters__field">
+                  <label htmlFor="query-filter-deadline-from" className="query-filters__label">Дедлайн от</label>
+                  <select
+                    id="query-filter-deadline-from"
+                    className="query-filters__select"
+                    value={deadlineYearFrom}
+                    onChange={(e) => setDeadlineYearFrom(e.target.value)}
+                  >
+                    <option value="">Любой год</option>
+                    {DEADLINE_YEARS.map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="query-filters__field">
+                  <label htmlFor="query-filter-deadline-to" className="query-filters__label">Дедлайн до</label>
+                  <select
+                    id="query-filter-deadline-to"
+                    className="query-filters__select"
+                    value={deadlineYearTo}
+                    onChange={(e) => setDeadlineYearTo(e.target.value)}
+                  >
+                    <option value="">Любой год</option>
+                    {DEADLINE_YEARS.map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="query-filters__field">
+                  <label htmlFor="query-filter-budget" className="query-filters__label">Бюджет содержит</label>
+                  <input
+                    id="query-filter-budget"
+                    type="text"
+                    className="query-filters__input"
+                    placeholder="Например: млн, 500"
+                    value={budgetContains}
+                    onChange={(e) => setBudgetContains(e.target.value)}
+                  />
+                </div>
+                {hasFilters && (
+                  <button type="button" className="query-filters__reset" onClick={resetFilters}>
+                    Сбросить фильтры
+                  </button>
+                )}
+              </div>
+            </aside>
           </div>
         )}
 
@@ -445,6 +752,51 @@ export default function Queries() {
           setShowEmployeePublications(false);
         }}
       />
+
+      {typeof document !== "undefined" &&
+        document.body &&
+        suggestionsVisible &&
+        (suggestions.length > 0 || suggestionsLoading) &&
+        dropdownPosition &&
+        createPortal(
+          <ul
+            data-query-suggestions
+            id="query-suggestions-list"
+            className="query-search__suggestions query-search__suggestions--portal"
+            role="listbox"
+            style={{
+              position: "fixed",
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+            }}
+          >
+            {suggestionsLoading && suggestions.length === 0 ? (
+              <li className="query-search__suggestion-item query-search__suggestion-item--loading" role="option">
+                Загрузка…
+              </li>
+            ) : (
+              suggestions.map((text, i) => (
+                <li
+                  key={`${text}-${i}`}
+                  id={`query-suggestion-${i}`}
+                  role="option"
+                  className={`query-search__suggestion-item ${i === highlightedIndex ? "query-search__suggestion-item--highlighted" : ""}`}
+                  aria-selected={i === highlightedIndex}
+                  onMouseEnter={() => setHighlightedIndex(i)}
+                  onClick={() => {
+                    setSearchQuery(text);
+                    hideSuggestions();
+                    searchInputRef.current?.focus();
+                  }}
+                >
+                  {text}
+                </li>
+              ))
+            )}
+          </ul>,
+          document.body
+        )}
     </main>
   );
 }

@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     ELASTICSEARCH_URL: str = "http://localhost:9200"
     ELASTICSEARCH_REQUEST_TIMEOUT: int = 60  # индекс может инициализироваться до 1 мин
     VACANCIES_INDEX: str = "vacancies"
+    QUERIES_INDEX: str = "queries"
 
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "plain"  # plain | json

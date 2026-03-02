@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-const RELEASE_VERSION = "D-01.001.00.0";
+const RELEASE_VERSION = "D-01.002.00.0";
 const STORAGE_KEY = `synthesium_release_banner_${RELEASE_VERSION}`;
 
 export default function ReleaseBanner() {
@@ -34,9 +34,9 @@ export default function ReleaseBanner() {
           <strong className="release-banner__title">Что нового</strong>
           <span className="release-banner__version">release/{RELEASE_VERSION}</span>
           <ul className="release-banner__list">
-            <li><strong>Поиск по вакансиям:</strong> полнотекстовый поиск по названию, навыкам, описанию, лаборатории и организации — результаты обновляются по мере ввода</li>
-            <li><strong>Фильтры:</strong> на странице вакансий можно отфильтровать по типу занятости, организации и лаборатории</li>
-            <li><strong>Улучшения:</strong> корректное отображение ссылок на файлы (резюме, аватары) при доступе через туннель</li>
+            <li><strong>Подсказки при поиске:</strong> автодополнение по мере ввода на страницах вакансий и запросов — с учётом опечаток</li>
+            <li><strong>Фильтры запросов:</strong> фильтрация по статусу, лаборатории, диапазону годов дедлайна и бюджету</li>
+            <li><strong>Поиск по вакансиям и запросам:</strong> полнотекстовый поиск с фильтрами</li>
           </ul>
         </div>
         <button type="button" className="release-banner__btn" onClick={handleDismiss}>

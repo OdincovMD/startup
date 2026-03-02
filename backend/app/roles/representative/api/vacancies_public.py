@@ -16,7 +16,7 @@ from app.config import settings
 from app.roles.representative.schemas import VacancyOrganizationRead, VacancyResponseRead, VacancyListResponse
 from app.queries.async_orm import AsyncOrm
 from app.services.email import render_vacancy_response, send_vacancy_response_email
-from app.services.elasticsearch import search_vacancies
+from app.services.elasticsearch import search_vacancies, suggest_vacancies
 
 router = APIRouter(prefix="/vacancies", tags=["vacancies"])
 
@@ -144,6 +144,16 @@ def _get_resume_url(
             if isinstance(first, str) and first.strip():
                 return first.strip()
     return None
+
+
+@router.get("/suggest")
+async def suggest_vacancies_endpoint(
+    q: str = Query("", min_length=0),
+    limit: int = Query(10, ge=1, le=20),
+):
+    """Подсказки для автодополнения поиска."""
+    suggestions = await suggest_vacancies(q=q.strip(), limit=limit)
+    return {"suggestions": suggestions}
 
 
 @router.get("/", response_model=VacancyListResponse)

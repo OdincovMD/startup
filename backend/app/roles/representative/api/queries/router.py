@@ -11,6 +11,7 @@ from app.roles.representative.schemas import (
 )
 from app.roles.representative.api._helpers import is_lab_representative, require_lab_link_for_lab_rep
 from app.queries.async_orm import AsyncOrm
+from app.services.elasticsearch import index_query, delete_query
 
 router = APIRouter()
 
@@ -36,7 +37,7 @@ async def create_org_query(
 ):
     org = await AsyncOrm.get_organization_for_user(current_user.id)
     if org:
-        return await AsyncOrm.create_query_for_org(
+        query = await AsyncOrm.create_query_for_org(
             org.id,
             creator_user_id=current_user.id,
             title=payload.title,
@@ -50,9 +51,12 @@ async def create_org_query(
             laboratory_ids=payload.laboratory_ids,
             employee_ids=payload.employee_ids,
         )
+        if getattr(query, "is_published", False):
+            await index_query(query)
+        return query
     if is_lab_representative(current_user):
         require_lab_link_for_lab_rep(payload.laboratory_ids)
-        return await AsyncOrm.create_query_for_org(
+        query = await AsyncOrm.create_query_for_org(
             None,
             creator_user_id=current_user.id,
             title=payload.title,
@@ -66,6 +70,9 @@ async def create_org_query(
             laboratory_ids=payload.laboratory_ids,
             employee_ids=payload.employee_ids,
         )
+        if getattr(query, "is_published", False):
+            await index_query(query)
+        return query
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Сначала заполните и сохраните профиль организации.",
@@ -131,6 +138,10 @@ async def update_org_query(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not query:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Query not found")
+    if getattr(query, "is_published", False):
+        await index_query(query)
+    else:
+        await delete_query(query_id)
     return query
 
 
@@ -145,6 +156,7 @@ async def delete_org_query(query_id: int, current_user=Depends(get_current_user)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Query not found")
+    await delete_query(query_id)
     return {"status": "ok"}
 
 
@@ -175,4 +187,8 @@ async def set_query_publish_state(
         query = await AsyncOrm.set_query_published_for_creator(
             query_id, current_user.id, payload.is_published
         )
+    if payload.is_published:
+        await index_query(query)
+    else:
+        await delete_query(query_id)
     return query

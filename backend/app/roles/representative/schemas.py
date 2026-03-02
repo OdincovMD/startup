@@ -314,6 +314,7 @@ class OrganizationQueryRead(ORMModel, OrganizationQueryBase):
     public_id: Optional[str] = None
     organization_id: Optional[int] = None
     created_at: datetime
+    organization: Optional[OrganizationShort] = None
     laboratories: Optional[List[OrganizationLaboratoryShort]] = None
     employees: Optional[List[EmployeeShort]] = None
     linked_task_solution: Optional[OrganizationTaskSolutionRead] = None
