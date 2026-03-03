@@ -6,9 +6,10 @@
 import asyncio
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app.api.deps import get_current_user_optional
+from app.rate_limit import limiter
 from app.core.models import User, AnalyticsEvent
 from app.database import session_factory
 
@@ -37,7 +38,9 @@ def _insert_events(events: list[dict]) -> int:
 
 
 @router.post("/events")
+@limiter.limit("60/minute")
 async def post_events(
+    request: Request,
     body: dict,
     current_user: Optional[User] = Depends(get_current_user_optional),
 ):

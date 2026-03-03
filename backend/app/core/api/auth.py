@@ -17,6 +17,8 @@ from urllib.parse import urlencode, quote
 import jwt
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+
+from app.rate_limit import limiter
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.config import settings
@@ -63,7 +65,8 @@ def _create_access_token(subject: str, token_version: int = 0) -> str:
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-async def register(user_in: UserCreate):
+@limiter.limit("5/minute")
+async def register(request: Request, user_in: UserCreate):
     try:
         user = await AsyncOrm.create_user(
             mail=user_in.mail,
@@ -81,7 +84,8 @@ async def register(user_in: UserCreate):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(payload: LoginRequest):
+@limiter.limit("10/minute")
+async def login(request: Request, payload: LoginRequest):
     user = await AsyncOrm.get_user_by_mail(payload.mail)
     if not user or not user.hash_parameter:
         logger.warning("Login failed: user not found or no password")
@@ -95,7 +99,8 @@ async def login(payload: LoginRequest):
 
 
 @router.post("/verify-email", response_model=UserRead)
-async def verify_email(payload: EmailVerificationRequest):
+@limiter.limit("10/minute")
+async def verify_email(request: Request, payload: EmailVerificationRequest):
     user = await AsyncOrm.verify_email_by_token(payload.token)
     if not user:
         logger.warning("Email verification failed: invalid token")
@@ -123,7 +128,8 @@ _forgot_password_lock = asyncio.Lock()
 
 
 @router.post("/forgot-password")
-async def forgot_password(payload: ForgotPasswordRequest):
+@limiter.limit("5/minute")
+async def forgot_password(request: Request, payload: ForgotPasswordRequest):
     """Запрос сброса пароля. Отправляет письмо только если аккаунт есть и email подтверждён. Всегда возвращает один и тот же текст (защита от перебора email). Ограничение: раз в 2 минуты на email."""
     user = await AsyncOrm.get_user_by_mail(payload.mail)
     if user and user.email_verified:
@@ -149,7 +155,8 @@ async def forgot_password(payload: ForgotPasswordRequest):
 
 
 @router.post("/reset-password", response_model=UserRead)
-async def reset_password(payload: ResetPasswordRequest):
+@limiter.limit("5/minute")
+async def reset_password(request: Request, payload: ResetPasswordRequest):
     """Установка нового пароля по токену из письма."""
     try:
         user = await AsyncOrm.consume_password_reset_token(payload.token, payload.password)
@@ -372,7 +379,8 @@ async def orcid_callback(
 
 
 @router.post("/orcid/complete", response_model=TokenResponse)
-async def orcid_complete(payload: OrcidCompleteRequest):
+@limiter.limit("5/minute")
+async def orcid_complete(request: Request, payload: OrcidCompleteRequest):
     """Дорегистрация: создать пользователя по ORCID + email + роль, выдать JWT и отправить письмо верификации."""
     try:
         user = await AsyncOrm.create_user_orcid(

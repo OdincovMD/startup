@@ -63,6 +63,9 @@ export default function Vacancies() {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsVisible, setSuggestionsVisible] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sortBy, setSortBy] = useState("date_desc");
+  const [suggestionApplied, setSuggestionApplied] = useState(false);
   const searchInputRef = useRef(null);
   const searchWrapRef = useRef(null);
   const [dropdownPosition, setDropdownPosition] = useState(null);
@@ -110,6 +113,19 @@ export default function Vacancies() {
     setHighlightedIndex(-1);
   }, []);
 
+  const applySuggestion = useCallback((text) => {
+    setSearchQuery(text);
+    setSuggestionApplied(true);
+    hideSuggestions();
+    searchInputRef.current?.focus();
+  }, [hideSuggestions]);
+
+  useEffect(() => {
+    if (!suggestionApplied) return;
+    const t = setTimeout(() => setSuggestionApplied(false), 450);
+    return () => clearTimeout(t);
+  }, [suggestionApplied]);
+
   const updateDropdownPosition = useCallback(() => {
     if (searchWrapRef.current) {
       const rect = searchWrapRef.current.getBoundingClientRect();
@@ -124,16 +140,19 @@ export default function Vacancies() {
   useEffect(() => {
     if (suggestionsVisible) {
       updateDropdownPosition();
-      window.addEventListener("scroll", updateDropdownPosition, true);
+      const onScroll = () => {
+        hideSuggestions();
+      };
+      window.addEventListener("scroll", onScroll, true);
       window.addEventListener("resize", updateDropdownPosition);
       return () => {
-        window.removeEventListener("scroll", updateDropdownPosition, true);
+        window.removeEventListener("scroll", onScroll, true);
         window.removeEventListener("resize", updateDropdownPosition);
       };
     } else {
       setDropdownPosition(null);
     }
-  }, [suggestionsVisible, updateDropdownPosition]);
+  }, [suggestionsVisible, updateDropdownPosition, hideSuggestions]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -196,6 +215,7 @@ export default function Vacancies() {
         if (employmentType) params.set("employment_type", employmentType);
         if (organizationId) params.set("organization_id", organizationId);
         if (laboratoryId) params.set("laboratory_id", laboratoryId);
+        if (sortBy && sortBy !== "date_desc") params.set("sort_by", sortBy);
         const data = await apiRequest(`/vacancies/?${params.toString()}`);
         const items = Array.isArray(data) ? data : (data?.items || []);
         setVacancies(items);
@@ -207,7 +227,7 @@ export default function Vacancies() {
       }
     }
     loadVacancies();
-  }, [searchDebounced, employmentType, organizationId, laboratoryId, page]);
+  }, [searchDebounced, employmentType, organizationId, laboratoryId, page, sortBy]);
 
   useEffect(() => {
     async function loadDetails() {
@@ -295,11 +315,12 @@ export default function Vacancies() {
       <section className="section">
         {!selectedId && (
           <>
-            <div className="section-header vacancy-list-header">
-              <div className="section-header__row">
-                <h2>Вакансии</h2>
+            <div className="section-header section-header--search">
+              <h2>Вакансии</h2>
+              <p>Опубликованные вакансии платформы. Откройте карточку, чтобы увидеть описание и контакты.</p>
+              <div className="search-toolbar">
                 <div className="vacancy-search" ref={searchWrapRef}>
-                  <div className={`vacancy-search__bar ${loading ? "vacancy-search__bar--loading" : ""}`}>
+                  <div className={`vacancy-search__bar ${loading ? "vacancy-search__bar--loading" : ""} ${suggestionApplied ? "vacancy-search__bar--applied" : ""}`}>
                     <span className="vacancy-search__icon" aria-hidden="true">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="11" cy="11" r="8" />
@@ -331,10 +352,13 @@ export default function Vacancies() {
                           setHighlightedIndex((i) => (i <= 0 ? -1 : i - 1));
                           return;
                         }
-                        if (e.key === "Enter" && highlightedIndex >= 0 && suggestions[highlightedIndex]) {
-                          e.preventDefault();
-                          setSearchQuery(suggestions[highlightedIndex]);
-                          hideSuggestions();
+                        if (e.key === "Enter") {
+                          if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {
+                            e.preventDefault();
+                            applySuggestion(suggestions[highlightedIndex]);
+                          } else {
+                            hideSuggestions();
+                          }
                           return;
                         }
                       }}
@@ -357,11 +381,88 @@ export default function Vacancies() {
                     )}
                   </div>
                 </div>
+                <div className="search-toolbar__actions">
+                  <button
+                    type="button"
+                    className={`search-toolbar__filter-btn ${filtersOpen ? "search-toolbar__filter-btn--active" : ""}`}
+                  onClick={() => setFiltersOpen((v) => !v)}
+                  aria-expanded={filtersOpen}
+                  aria-controls="vacancy-filters-panel"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                  </svg>
+                  Фильтры
+                  {hasFilters && <span className="search-toolbar__filter-badge">{[employmentType, organizationId, laboratoryId].filter(Boolean).length}</span>}
+                </button>
+                  <select
+                    className="search-toolbar__sort"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    aria-label="Сортировка по дате"
+                  >
+                    <option value="date_desc">Сначала новые</option>
+                    <option value="date_asc">Сначала старые</option>
+                  </select>
+                </div>
               </div>
-              <p>Опубликованные вакансии платформы. Откройте карточку, чтобы увидеть описание и контакты.</p>
+              <div
+                id="vacancy-filters-panel"
+                className={`filters-panel ${filtersOpen ? "filters-panel--open" : ""}`}
+                role="region"
+                aria-label="Фильтры"
+              >
+                <div className="vacancy-filters">
+                  <div className="vacancy-filters__field">
+                    <label htmlFor="vacancy-filter-employment" className="vacancy-filters__label">Тип занятости</label>
+                    <select
+                      id="vacancy-filter-employment"
+                      className="vacancy-filters__select"
+                      value={employmentType}
+                      onChange={(e) => setEmploymentType(e.target.value)}
+                    >
+                      {EMPLOYMENT_TYPES.map((opt) => (
+                        <option key={opt.value || "_"} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="vacancy-filters__field">
+                    <label htmlFor="vacancy-filter-org" className="vacancy-filters__label">Организация</label>
+                    <select
+                      id="vacancy-filter-org"
+                      className="vacancy-filters__select"
+                      value={organizationId}
+                      onChange={(e) => setOrganizationId(e.target.value)}
+                    >
+                      <option value="">Все организации</option>
+                      {organizations.map((org) => (
+                        <option key={org.id} value={org.id}>{org.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="vacancy-filters__field">
+                    <label htmlFor="vacancy-filter-lab" className="vacancy-filters__label">Лаборатория</label>
+                    <select
+                      id="vacancy-filter-lab"
+                      className="vacancy-filters__select"
+                      value={laboratoryId}
+                      onChange={(e) => setLaboratoryId(e.target.value)}
+                    >
+                      <option value="">Все лаборатории</option>
+                      {laboratories.map((lab) => (
+                        <option key={lab.id} value={lab.id}>{lab.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {hasFilters && (
+                    <button type="button" className="vacancy-filters__reset" onClick={resetFilters}>
+                      Сбросить фильтры
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="vacancy-layout">
-              <div className="vacancy-main">
+            <div className="vacancy-main">
                 {loading && (
                   <div className="org-cards-grid labs-skeleton-grid" aria-busy="true" role="status" aria-label="Загрузка">
                     {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -477,58 +578,6 @@ export default function Vacancies() {
                     )}
                   </>
                 )}
-              </div>
-              <aside className="vacancy-sidebar">
-                <div className="vacancy-filters">
-                  <h3 className="vacancy-filters__title">Фильтры</h3>
-                  <div className="vacancy-filters__field">
-                    <label htmlFor="vacancy-filter-employment" className="vacancy-filters__label">Тип занятости</label>
-                    <select
-                      id="vacancy-filter-employment"
-                      className="vacancy-filters__select"
-                      value={employmentType}
-                      onChange={(e) => setEmploymentType(e.target.value)}
-                    >
-                      {EMPLOYMENT_TYPES.map((opt) => (
-                        <option key={opt.value || "_"} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="vacancy-filters__field">
-                    <label htmlFor="vacancy-filter-org" className="vacancy-filters__label">Организация</label>
-                    <select
-                      id="vacancy-filter-org"
-                      className="vacancy-filters__select"
-                      value={organizationId}
-                      onChange={(e) => setOrganizationId(e.target.value)}
-                    >
-                      <option value="">Все организации</option>
-                      {organizations.map((org) => (
-                        <option key={org.id} value={org.id}>{org.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="vacancy-filters__field">
-                    <label htmlFor="vacancy-filter-lab" className="vacancy-filters__label">Лаборатория</label>
-                    <select
-                      id="vacancy-filter-lab"
-                      className="vacancy-filters__select"
-                      value={laboratoryId}
-                      onChange={(e) => setLaboratoryId(e.target.value)}
-                    >
-                      <option value="">Все лаборатории</option>
-                      {laboratories.map((lab) => (
-                        <option key={lab.id} value={lab.id}>{lab.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {hasFilters && (
-                    <button type="button" className="vacancy-filters__reset" onClick={resetFilters}>
-                      Сбросить фильтры
-                    </button>
-                  )}
-                </div>
-              </aside>
             </div>
           </>
         )}
@@ -779,11 +828,7 @@ export default function Vacancies() {
                   className={`vacancy-search__suggestion-item ${i === highlightedIndex ? "vacancy-search__suggestion-item--highlighted" : ""}`}
                   aria-selected={i === highlightedIndex}
                   onMouseEnter={() => setHighlightedIndex(i)}
-                  onClick={() => {
-                    setSearchQuery(text);
-                    hideSuggestions();
-                    searchInputRef.current?.focus();
-                  }}
+                  onClick={() => applySuggestion(text)}
                 >
                   {text}
                 </li>

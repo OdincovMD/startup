@@ -164,6 +164,7 @@ async def list_vacancies(
     employment_type: Optional[str] = Query(None),
     organization_id: Optional[int] = Query(None),
     laboratory_id: Optional[int] = Query(None),
+    sort_by: Optional[str] = Query(None, description="date_desc | date_asc"),
 ):
     """
     Список опубликованных вакансий.
@@ -182,6 +183,7 @@ async def list_vacancies(
                 employment_type=employment_type,
                 organization_id=organization_id,
                 laboratory_id=laboratory_id,
+                sort_by=sort_by,
             )
             return result
         except Exception:
@@ -189,6 +191,10 @@ async def list_vacancies(
 
     try:
         vacancies = await AsyncOrm.list_published_vacancies()
+        if sort_by == "date_asc":
+            vacancies = sorted(vacancies, key=lambda v: getattr(v, "created_at") or "", reverse=False)
+        else:
+            vacancies = sorted(vacancies, key=lambda v: getattr(v, "created_at") or "", reverse=True)
         total = len(vacancies)
         start = (page - 1) * size
         items = vacancies[start : start + size]

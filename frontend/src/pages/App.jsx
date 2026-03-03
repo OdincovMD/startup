@@ -1,21 +1,23 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { lazy, Suspense, useState, useEffect, useRef } from "react";
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
-import Home from "./Home";
-import Login from "./Login";
-import Register from "./Register";
-import AuthCallback from "./AuthCallback";
-import RegisterOrcid from "./RegisterOrcid";
-import VerifyEmail from "./VerifyEmail";
-import ForgotPassword from "./ForgotPassword";
-import ResetPassword from "./ResetPassword";
-import SetPassword from "./SetPassword";
-import Profile from "./Profile";
-import Organizations from "./Organizations";
-import Laboratories from "./Laboratories";
-import Queries from "./Queries";
-import Vacancies from "./Vacancies";
-import Privacy from "./Privacy";
 import { useAuth } from "../auth/AuthContext";
+import PageLoader from "../components/PageLoader";
+
+const Home = lazy(() => import("./Home"));
+const Login = lazy(() => import("./Login"));
+const Register = lazy(() => import("./Register"));
+const AuthCallback = lazy(() => import("./AuthCallback"));
+const RegisterOrcid = lazy(() => import("./RegisterOrcid"));
+const VerifyEmail = lazy(() => import("./VerifyEmail"));
+const ForgotPassword = lazy(() => import("./ForgotPassword"));
+const ResetPassword = lazy(() => import("./ResetPassword"));
+const SetPassword = lazy(() => import("./SetPassword"));
+const Profile = lazy(() => import("./Profile"));
+const Organizations = lazy(() => import("./Organizations"));
+const Laboratories = lazy(() => import("./Laboratories"));
+const Queries = lazy(() => import("./Queries"));
+const Vacancies = lazy(() => import("./Vacancies"));
+const Privacy = lazy(() => import("./Privacy"));
 import NotificationsDropdown from "../components/NotificationsDropdown";
 import CookieBanner from "../components/CookieBanner";
 import ReleaseBanner from "../components/ReleaseBanner";
@@ -214,27 +216,29 @@ export default function App() {
       </header>
 
       <div className="main-wrapper">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="/register/orcid" element={<RegisterOrcid />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/set-password" element={<SetPassword />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/organizations" element={<Organizations />} />
-          <Route path="/organizations/:publicId" element={<Organizations />} />
-          <Route path="/laboratories" element={<Laboratories />} />
-          <Route path="/laboratories/:publicId" element={<Laboratories />} />
-          <Route path="/queries" element={<Queries />} />
-          <Route path="/queries/:publicId" element={<Queries />} />
-          <Route path="/vacancies" element={<Vacancies />} />
-          <Route path="/vacancies/:publicId" element={<Vacancies />} />
-          <Route path="/privacy" element={<Privacy />} />
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/register/orcid" element={<RegisterOrcid />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/set-password" element={<SetPassword />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/organizations" element={<Organizations />} />
+            <Route path="/organizations/:publicId" element={<Organizations />} />
+            <Route path="/laboratories" element={<Laboratories />} />
+            <Route path="/laboratories/:publicId" element={<Laboratories />} />
+            <Route path="/queries" element={<Queries />} />
+            <Route path="/queries/:publicId" element={<Queries />} />
+            <Route path="/vacancies" element={<Vacancies />} />
+            <Route path="/vacancies/:publicId" element={<Vacancies />} />
+            <Route path="/privacy" element={<Privacy />} />
+          </Routes>
+        </Suspense>
       </div>
 
       <CookieBanner />

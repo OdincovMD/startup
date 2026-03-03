@@ -378,6 +378,7 @@ async def search_vacancies(
     q: str = "",
     page: int = 1,
     size: int = 20,
+    sort_by: Optional[str] = None,
     employment_type: Optional[str] = None,
     organization_id: Optional[int] = None,
     laboratory_id: Optional[int] = None,
@@ -421,13 +422,14 @@ async def search_vacancies(
     else:
         query = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
 
+    sort_clause = _sort_by_date(sort_by)
     try:
         resp = await client.search(
             index=index,
             query=query,
             from_=from_idx,
             size=size,
-            sort=[{"created_at": {"order": "desc"}}],
+            sort=sort_clause,
         )
     except NotFoundError:
         await reindex_vacancies_if_empty()
@@ -437,7 +439,7 @@ async def search_vacancies(
                 query=query,
                 from_=from_idx,
                 size=size,
-                sort=[{"created_at": {"order": "desc"}}],
+                sort=sort_clause,
             )
         except Exception as e:
             logger.exception("Elasticsearch search failed after index init: %s", e)
@@ -685,15 +687,21 @@ def _escape_wildcard(val: str) -> str:
     return (val or "").replace("\\", "\\\\").replace("*", "\\*").replace("?", "\\?")
 
 
+def _sort_by_date(sort_by: Optional[str], default_desc: bool = True) -> list:
+    """Вернуть sort для ES: [{"created_at": {"order": "desc"|"asc"}}]."""
+    if sort_by == "date_asc":
+        return [{"created_at": {"order": "asc"}}]
+    return [{"created_at": {"order": "desc"}}]
+
+
 async def search_queries(
     q: str = "",
     page: int = 1,
     size: int = 20,
     status: Optional[str] = None,
     laboratory_id: Optional[int] = None,
-    deadline_year_from: Optional[int] = None,
-    deadline_year_to: Optional[int] = None,
     budget_contains: Optional[str] = None,
+    sort_by: Optional[str] = None,
 ) -> dict:
     """
     Поиск запросов по тексту и фильтрам.
@@ -711,14 +719,6 @@ async def search_queries(
         filters.append({"term": {"status.keyword": status.strip()}})
     if laboratory_id is not None:
         filters.append({"term": {"laboratory_ids": laboratory_id}})
-    if deadline_year_from is not None or deadline_year_to is not None:
-        range_clause: dict = {}
-        if deadline_year_from is not None:
-            range_clause["gte"] = deadline_year_from
-        if deadline_year_to is not None:
-            range_clause["lte"] = deadline_year_to
-        if range_clause:
-            filters.append({"range": {"deadline_year": range_clause}})
     if budget_contains and budget_contains.strip():
         escaped = _escape_wildcard(budget_contains.strip())
         filters.append({"wildcard": {"budget": f"*{escaped}*"}})
@@ -742,13 +742,14 @@ async def search_queries(
     else:
         es_query = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
 
+    sort_clause = _sort_by_date(sort_by)
     try:
         resp = await client.search(
             index=index,
             query=es_query,
             from_=from_idx,
             size=size,
-            sort=[{"created_at": {"order": "desc"}}],
+            sort=sort_clause,
         )
     except NotFoundError:
         await reindex_queries_if_empty()
@@ -758,7 +759,7 @@ async def search_queries(
                 query=es_query,
                 from_=from_idx,
                 size=size,
-                sort=[{"created_at": {"order": "desc"}}],
+                sort=sort_clause,
             )
         except Exception as e:
             logger.exception("Elasticsearch queries search failed after index init: %s", e)

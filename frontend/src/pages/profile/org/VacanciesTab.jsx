@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { formatPhoneRU, normalizePhoneRU } from "../../../utils/validation";
 
 /**
  * Вкладка «Вакансии»: список вакансий, форма новой и редактирование.
@@ -60,9 +61,10 @@ export default function VacanciesTab({
       return <span className="profile-list-text small muted">Контакт: {name}</span>;
     }
     if (vacancy.contact_email || vacancy.contact_phone) {
+      const phone = vacancy.contact_phone ? formatPhoneRU(vacancy.contact_phone) : "";
       return (
         <span className="profile-list-text small muted">
-          Контакт: {[vacancy.contact_email, vacancy.contact_phone].filter(Boolean).join(" · ")}
+          Контакт: {[vacancy.contact_email, phone].filter(Boolean).join(" · ")}
         </span>
       );
     }
@@ -175,8 +177,22 @@ export default function VacanciesTab({
         {showEmailPhone && (
           <div className="vacancy-contact-fields">
             <p className="profile-field-hint">Если контактное лицо не выбрано, укажите email и телефон для связи (обязательно).</p>
-            <label>Email для связи <input type="email" value={state.contact_email || ""} onChange={(e) => setState((prev) => ({ ...prev, contact_email: e.target.value }))} placeholder="contact@example.com" /></label>
-            <label>Телефон для связи <input type="tel" value={state.contact_phone || ""} onChange={(e) => setState((prev) => ({ ...prev, contact_phone: e.target.value }))} placeholder="+7 (999) 123-45-67" /></label>
+            <label>Email для связи <input type="email" value={state.contact_email || ""} onChange={(e) => setState((prev) => ({ ...prev, contact_email: e.target.value }))} placeholder="contact@example.com" autoComplete="email" /></label>
+            <label>
+              Телефон для связи
+              <input
+                type="tel"
+                value={state.contact_phone ? formatPhoneRU(state.contact_phone) : ""}
+                onChange={(e) => {
+                  const digits = normalizePhoneRU(e.target.value);
+                  setState((prev) => ({ ...prev, contact_phone: digits ? `7${digits}` : "" }));
+                }}
+                placeholder="+7 (999) 123-45-67"
+                autoComplete="tel"
+                maxLength={18}
+              />
+              <span className="profile-field-hint">Формат: +7 (999) 123-45-67</span>
+            </label>
           </div>
         )}
       </>

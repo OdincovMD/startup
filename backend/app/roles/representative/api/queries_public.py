@@ -5,22 +5,22 @@ GET /queries/ — список опубликованных запросов (с
 GET /queries/public/{public_id}/details — детали запроса по public_id.
 """
 
+from datetime import datetime
+from typing import List, Optional
+
 from fastapi import APIRouter, HTTPException, Query, status
 
+from app.queries.async_orm import AsyncOrm
 from app.roles.representative.schemas import (
-    OrganizationQueryRead,
     OrganizationQueryBase,
-    OrganizationShort,
     OrganizationLaboratoryShort,
+    OrganizationQueryRead,
+    OrganizationShort,
     OrganizationTaskSolutionRead,
     EmployeeRead,
     VacancyOrganizationRead,
 )
-from app.queries.async_orm import AsyncOrm
 from app.services.elasticsearch import search_queries, suggest_queries
-
-from datetime import datetime
-from typing import List, Optional
 
 
 class QueryDetails(OrganizationQueryBase):
@@ -55,9 +55,8 @@ async def list_queries(
     size: int = Query(20, ge=1, le=100),
     status: Optional[str] = Query(None),
     laboratory_id: Optional[int] = Query(None, ge=1),
-    deadline_year_from: Optional[int] = Query(None),
-    deadline_year_to: Optional[int] = Query(None),
     budget_contains: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query(None, description="date_desc | date_asc"),
 ):
     """Список опубликованных запросов. При q или любом фильтре — поиск через Elasticsearch."""
     q_stripped = (q or "").strip()
@@ -65,8 +64,6 @@ async def list_queries(
         q_stripped
         or (status and status.strip())
         or laboratory_id is not None
-        or deadline_year_from is not None
-        or deadline_year_to is not None
         or (budget_contains and budget_contains.strip())
     )
     if has_search_or_filters:
@@ -77,9 +74,8 @@ async def list_queries(
                 size=size,
                 status=status,
                 laboratory_id=laboratory_id,
-                deadline_year_from=deadline_year_from,
-                deadline_year_to=deadline_year_to,
                 budget_contains=budget_contains,
+                sort_by=sort_by,
             )
             return result.get("items", [])
         except Exception:
@@ -88,6 +84,10 @@ async def list_queries(
         queries = await AsyncOrm.list_published_queries()
         for query in queries:
             query.vacancies = [v for v in (query.vacancies or []) if getattr(v, "is_published", False)]
+        if sort_by == "date_asc":
+            queries = sorted(queries, key=lambda q: getattr(q, "created_at") or "", reverse=False)
+        else:
+            queries = sorted(queries, key=lambda q: getattr(q, "created_at") or "", reverse=True)
         return queries
     except Exception as e:
         raise HTTPException(

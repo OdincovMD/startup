@@ -6,7 +6,10 @@
 
 from typing import Optional
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEFAULT_JWT_SECRET = "hnkHNJhQ-FX2SOlFppIGlMWLsJvaOZlhFO66sOPn2-46y-hvfZCOXUItMGMP6TK8"
 
 
 class Settings(BaseSettings):
@@ -20,7 +23,8 @@ class Settings(BaseSettings):
     DB_USER: str = "user"
     DB_PASS: str = "password"
     DB_NAME: str = "db"
-    JWT_SECRET: str = "hnkHNJhQ-FX2SOlFppIGlMWLsJvaOZlhFO66sOPn2-46y-hvfZCOXUItMGMP6TK8"
+    JWT_SECRET: str = DEFAULT_JWT_SECRET
+    ENV: str = "development"  # development | production
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MIN: int = 45
     S3_ENDPOINT: str = "http://localhost:9000"
@@ -41,6 +45,7 @@ class Settings(BaseSettings):
     ORCID_AUTHORIZE_URL: str = "https://orcid.org/oauth/authorize"
     ORCID_TOKEN_URL: str = "https://orcid.org/oauth/token"
     FRONTEND_URL: str = "https://pi-hardbox.ru"
+    CORS_ORIGINS: str = ""  # Comma-separated origins. Empty = FRONTEND_URL + localhost for dev.
 
     # Почта (верификация email, сброс пароля). Задаются через .env.
     SMTP_HOST: str = ""
@@ -64,6 +69,16 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "plain"  # plain | json
     LOG_FILE_PATH: Optional[str] = None  # если задан — пишем в файл (для монтирования на хост)
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Allowed CORS origins. In development, includes localhost."""
+        if self.CORS_ORIGINS.strip():
+            return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+        origins = [self.FRONTEND_URL.rstrip("/")]
+        if self.ENV == "development":
+            origins.extend(["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"])
+        return origins
 
     @property
     def DATABASE_URL_pg(self) -> str:

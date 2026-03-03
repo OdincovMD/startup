@@ -4,11 +4,15 @@
 """
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import settings
 from app.logging_config import setup_logging
+from app.rate_limit import limiter
 from app.bootstrap import create_tables, ensure_storage, seed_roles, ensure_elasticsearch_indexes
 from app.middleware import StorageUrlRewriteMiddleware
 from app.api import profile, storage, analytics
@@ -32,10 +36,13 @@ app = FastAPI(
     openapi_url=None
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(StorageUrlRewriteMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

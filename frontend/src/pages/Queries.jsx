@@ -11,7 +11,6 @@ const QUERY_STATUS_OPTIONS = [
   { value: "paused", label: "На паузе" },
   { value: "closed", label: "Закрыт" },
 ];
-const DEADLINE_YEARS = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 2 + i);
 const SEARCH_DEBOUNCE_MS = 350;
 const SUGGEST_DEBOUNCE_MS = 180;
 
@@ -34,8 +33,6 @@ export default function Queries() {
   const [searchDebounced, setSearchDebounced] = useState("");
   const [status, setStatus] = useState("");
   const [laboratoryId, setLaboratoryId] = useState("");
-  const [deadlineYearFrom, setDeadlineYearFrom] = useState("");
-  const [deadlineYearTo, setDeadlineYearTo] = useState("");
   const [budgetContains, setBudgetContains] = useState("");
   const [budgetDebounced, setBudgetDebounced] = useState("");
   const [laboratories, setLaboratories] = useState([]);
@@ -43,6 +40,9 @@ export default function Queries() {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsVisible, setSuggestionsVisible] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sortBy, setSortBy] = useState("date_desc");
+  const [suggestionApplied, setSuggestionApplied] = useState(false);
   const searchInputRef = useRef(null);
   const searchWrapRef = useRef(null);
   const [dropdownPosition, setDropdownPosition] = useState(null);
@@ -107,6 +107,19 @@ export default function Queries() {
     setHighlightedIndex(-1);
   }, []);
 
+  const applySuggestion = useCallback((text) => {
+    setSearchQuery(text);
+    setSuggestionApplied(true);
+    hideSuggestions();
+    searchInputRef.current?.focus();
+  }, [hideSuggestions]);
+
+  useEffect(() => {
+    if (!suggestionApplied) return;
+    const t = setTimeout(() => setSuggestionApplied(false), 450);
+    return () => clearTimeout(t);
+  }, [suggestionApplied]);
+
   const updateDropdownPosition = useCallback(() => {
     if (searchWrapRef.current) {
       const rect = searchWrapRef.current.getBoundingClientRect();
@@ -121,16 +134,19 @@ export default function Queries() {
   useEffect(() => {
     if (suggestionsVisible) {
       updateDropdownPosition();
-      window.addEventListener("scroll", updateDropdownPosition, true);
+      const onScroll = () => {
+        hideSuggestions();
+      };
+      window.addEventListener("scroll", onScroll, true);
       window.addEventListener("resize", updateDropdownPosition);
       return () => {
-        window.removeEventListener("scroll", updateDropdownPosition, true);
+        window.removeEventListener("scroll", onScroll, true);
         window.removeEventListener("resize", updateDropdownPosition);
       };
     } else {
       setDropdownPosition(null);
     }
-  }, [suggestionsVisible, updateDropdownPosition]);
+  }, [suggestionsVisible, updateDropdownPosition, hideSuggestions]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -151,7 +167,7 @@ export default function Queries() {
   }, [selectedId, hideSuggestions]);
 
   const hasFilters = Boolean(
-    searchDebounced || status || laboratoryId || deadlineYearFrom || deadlineYearTo || budgetDebounced
+    searchDebounced || status || laboratoryId || budgetDebounced
   );
 
   useEffect(() => {
@@ -162,9 +178,8 @@ export default function Queries() {
         if (searchDebounced) params.set("q", searchDebounced);
         if (status) params.set("status", status);
         if (laboratoryId) params.set("laboratory_id", laboratoryId);
-        if (deadlineYearFrom) params.set("deadline_year_from", deadlineYearFrom);
-        if (deadlineYearTo) params.set("deadline_year_to", deadlineYearTo);
         if (budgetDebounced) params.set("budget_contains", budgetDebounced);
+        if (sortBy && sortBy !== "date_desc") params.set("sort_by", sortBy);
         const url = params.toString() ? `/queries/?${params.toString()}` : "/queries/";
         const data = await apiRequest(url);
         setQueries(Array.isArray(data) ? data : []);
@@ -175,7 +190,7 @@ export default function Queries() {
       }
     }
     loadQueries();
-  }, [searchDebounced, status, laboratoryId, deadlineYearFrom, deadlineYearTo, budgetDebounced]);
+  }, [searchDebounced, status, laboratoryId, budgetDebounced, sortBy]);
 
   useEffect(() => {
     async function loadDetails() {
@@ -221,8 +236,6 @@ export default function Queries() {
     setSearchDebounced("");
     setStatus("");
     setLaboratoryId("");
-    setDeadlineYearFrom("");
-    setDeadlineYearTo("");
     setBudgetContains("");
     hideSuggestions();
   };
@@ -232,11 +245,12 @@ export default function Queries() {
       <section className="section">
         {!selectedId && (
           <>
-            <div className="section-header query-list-header">
-              <div className="section-header__row">
-                <h2>Запросы</h2>
+            <div className="section-header section-header--search">
+              <h2>Запросы</h2>
+              <p>Заявки на R&D с описанием, бюджетом и грантами. Откройте карточку для деталей и связанных лабораторий.</p>
+              <div className="search-toolbar">
                 <div className="query-search" ref={searchWrapRef}>
-                  <div className={`query-search__bar ${loading ? "query-search__bar--loading" : ""}`}>
+                  <div className={`query-search__bar ${loading ? "query-search__bar--loading" : ""} ${suggestionApplied ? "query-search__bar--applied" : ""}`}>
                     <span className="query-search__icon" aria-hidden="true">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="11" cy="11" r="8" />
@@ -268,10 +282,13 @@ export default function Queries() {
                           setHighlightedIndex((i) => (i <= 0 ? -1 : i - 1));
                           return;
                         }
-                        if (e.key === "Enter" && highlightedIndex >= 0 && suggestions[highlightedIndex]) {
-                          e.preventDefault();
-                          setSearchQuery(suggestions[highlightedIndex]);
-                          hideSuggestions();
+                        if (e.key === "Enter") {
+                          if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {
+                            e.preventDefault();
+                            applySuggestion(suggestions[highlightedIndex]);
+                          } else {
+                            hideSuggestions();
+                          }
                           return;
                         }
                       }}
@@ -294,14 +311,88 @@ export default function Queries() {
                     )}
                   </div>
                 </div>
+                <div className="search-toolbar__actions">
+                  <button
+                    type="button"
+                    className={`search-toolbar__filter-btn ${filtersOpen ? "search-toolbar__filter-btn--active" : ""}`}
+                  onClick={() => setFiltersOpen((v) => !v)}
+                  aria-expanded={filtersOpen}
+                  aria-controls="query-filters-panel"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                  </svg>
+                  Фильтры
+                  {hasFilters && <span className="search-toolbar__filter-badge">{[status, laboratoryId, budgetDebounced].filter(Boolean).length}</span>}
+                </button>
+                  <select
+                    className="search-toolbar__sort"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    aria-label="Сортировка по дате"
+                  >
+                    <option value="date_desc">Сначала новые</option>
+                    <option value="date_asc">Сначала старые</option>
+                  </select>
+                </div>
               </div>
-              <p>Заявки на R&D с описанием, бюджетом и грантами. Откройте карточку для деталей и связанных лабораторий.</p>
+              <div
+                id="query-filters-panel"
+                className={`filters-panel ${filtersOpen ? "filters-panel--open" : ""}`}
+                role="region"
+                aria-label="Фильтры"
+              >
+                <div className="query-filters">
+                  <div className="query-filters__field">
+                    <label htmlFor="query-filter-status" className="query-filters__label">Статус</label>
+                    <select
+                      id="query-filter-status"
+                      className="query-filters__select"
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                    >
+                      {QUERY_STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value || "_"} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="query-filters__field">
+                    <label htmlFor="query-filter-lab" className="query-filters__label">Лаборатория</label>
+                    <select
+                      id="query-filter-lab"
+                      className="query-filters__select"
+                      value={laboratoryId}
+                      onChange={(e) => setLaboratoryId(e.target.value)}
+                    >
+                      <option value="">Все лаборатории</option>
+                      {laboratories.map((lab) => (
+                        <option key={lab.id} value={lab.id}>{lab.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="query-filters__field">
+                    <label htmlFor="query-filter-budget" className="query-filters__label">Бюджет содержит</label>
+                    <input
+                      id="query-filter-budget"
+                      type="text"
+                      className="query-filters__input"
+                      placeholder="Например: млн, 500"
+                      value={budgetContains}
+                      onChange={(e) => setBudgetContains(e.target.value)}
+                    />
+                  </div>
+                  {hasFilters && (
+                    <button type="button" className="query-filters__reset" onClick={resetFilters}>
+                      Сбросить фильтры
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </>
         )}
         {!selectedId && (
-          <div className="query-layout">
-            <div className="query-main">
+          <div className="query-main">
               {loading && (
                 <div className="org-cards-grid labs-skeleton-grid" aria-busy="true" role="status" aria-label="Загрузка">
                   {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -427,83 +518,6 @@ export default function Queries() {
                 </div>
               )}
             </div>
-            <aside className="query-sidebar">
-              <div className="query-filters">
-                <h3 className="query-filters__title">Фильтры</h3>
-                <div className="query-filters__field">
-                  <label htmlFor="query-filter-status" className="query-filters__label">Статус</label>
-                  <select
-                    id="query-filter-status"
-                    className="query-filters__select"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                  >
-                    {QUERY_STATUS_OPTIONS.map((opt) => (
-                      <option key={opt.value || "_"} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="query-filters__field">
-                  <label htmlFor="query-filter-lab" className="query-filters__label">Лаборатория</label>
-                  <select
-                    id="query-filter-lab"
-                    className="query-filters__select"
-                    value={laboratoryId}
-                    onChange={(e) => setLaboratoryId(e.target.value)}
-                  >
-                    <option value="">Все лаборатории</option>
-                    {laboratories.map((lab) => (
-                      <option key={lab.id} value={lab.id}>{lab.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="query-filters__field">
-                  <label htmlFor="query-filter-deadline-from" className="query-filters__label">Дедлайн от</label>
-                  <select
-                    id="query-filter-deadline-from"
-                    className="query-filters__select"
-                    value={deadlineYearFrom}
-                    onChange={(e) => setDeadlineYearFrom(e.target.value)}
-                  >
-                    <option value="">Любой год</option>
-                    {DEADLINE_YEARS.map((y) => (
-                      <option key={y} value={y}>{y}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="query-filters__field">
-                  <label htmlFor="query-filter-deadline-to" className="query-filters__label">Дедлайн до</label>
-                  <select
-                    id="query-filter-deadline-to"
-                    className="query-filters__select"
-                    value={deadlineYearTo}
-                    onChange={(e) => setDeadlineYearTo(e.target.value)}
-                  >
-                    <option value="">Любой год</option>
-                    {DEADLINE_YEARS.map((y) => (
-                      <option key={y} value={y}>{y}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="query-filters__field">
-                  <label htmlFor="query-filter-budget" className="query-filters__label">Бюджет содержит</label>
-                  <input
-                    id="query-filter-budget"
-                    type="text"
-                    className="query-filters__input"
-                    placeholder="Например: млн, 500"
-                    value={budgetContains}
-                    onChange={(e) => setBudgetContains(e.target.value)}
-                  />
-                </div>
-                {hasFilters && (
-                  <button type="button" className="query-filters__reset" onClick={resetFilters}>
-                    Сбросить фильтры
-                  </button>
-                )}
-              </div>
-            </aside>
-          </div>
         )}
 
         {selectedId && (
@@ -784,11 +798,7 @@ export default function Queries() {
                   className={`query-search__suggestion-item ${i === highlightedIndex ? "query-search__suggestion-item--highlighted" : ""}`}
                   aria-selected={i === highlightedIndex}
                   onMouseEnter={() => setHighlightedIndex(i)}
-                  onClick={() => {
-                    setSearchQuery(text);
-                    hideSuggestions();
-                    searchInputRef.current?.focus();
-                  }}
+                  onClick={() => applySuggestion(text)}
                 >
                   {text}
                 </li>
