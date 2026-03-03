@@ -1746,6 +1746,7 @@ class SyncOrm:
             stmt = (
                 select(models.OrganizationQuery)
                 .options(
+                    selectinload(models.OrganizationQuery.organization),
                     selectinload(models.OrganizationQuery.laboratories),
                     selectinload(models.OrganizationQuery.employees),
                     selectinload(models.OrganizationQuery.vacancies).selectinload(
@@ -1787,6 +1788,7 @@ class SyncOrm:
             stmt = (
                 select(models.OrganizationQuery)
                 .options(
+                    selectinload(models.OrganizationQuery.organization),
                     selectinload(models.OrganizationQuery.laboratories),
                     selectinload(models.OrganizationQuery.employees),
                     selectinload(models.OrganizationQuery.vacancies).selectinload(
@@ -1819,6 +1821,9 @@ class SyncOrm:
                     session.commit()
                 except SQLAlchemyError:
                     session.rollback()
+            for query in queries:
+                if query.organization_id is None:
+                    query.organization = None
             return queries
 
     @staticmethod
@@ -1830,6 +1835,7 @@ class SyncOrm:
             stmt = (
                 select(models.OrganizationQuery)
                 .options(
+                    selectinload(models.OrganizationQuery.organization),
                     selectinload(models.OrganizationQuery.laboratories),
                     selectinload(models.OrganizationQuery.employees),
                     selectinload(models.OrganizationQuery.vacancies).selectinload(
@@ -1915,6 +1921,9 @@ class SyncOrm:
             # Загружаем vacancies в рамках сессии, чтобы избежать lazy load после её закрытия
             for query in queries:
                 _ = list(query.vacancies or [])
+            for query in queries:
+                if query.organization_id is None:
+                    query.organization = None
             return queries
 
     @staticmethod
