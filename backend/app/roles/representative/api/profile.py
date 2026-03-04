@@ -3,10 +3,13 @@
 Объединяет все представления (views): equipment, laboratories, employees, tasks, queries, vacancies.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
+from app.services.elasticsearch import reindex_laboratories_by_ids
 from app.roles.representative.schemas import (
     OrganizationRead,
     OrganizationUpdate,
@@ -75,6 +78,15 @@ async def upsert_org_profile(
         website=payload.website,
         ror_id=payload.ror_id,
     )
+    if org and org.id:
+        labs = await AsyncOrm.list_published_laboratories_for_org(org.id)
+        if labs:
+            try:
+                await reindex_laboratories_by_ids([l.id for l in labs])
+            except Exception as e:
+                logging.getLogger(__name__).warning(
+                    "Laboratory reindex failed after org profile update: org_id=%s %s", org.id, e
+                )
     return org
 
 

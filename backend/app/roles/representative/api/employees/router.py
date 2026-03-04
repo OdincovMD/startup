@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
+from app.services.elasticsearch import reindex_laboratories_by_ids
 
 logger = logging.getLogger(__name__)
 from app.roles.representative.schemas import EmployeeCreate, EmployeeRead, EmployeeUpdate
@@ -75,6 +76,9 @@ async def create_org_employee(
             laboratory_ids=payload.laboratory_ids,
         )
         logger.info("Employee created: id=%s org_id=%s", emp.id, org.id)
+        lab_ids = [l.id for l in (emp.laboratories or [])] if emp else (payload.laboratory_ids or [])
+        if lab_ids:
+            await reindex_laboratories_by_ids(lab_ids)
         return emp
     if is_lab_representative(current_user):
         require_lab_link_for_lab_rep(payload.laboratory_ids)
@@ -96,6 +100,9 @@ async def create_org_employee(
             laboratory_ids=payload.laboratory_ids,
         )
         logger.info("Employee created: id=%s org_id=None creator_user_id=%s", emp.id, current_user.id)
+        lab_ids = [l.id for l in (emp.laboratories or [])] if emp else (payload.laboratory_ids or [])
+        if lab_ids:
+            await reindex_laboratories_by_ids(lab_ids)
         return emp
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -128,6 +135,13 @@ async def update_org_employee(
     laboratory_ids = patch.get("laboratory_ids")
     if is_lab_representative(current_user) and "laboratory_ids" in patch:
         require_lab_link_for_lab_rep(laboratory_ids=laboratory_ids)
+    # Получить старые lab_ids до обновления (для переиндексации при снятии сотрудника с лабораторий)
+    employee_before = None
+    if org:
+        employee_before = await AsyncOrm.get_employee(employee_id, org.id)
+    elif is_lab_representative(current_user):
+        employee_before = await AsyncOrm.get_employee_for_creator(employee_id, current_user.id)
+    old_lab_ids = [l.id for l in (employee_before.laboratories or [])] if employee_before else []
     if org:
         employee = await AsyncOrm.update_employee(
             employee_id,
@@ -168,6 +182,10 @@ async def update_org_employee(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not employee:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+    new_lab_ids = [l.id for l in (employee.laboratories or [])]
+    lab_ids_to_reindex = list(set(old_lab_ids) | set(new_lab_ids))
+    if lab_ids_to_reindex:
+        await reindex_laboratories_by_ids(lab_ids_to_reindex)
     logger.info("Employee updated: id=%s", employee_id)
     return employee
 
@@ -285,6 +303,9 @@ async def import_employee_openalex(
         )
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+    lab_ids = [l.id for l in (updated.laboratories or [])]
+    if lab_ids:
+        await reindex_laboratories_by_ids(lab_ids)
     logger.info("Employee OpenAlex import completed: employee_id=%s openalex_id=%s", employee_id, openalex_id)
     return updated
 
@@ -298,9 +319,12 @@ async def delete_org_employee(employee_id: int, current_user=Depends(get_current
             detail="Снимите с публикации вакансии, где указан этот сотрудник как контакт, или смените контактное лицо, затем удалите сотрудника.",
         )
     org = await AsyncOrm.get_organization_for_user(current_user.id)
+    employee_before = None
     if org:
+        employee_before = await AsyncOrm.get_employee(employee_id, org.id)
         deleted, user_id_to_notify, lab_names = await AsyncOrm.delete_employee(employee_id, org.id)
     elif is_lab_representative(current_user):
+        employee_before = await AsyncOrm.get_employee_for_creator(employee_id, current_user.id)
         deleted, user_id_to_notify, lab_names = await AsyncOrm.delete_employee_for_creator(
             employee_id, current_user.id
         )
@@ -308,6 +332,9 @@ async def delete_org_employee(employee_id: int, current_user=Depends(get_current
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+    lab_ids = [l.id for l in (employee_before.laboratories or [])] if employee_before else []
+    if lab_ids:
+        await reindex_laboratories_by_ids(lab_ids)
     logger.info("Employee deleted: id=%s org_id=%s", employee_id, org.id if org else None)
     # Уведомление соискателю, что его отвязали от лаборатории
     if user_id_to_notify:

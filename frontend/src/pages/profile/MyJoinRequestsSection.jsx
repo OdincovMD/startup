@@ -213,7 +213,7 @@ export default function MyJoinRequestsSection({ roleKey, onError, creatorLabs = 
   const loadLabSuggestions = async () => {
     try {
       const list = await apiRequest("/laboratories/");
-      setLabSuggestions(list || []);
+      setLabSuggestions(list?.items ?? (Array.isArray(list) ? list : []));
     } catch {
       setLabSuggestions([]);
     }

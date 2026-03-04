@@ -5,6 +5,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_current_user
+from app.services.elasticsearch import reindex_laboratories_by_ids
 
 logger = logging.getLogger(__name__)
 from app.roles.representative.schemas import (
@@ -45,6 +46,9 @@ async def create_org_equipment(
             laboratory_ids=payload.laboratory_ids,
         )
         logger.info("Equipment created: id=%s org_id=%s", eq.id, org.id)
+        lab_ids = [l.id for l in (eq.laboratories or [])] if eq else (payload.laboratory_ids or [])
+        if lab_ids:
+            await reindex_laboratories_by_ids(lab_ids)
         return eq
     if is_lab_representative(current_user):
         require_lab_link_for_lab_rep(payload.laboratory_ids)
@@ -58,6 +62,9 @@ async def create_org_equipment(
             laboratory_ids=payload.laboratory_ids,
         )
         logger.info("Equipment created: id=%s creator_user_id=%s", eq.id, current_user.id)
+        lab_ids = [l.id for l in (eq.laboratories or [])] if eq else (payload.laboratory_ids or [])
+        if lab_ids:
+            await reindex_laboratories_by_ids(lab_ids)
         return eq
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -76,6 +83,13 @@ async def update_org_equipment(
     laboratory_ids = patch.get("laboratory_ids")
     if is_lab_representative(current_user) and "laboratory_ids" in patch:
         require_lab_link_for_lab_rep(laboratory_ids=laboratory_ids)
+    # Получить старые lab_ids до обновления (для переиндексации при снятии оборудования с лабораторий)
+    equipment_before = None
+    if org:
+        equipment_before = await AsyncOrm.get_equipment(equipment_id, org.id)
+    elif is_lab_representative(current_user):
+        equipment_before = await AsyncOrm.get_equipment_for_creator(equipment_id, current_user.id)
+    old_lab_ids = [l.id for l in (equipment_before.laboratories or [])] if equipment_before else []
     if org:
         equipment = await AsyncOrm.update_equipment(
             equipment_id,
@@ -100,6 +114,10 @@ async def update_org_equipment(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not equipment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipment not found")
+    new_lab_ids = [l.id for l in (equipment.laboratories or [])]
+    lab_ids_to_reindex = list(set(old_lab_ids) | set(new_lab_ids))
+    if lab_ids_to_reindex:
+        await reindex_laboratories_by_ids(lab_ids_to_reindex)
     logger.info("Equipment updated: id=%s", equipment_id)
     return equipment
 
@@ -107,13 +125,19 @@ async def update_org_equipment(
 @router.delete("/organization/equipment/{equipment_id}")
 async def delete_org_equipment(equipment_id: int, current_user=Depends(get_current_user)):
     org = await AsyncOrm.get_organization_for_user(current_user.id)
+    equipment_before = None
     if org:
+        equipment_before = await AsyncOrm.get_equipment(equipment_id, org.id)
         deleted = await AsyncOrm.delete_equipment(equipment_id, org.id)
     elif is_lab_representative(current_user):
+        equipment_before = await AsyncOrm.get_equipment_for_creator(equipment_id, current_user.id)
         deleted = await AsyncOrm.delete_equipment_for_creator(equipment_id, current_user.id)
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipment not found")
+    lab_ids = [l.id for l in (equipment_before.laboratories or [])] if equipment_before else []
+    if lab_ids:
+        await reindex_laboratories_by_ids(lab_ids)
     logger.info("Equipment deleted: id=%s", equipment_id)
     return {"status": "ok"}

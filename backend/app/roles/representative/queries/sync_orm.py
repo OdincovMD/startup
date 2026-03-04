@@ -806,6 +806,36 @@ class SyncOrm:
             return session.scalars(stmt).first()
 
     @staticmethod
+    def get_equipment(equipment_id: int, organization_id: int) -> Optional[models.OrganizationEquipment]:
+        """Получить оборудование с загруженными лабораториями."""
+        with session_factory() as session:
+            stmt = (
+                select(models.OrganizationEquipment)
+                .options(selectinload(models.OrganizationEquipment.laboratories))
+                .where(
+                    models.OrganizationEquipment.id == equipment_id,
+                    models.OrganizationEquipment.organization_id == organization_id,
+                )
+            )
+            return session.scalars(stmt).first()
+
+    @staticmethod
+    def get_equipment_for_creator(
+        equipment_id: int, creator_user_id: int
+    ) -> Optional[models.OrganizationEquipment]:
+        """Получить оборудование с загруженными лабораториями (для lab rep)."""
+        with session_factory() as session:
+            stmt = (
+                select(models.OrganizationEquipment)
+                .options(selectinload(models.OrganizationEquipment.laboratories))
+                .where(
+                    models.OrganizationEquipment.id == equipment_id,
+                    models.OrganizationEquipment.creator_user_id == creator_user_id,
+                )
+            )
+            return session.scalars(stmt).first()
+
+    @staticmethod
     def update_equipment(
         equipment_id: int,
         organization_id: int,
@@ -1071,6 +1101,36 @@ class SyncOrm:
                     session.commit()
                 except SQLAlchemyError:
                     session.rollback()
+            return labs
+
+    @staticmethod
+    def get_laboratories_by_ids(lab_ids: List[int]) -> List[models.OrganizationLaboratory]:
+        """Загрузить лаборатории по id с полными связями (для обогащения результатов ES)."""
+        if not lab_ids:
+            return []
+        with session_factory() as session:
+            stmt = (
+                select(models.OrganizationLaboratory)
+                .options(
+                    selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
+                    selectinload(models.OrganizationLaboratory.employees),
+                    selectinload(models.OrganizationLaboratory.researchers),
+                    selectinload(models.OrganizationLaboratory.equipment).selectinload(
+                        models.OrganizationEquipment.laboratories
+                    ),
+                    selectinload(models.OrganizationLaboratory.task_solutions).selectinload(
+                        models.OrganizationTaskSolution.laboratories
+                    ),
+                )
+                .where(
+                    models.OrganizationLaboratory.id.in_(lab_ids),
+                    models.OrganizationLaboratory.is_published.is_(True),
+                )
+            )
+            labs = list(session.scalars(stmt).all())
+            id_order = {lid: i for i, lid in enumerate(lab_ids)}
+            labs.sort(key=lambda l: id_order.get(l.id, 999))
             return labs
 
     @staticmethod
@@ -1446,8 +1506,8 @@ class SyncOrm:
     @staticmethod
     def delete_laboratory(
         laboratory_id: int, organization_id: int
-    ) -> Tuple[bool, Optional[int], str]:
-        """Удаление лаборатории из организации: отвязка. Возвращает (успех, user_id представителя лаборатории для уведомления, lab_name)."""
+    ) -> Tuple[bool, Optional[int], str, bool]:
+        """Удаление лаборатории из организации: отвязка. Возвращает (успех, user_id, lab_name, fully_deleted=False)."""
         with session_factory() as session:
             lab = session.scalars(
                 select(models.OrganizationLaboratory)
@@ -1463,7 +1523,7 @@ class SyncOrm:
                 )
             ).first()
             if not lab:
-                return (False, None, "")
+                return (False, None, "", False)
             lab_name = lab.name or "Лаборатория"
             lab_rep_user_id = lab.creator_user_id
             SyncOrm._close_lab_join_requests_for_lab(session, laboratory_id)
@@ -1482,13 +1542,13 @@ class SyncOrm:
             except SQLAlchemyError:
                 session.rollback()
                 raise
-            return (True, lab_rep_user_id, lab_name)
+            return (True, lab_rep_user_id, lab_name, False)
 
     @staticmethod
     def delete_laboratory_for_creator(
         laboratory_id: int, creator_user_id: int
-    ) -> Tuple[bool, Optional[int], str]:
-        """Удаление лаборатории: если в организации — отвязка; иначе — полное удаление. Возвращает (успех, user_id представителя лаборатории, lab_name)."""
+    ) -> Tuple[bool, Optional[int], str, bool]:
+        """Удаление лаборатории: если в организации — отвязка; иначе — полное удаление. Возвращает (успех, user_id, lab_name, fully_deleted)."""
         with session_factory() as session:
             lab = session.scalars(
                 select(models.OrganizationLaboratory)
@@ -1504,20 +1564,22 @@ class SyncOrm:
                 )
             ).first()
             if not lab:
-                return (False, None, "")
+                return (False, None, "", False)
             lab_name = lab.name or "Лаборатория"
             lab_rep_user_id = lab.creator_user_id
             SyncOrm._close_lab_join_requests_for_lab(session, laboratory_id)
+            fully_deleted = False
             if lab.organization_id is not None:
                 SyncOrm._unlink_lab_from_org(session, lab)
             else:
                 session.delete(lab)
+                fully_deleted = True
             try:
                 session.commit()
             except SQLAlchemyError:
                 session.rollback()
                 raise
-            return (True, lab_rep_user_id, lab_name)
+            return (True, lab_rep_user_id, lab_name, fully_deleted)
 
     # =============================
     #   TASK SOLUTIONS (ORG)
@@ -3904,7 +3966,7 @@ class SyncOrm:
                 v.organization_id = None
             req.status = "left"
             session.commit()
-            return {"lab_name": lab.name or "", "org_id": org.id, "org_name": org.name or ""}
+            return {"lab_id": lab.id, "lab_name": lab.name or "", "org_id": org.id, "org_name": org.name or ""}
 
     @staticmethod
     def get_org_join_request_by_id(request_id: int) -> Optional[models.OrgJoinRequest]:

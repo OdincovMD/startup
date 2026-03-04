@@ -176,7 +176,7 @@ export default function Vacancies() {
           apiRequest("/laboratories/"),
         ]);
         setOrganizations(orgs || []);
-        setLaboratories(labs || []);
+        setLaboratories(labs?.items ?? (Array.isArray(labs) ? labs : []));
       } catch {
         // ignore
       }

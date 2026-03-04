@@ -9,7 +9,11 @@ import app.models  # noqa: F401 — регистрация моделей в met
 from app.database import Base, sync_engine
 from app.core.queries.sync_orm import SyncOrm as UserSyncOrm
 from app.storage.s3 import ensure_bucket_ready
-from app.services.elasticsearch import reindex_vacancies_if_empty, reindex_queries_if_empty
+from app.services.elasticsearch import (
+    reindex_laboratories_if_empty,
+    reindex_vacancies_if_empty,
+    reindex_queries_if_empty,
+)
 
 import logging
 
@@ -38,6 +42,7 @@ def ensure_storage() -> None:
 async def ensure_elasticsearch_indexes() -> None:
     """Создание индексов Elasticsearch при старте и первичная индексация, если индекс пуст."""
     try:
+        await reindex_laboratories_if_empty()
         await reindex_vacancies_if_empty()
         await reindex_queries_if_empty()
         logger.info("Elasticsearch indexes ready")

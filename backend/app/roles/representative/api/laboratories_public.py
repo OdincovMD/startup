@@ -1,37 +1,116 @@
 """
 Роуты FastAPI для работы с лабораториями (публичные страницы).
-GET / — список опубликованных лабораторий,
+GET / — список опубликованных лабораторий (с поиском и фильтрами через ES),
+GET /suggest — подсказки для автодополнения,
 GET /public/{public_id}/details — детали лаборатории по public_id.
 """
 
 import asyncio
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
-from app.roles.representative.schemas import OrganizationLaboratoryRead, LaboratoryDetails
+from app.roles.representative.schemas import (
+    LaboratoryListResponse,
+    LaboratoryDetails,
+)
 from app.queries.async_orm import AsyncOrm
+from app.services.elasticsearch import search_laboratories, suggest_laboratories
 
 router = APIRouter(prefix="/laboratories", tags=["laboratories"])
 
 
-@router.get("/", response_model=list[OrganizationLaboratoryRead])
-async def list_laboratories():
-    """Список опубликованных лабораторий для публичного каталога."""
+def _prepare_labs_for_response(labs):
+    """Применить фильтры организации и исследователей к списку лабораторий."""
+    for lab in labs:
+        org = getattr(lab, "organization", None)
+        if org is not None and not getattr(org, "is_published", False):
+            lab.organization = None
+        employee_user_ids = {e.user_id for e in (lab.employees or []) if getattr(e, "user_id", None)}
+        lab.researchers = [
+            r for r in (lab.researchers or [])
+            if getattr(r, "user_id", None) not in employee_user_ids
+        ]
+    return labs
+
+
+@router.get("/", response_model=LaboratoryListResponse)
+async def list_laboratories(
+    q: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    organization_id: Optional[int] = Query(None),
+    without_org: bool = Query(False),
+    min_employees: Optional[int] = Query(None, ge=0),
+    sort_by: Optional[str] = Query(None),
+):
+    """
+    Список опубликованных лабораторий.
+    При q или любом фильтре — поиск через Elasticsearch.
+    Иначе — полный список из БД.
+    """
+    use_search = bool((q or "").strip()) or organization_id is not None or without_org or (
+        min_employees is not None and min_employees > 0
+    )
+    if use_search:
+        try:
+            result = await search_laboratories(
+                q=(q or "").strip(),
+                page=page,
+                size=size,
+                organization_id=organization_id,
+                without_org=without_org,
+                min_employees=min_employees,
+                sort_by=sort_by,
+            )
+            items = result.get("items", [])
+            lab_ids = [it["id"] for it in items if it.get("id") is not None]
+            if lab_ids:
+                labs = await AsyncOrm.get_laboratories_by_ids(lab_ids)
+                labs = _prepare_labs_for_response(labs)
+                return LaboratoryListResponse(
+                    items=labs,
+                    total=result.get("total", 0),
+                    page=result.get("page", page),
+                    size=result.get("size", size),
+                )
+            return LaboratoryListResponse(
+                items=[],
+                total=result.get("total", 0),
+                page=result.get("page", page),
+                size=result.get("size", size),
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "LABORATORY_SEARCH_FAILURE", "message": str(e)},
+            )
     try:
         labs = await AsyncOrm.list_published_laboratories()
-        for lab in labs:
-            org = getattr(lab, "organization", None)
-            if org is not None and not getattr(org, "is_published", False):
-                lab.organization = None
-            # Исключаем исследователей, которые уже в сотрудниках (дубликат)
-            employee_user_ids = {e.user_id for e in (lab.employees or []) if getattr(e, "user_id", None)}
-            lab.researchers = [r for r in (lab.researchers or []) if getattr(r, "user_id", None) not in employee_user_ids]
-        return labs
+        labs = _prepare_labs_for_response(labs)
+        total = len(labs)
+        # Без фильтров возвращаем все лаборатории (пагинация не применяется)
+        return LaboratoryListResponse(
+            items=labs,
+            total=total,
+            page=1,
+            size=total,
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": "LABORATORY_LIST_FAILURE", "message": str(e)},
         )
+
+
+@router.get("/suggest")
+async def suggest_laboratories_endpoint(
+    q: str = Query(""),
+    limit: int = Query(10, ge=1, le=20),
+):
+    """Подсказки для автодополнения поиска лабораторий."""
+    suggestions = await suggest_laboratories(q=q, limit=limit)
+    return {"suggestions": suggestions}
 
 
 @router.get("/public/{public_id}/details", response_model=LaboratoryDetails)

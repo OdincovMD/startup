@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
+from app.services.elasticsearch import reindex_laboratories_by_ids
 
 logger = logging.getLogger(__name__)
 from app.queries.async_orm import AsyncOrm
@@ -93,6 +94,10 @@ async def leave_laboratory(
     if not ok:
         logger.warning("Leave laboratory failed: researcher_id=%s lab_id=%s not member", researcher.id, laboratory_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Вы не состоите в этой лаборатории")
+    try:
+        await reindex_laboratories_by_ids([laboratory_id])
+    except Exception as e:
+        logger.warning("Laboratory reindex failed after leave: lab_id=%s %s", laboratory_id, e)
     logger.info("Researcher left laboratory: researcher_id=%s lab_id=%s", researcher.id, laboratory_id)
     return {"ok": True}
 
@@ -246,6 +251,10 @@ async def approve_lab_join_request(
     if not updated:
         logger.warning("Approve lab join failed: request_id=%s already processed", request_id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Заявка уже обработана")
+    try:
+        await reindex_laboratories_by_ids([lab.id])
+    except Exception as e:
+        logger.warning("Laboratory reindex failed after approve lab join: lab_id=%s %s", lab.id, e)
     researcher_user_id = req.researcher.user_id if req.researcher else None
     if researcher_user_id:
         await AsyncOrm.create_notification(
@@ -338,6 +347,11 @@ async def approve_org_join_request(
         logger.warning("Approve org join failed: request_id=%s already processed", request_id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Заявка уже обработана")
     lab = req.laboratory
+    if lab:
+        try:
+            await reindex_laboratories_by_ids([lab.id])
+        except Exception as e:
+            logger.warning("Laboratory reindex failed after approve org join: lab_id=%s %s", lab.id, e)
     if lab and lab.creator_user_id:
         await AsyncOrm.create_notification(
             lab.creator_user_id,
@@ -389,6 +403,11 @@ async def leave_organization(
     if not result:
         logger.warning("Leave organization failed: request_id=%s user_id=%s not found", request_id, current_user.id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена или уже обработана")
+    if result.get("lab_id"):
+        try:
+            await reindex_laboratories_by_ids([result["lab_id"]])
+        except Exception as e:
+            logger.warning("Laboratory reindex failed after leave org: lab_id=%s %s", result["lab_id"], e)
     user_ids = await AsyncOrm.get_lab_admin_user_ids_for_organization(result["org_id"])
     for uid in user_ids:
         await AsyncOrm.create_notification(

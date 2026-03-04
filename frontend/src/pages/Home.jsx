@@ -77,7 +77,7 @@ export default function Home() {
           apiRequest("/stats/").catch(() => null),
         ]);
         setOrgs(Array.isArray(orgsJson) ? orgsJson : []);
-        setLaboratories(Array.isArray(labsJson) ? labsJson : []);
+        setLaboratories(labsJson?.items ?? (Array.isArray(labsJson) ? labsJson : []));
         setVacancies(Array.isArray(vacanciesJson) ? vacanciesJson : (vacanciesJson?.items ?? []));
         setStats(statsJson);
       } catch (e) {

@@ -268,6 +268,16 @@ class AsyncOrm:
         )
 
     @staticmethod
+    async def get_equipment(equipment_id: int, organization_id: int) -> Optional[models.OrganizationEquipment]:
+        return await asyncio.to_thread(SyncOrm.get_equipment, equipment_id, organization_id)
+
+    @staticmethod
+    async def get_equipment_for_creator(
+        equipment_id: int, creator_user_id: int
+    ) -> Optional[models.OrganizationEquipment]:
+        return await asyncio.to_thread(SyncOrm.get_equipment_for_creator, equipment_id, creator_user_id)
+
+    @staticmethod
     async def update_equipment(
         equipment_id: int,
         organization_id: int,
@@ -342,6 +352,10 @@ class AsyncOrm:
     @staticmethod
     async def list_published_laboratories() -> List[models.OrganizationLaboratory]:
         return await asyncio.to_thread(SyncOrm.list_published_laboratories)
+
+    @staticmethod
+    async def get_laboratories_by_ids(lab_ids: list) -> list:
+        return await asyncio.to_thread(SyncOrm.get_laboratories_by_ids, lab_ids)
 
     @staticmethod
     async def get_laboratory_by_public_id(public_id: str) -> Optional[models.OrganizationLaboratory]:

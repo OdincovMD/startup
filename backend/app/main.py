@@ -30,7 +30,7 @@ scheduler = BackgroundScheduler()
 
 app = FastAPI(
     title="Синтезум",
-    version="release/D-01.000.00.0",
+    version="release/D-01.003.00.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
+from app.services.elasticsearch import index_laboratory, delete_laboratory, reindex_laboratories_by_ids
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +124,10 @@ async def update_org_laboratory(
     if not lab:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Laboratory not found")
     logger.info("Laboratory updated: id=%s", laboratory_id)
+    try:
+        await index_laboratory(lab)
+    except Exception as e:
+        logger.warning("Elasticsearch sync failed for laboratory %s: %s", laboratory_id, e)
     return lab
 
 
@@ -136,17 +141,24 @@ async def delete_org_laboratory(laboratory_id: int, current_user=Depends(get_cur
         )
     org = await AsyncOrm.get_organization_for_user(current_user.id)
     if org:
-        deleted, lab_rep_user_id, lab_name = await AsyncOrm.delete_laboratory(
+        deleted, lab_rep_user_id, lab_name, fully_deleted = await AsyncOrm.delete_laboratory(
             laboratory_id, org.id
         )
     elif is_lab_representative(current_user):
-        deleted, lab_rep_user_id, lab_name = await AsyncOrm.delete_laboratory_for_creator(
+        deleted, lab_rep_user_id, lab_name, fully_deleted = await AsyncOrm.delete_laboratory_for_creator(
             laboratory_id, current_user.id
         )
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Laboratory not found")
+    try:
+        if fully_deleted:
+            await delete_laboratory(laboratory_id)
+        else:
+            await reindex_laboratories_by_ids([laboratory_id])
+    except Exception as e:
+        logger.warning("Elasticsearch sync failed for laboratory %s: %s", laboratory_id, e)
     logger.info("Laboratory deleted: id=%s", laboratory_id)
     # Уведомление представителю лаборатории о том, что лаборатория удалена/отвязана
     if lab_rep_user_id and lab_name:
@@ -176,5 +188,12 @@ async def set_lab_publish_state(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not lab:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Laboratory not found")
+    try:
+        if is_published:
+            await index_laboratory(lab)
+        else:
+            await delete_laboratory(laboratory_id)
+    except Exception as e:
+        logger.warning("Elasticsearch sync failed for laboratory %s: %s", laboratory_id, e)
     logger.info("Laboratory publish state set: id=%s is_published=%s", laboratory_id, is_published)
     return lab

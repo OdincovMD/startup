@@ -64,7 +64,7 @@ export default function Queries() {
     async function loadLaboratories() {
       try {
         const data = await apiRequest("/laboratories/");
-        setLaboratories(Array.isArray(data) ? data : []);
+        setLaboratories(data?.items ?? (Array.isArray(data) ? data : []));
       } catch {
         setLaboratories([]);
       }

@@ -7713,6 +7713,92 @@ a.request-card__title:hover {
   color: var(--text-secondary);
 }
 
+.vacancy-filters__label--checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+/* Фильтр «Независимые лаборатории» — компактный чекбокс в один ряд с остальными */
+.lab-filter-checkbox-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.lab-filter-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-primary-alt);
+  transition: border-color 0.2s ease, background 0.2s ease;
+  height: 2.25rem;
+  box-sizing: border-box;
+}
+
+.lab-filter-checkbox:hover {
+  border-color: var(--accent-soft);
+  background: var(--accent-bg, rgba(59, 130, 246, 0.04));
+}
+
+.lab-filter-checkbox input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.lab-filter-checkbox__box {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--border);
+  border-radius: 3px;
+  background: var(--card-bg);
+  transition: border-color 0.2s ease, background 0.2s ease;
+  position: relative;
+}
+
+.lab-filter-checkbox input:focus-visible + .lab-filter-checkbox__box {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.lab-filter-checkbox input:checked + .lab-filter-checkbox__box {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.lab-filter-checkbox input:checked + .lab-filter-checkbox__box::after {
+  content: "";
+  position: absolute;
+  left: 0.15rem;
+  top: 0;
+  width: 0.3rem;
+  height: 0.5rem;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.lab-filter-checkbox__label {
+  user-select: none;
+  white-space: nowrap;
+}
+
 .vacancy-filters__select {
   width: 100%;
   min-width: 0;
@@ -7903,7 +7989,8 @@ a.request-card__title:hover {
 }
 
 .search-toolbar .vacancy-search,
-.search-toolbar .query-search {
+.search-toolbar .query-search,
+.search-toolbar .lab-search {
   flex: 1;
   min-width: 0;
   max-width: 420px;
@@ -8011,7 +8098,11 @@ a.request-card__title:hover {
 .filters-panel .query-filters__field {
   margin-bottom: 0;
   flex: 0 1 auto;
-  min-width: 160px;
+  min-width: 140px;
+}
+
+.filters-panel .lab-filter-checkbox-wrap {
+  min-width: 110px;
 }
 
 .filters-panel .vacancy-filters__title,
@@ -8523,7 +8614,8 @@ a.request-card__title:hover {
 
   .search-input,
   .vacancy-search,
-  .query-search {
+  .query-search,
+  .lab-search {
     flex: 1;
     min-width: auto;
     max-width: none;
@@ -8581,13 +8673,15 @@ a.request-card__title:hover {
 
   .search-input,
   .vacancy-search,
-  .query-search {
+  .query-search,
+  .lab-search {
     width: 100%;
     max-width: none;
   }
 
   .search-toolbar .vacancy-search,
-  .search-toolbar .query-search {
+  .search-toolbar .query-search,
+  .search-toolbar .lab-search {
     max-width: none;
     width: 100%;
   }

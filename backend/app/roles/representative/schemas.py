@@ -209,6 +209,15 @@ class OrganizationLaboratoryShort(ORMModel, OrganizationLaboratoryBase):
     organization_id: Optional[int] = None
 
 
+class LaboratoryListResponse(BaseModel):
+    """Response: items, total, page, size."""
+
+    items: List[OrganizationLaboratoryRead]
+    total: int
+    page: int
+    size: int
+
+
 class OrganizationShort(ORMModel):
     id: int
     public_id: Optional[str] = None
