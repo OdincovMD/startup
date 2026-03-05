@@ -455,6 +455,8 @@ body.nav-open {
   flex-direction: column;
   gap: 0;
   animation: fadeInUp 0.5s ease-out both;
+  position: relative;
+  z-index: 10;
 }
 
 .hero-content {
@@ -7149,6 +7151,8 @@ a.request-card__title:hover {
   width: 100%;
   max-width: 480px;
   overflow: visible;
+  position: relative;
+  z-index: 100;
 }
 
 .global-search {
@@ -8191,6 +8195,8 @@ a.request-card__title:hover {
 /* ----- Section header with search + collapsible filters ----- */
 .section-header--search {
   margin-bottom: 1.25rem;
+  position: relative;
+  z-index: 100;
 }
 
 .section-header--search h2 {
