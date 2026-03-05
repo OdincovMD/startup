@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import EmployeeModal from "./profile/EmployeeModal";
@@ -45,7 +44,6 @@ export default function Queries() {
   const [suggestionApplied, setSuggestionApplied] = useState(false);
   const searchInputRef = useRef(null);
   const searchWrapRef = useRef(null);
-  const [dropdownPosition, setDropdownPosition] = useState(null);
   const { publicId } = useParams();
   const navigate = useNavigate();
   const selectedId = useMemo(() => (publicId ? String(publicId) : null), [publicId]);
@@ -119,34 +117,6 @@ export default function Queries() {
     const t = setTimeout(() => setSuggestionApplied(false), 450);
     return () => clearTimeout(t);
   }, [suggestionApplied]);
-
-  const updateDropdownPosition = useCallback(() => {
-    if (searchWrapRef.current) {
-      const rect = searchWrapRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (suggestionsVisible) {
-      updateDropdownPosition();
-      const onScroll = () => {
-        hideSuggestions();
-      };
-      window.addEventListener("scroll", onScroll, true);
-      window.addEventListener("resize", updateDropdownPosition);
-      return () => {
-        window.removeEventListener("scroll", onScroll, true);
-        window.removeEventListener("resize", updateDropdownPosition);
-      };
-    } else {
-      setDropdownPosition(null);
-    }
-  }, [suggestionsVisible, updateDropdownPosition, hideSuggestions]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -250,6 +220,7 @@ export default function Queries() {
               <p>Заявки на R&D с описанием, бюджетом и грантами. Откройте карточку для деталей и связанных лабораторий.</p>
               <div className="search-toolbar">
                 <div className="query-search" ref={searchWrapRef}>
+                  <div className="query-search__field">
                   <div className={`query-search__bar ${loading ? "query-search__bar--loading" : ""} ${suggestionApplied ? "query-search__bar--applied" : ""}`}>
                     <span className="query-search__icon" aria-hidden="true">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -295,7 +266,7 @@ export default function Queries() {
                       aria-label="Поиск по запросам"
                       autoComplete="off"
                       aria-autocomplete="list"
-                      aria-expanded={suggestionsVisible && suggestions.length > 0}
+                      aria-expanded={suggestionsVisible}
                       aria-controls="query-suggestions-list"
                       aria-activedescendant={highlightedIndex >= 0 ? `query-suggestion-${highlightedIndex}` : undefined}
                     />
@@ -309,6 +280,39 @@ export default function Queries() {
                         ×
                       </button>
                     )}
+                  </div>
+                  {suggestionsVisible && (
+                    <ul
+                      data-query-suggestions
+                      id="query-suggestions-list"
+                      className="query-search__suggestions query-search__suggestions--dropdown"
+                      role="listbox"
+                    >
+                      {suggestionsLoading ? (
+                        <li className="query-search__suggestion-item query-search__suggestion-item--loading" role="option">
+                          Загрузка…
+                        </li>
+                      ) : suggestions.length === 0 ? (
+                        <li className="query-search__suggestion-item query-search__suggestion-item--loading" role="option">
+                          Нет подсказок
+                        </li>
+                      ) : (
+                        suggestions.map((text, i) => (
+                          <li
+                            key={`${text}-${i}`}
+                            id={`query-suggestion-${i}`}
+                            role="option"
+                            className={`query-search__suggestion-item ${i === highlightedIndex ? "query-search__suggestion-item--highlighted" : ""}`}
+                            aria-selected={i === highlightedIndex}
+                            onMouseEnter={() => setHighlightedIndex(i)}
+                            onClick={() => applySuggestion(text)}
+                          >
+                            {text}
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
                   </div>
                 </div>
                 <div className="search-toolbar__actions">
@@ -767,46 +771,6 @@ export default function Queries() {
         }}
       />
 
-      {typeof document !== "undefined" &&
-        document.body &&
-        suggestionsVisible &&
-        (suggestions.length > 0 || suggestionsLoading) &&
-        dropdownPosition &&
-        createPortal(
-          <ul
-            data-query-suggestions
-            id="query-suggestions-list"
-            className="query-search__suggestions query-search__suggestions--portal"
-            role="listbox"
-            style={{
-              position: "fixed",
-              top: dropdownPosition.top,
-              left: dropdownPosition.left,
-              width: dropdownPosition.width,
-            }}
-          >
-            {suggestionsLoading && suggestions.length === 0 ? (
-              <li className="query-search__suggestion-item query-search__suggestion-item--loading" role="option">
-                Загрузка…
-              </li>
-            ) : (
-              suggestions.map((text, i) => (
-                <li
-                  key={`${text}-${i}`}
-                  id={`query-suggestion-${i}`}
-                  role="option"
-                  className={`query-search__suggestion-item ${i === highlightedIndex ? "query-search__suggestion-item--highlighted" : ""}`}
-                  aria-selected={i === highlightedIndex}
-                  onMouseEnter={() => setHighlightedIndex(i)}
-                  onClick={() => applySuggestion(text)}
-                >
-                  {text}
-                </li>
-              ))
-            )}
-          </ul>,
-          document.body
-        )}
     </main>
   );
 }

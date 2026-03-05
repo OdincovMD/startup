@@ -36,6 +36,15 @@ class OrganizationRead(ORMModel, OrganizationBase):
     created_at: datetime
 
 
+class OrganizationListResponse(BaseModel):
+    """Response: items, total, page, size."""
+
+    items: List["OrganizationRead"]
+    total: int
+    page: int
+    size: int
+
+
 class OrganizationUpdate(BaseModel):
     name: Optional[str] = None
     avatar_url: Optional[str] = None

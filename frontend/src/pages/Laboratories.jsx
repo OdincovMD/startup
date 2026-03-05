@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import EmployeeModal from "./profile/EmployeeModal";
@@ -39,7 +38,6 @@ export default function Laboratories() {
   const [suggestionApplied, setSuggestionApplied] = useState(false);
   const searchInputRef = useRef(null);
   const searchWrapRef = useRef(null);
-  const [dropdownPosition, setDropdownPosition] = useState(null);
   const [gallery, setGallery] = useState({ open: false, images: [], index: 0 });
   const [galleryZoom, setGalleryZoom] = useState(1);
   const [employeePreview, setEmployeePreview] = useState(null);
@@ -101,32 +99,6 @@ export default function Laboratories() {
     return () => clearTimeout(t);
   }, [suggestionApplied]);
 
-  const updateDropdownPosition = useCallback(() => {
-    if (searchWrapRef.current) {
-      const rect = searchWrapRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (suggestionsVisible) {
-      updateDropdownPosition();
-      const onScroll = () => hideSuggestions();
-      window.addEventListener("scroll", onScroll, true);
-      window.addEventListener("resize", updateDropdownPosition);
-      return () => {
-        window.removeEventListener("scroll", onScroll, true);
-        window.removeEventListener("resize", updateDropdownPosition);
-      };
-    } else {
-      setDropdownPosition(null);
-    }
-  }, [suggestionsVisible, updateDropdownPosition, hideSuggestions]);
-
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -144,8 +116,8 @@ export default function Laboratories() {
   useEffect(() => {
     async function loadOrganizations() {
       try {
-        const orgs = await apiRequest("/labs/");
-        setOrganizations(orgs || []);
+        const data = await apiRequest("/labs/");
+        setOrganizations(data?.items ?? (Array.isArray(data) ? data : []));
       } catch {
         // ignore
       }
@@ -349,6 +321,7 @@ export default function Laboratories() {
               <p>Научные лаборатории с описаниями, руководителями и командой. Выберите карточку, чтобы открыть детали и вакансии.</p>
               <div className="search-toolbar">
                 <div className="lab-search vacancy-search" ref={searchWrapRef}>
+                  <div className="vacancy-search__field">
                   <div className={`vacancy-search__bar ${loading ? "vacancy-search__bar--loading" : ""} ${suggestionApplied ? "vacancy-search__bar--applied" : ""}`}>
                     <span className="vacancy-search__icon" aria-hidden="true">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -394,7 +367,7 @@ export default function Laboratories() {
                       aria-label="Поиск по лабораториям"
                       autoComplete="off"
                       aria-autocomplete="list"
-                      aria-expanded={suggestionsVisible && suggestions.length > 0}
+                      aria-expanded={suggestionsVisible}
                       aria-controls="lab-suggestions-list"
                       aria-activedescendant={highlightedIndex >= 0 ? `suggestion-${highlightedIndex}` : undefined}
                     />
@@ -408,6 +381,38 @@ export default function Laboratories() {
                         ×
                       </button>
                     )}
+                  </div>
+                  {suggestionsVisible && (
+                    <div
+                      data-lab-suggestions
+                      className="vacancy-search__suggestions vacancy-search__suggestions--dropdown"
+                      role="listbox"
+                      id="lab-suggestions-list"
+                    >
+                      {suggestionsLoading ? (
+                        <div className="vacancy-search__suggestion-item vacancy-search__suggestion-item--loading">
+                          Загрузка…
+                        </div>
+                      ) : suggestions.length === 0 ? (
+                        <div className="vacancy-search__suggestion-item vacancy-search__suggestion-item--loading">
+                          Нет подсказок
+                        </div>
+                      ) : (
+                        suggestions.map((text, i) => (
+                          <div
+                            key={i}
+                            role="option"
+                            id={`lab-suggestion-${i}`}
+                            className={`vacancy-search__suggestion-item ${i === highlightedIndex ? "vacancy-search__suggestion-item--highlighted" : ""}`}
+                            onClick={() => applySuggestion(text)}
+                            onMouseEnter={() => setHighlightedIndex(i)}
+                          >
+                            {text}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                   </div>
                 </div>
                 <div className="search-toolbar__actions">
@@ -494,45 +499,6 @@ export default function Laboratories() {
                 </div>
               </div>
             </div>
-            {dropdownPosition && suggestionsVisible && createPortal(
-              <div
-                data-lab-suggestions
-                className="vacancy-search__suggestions vacancy-search__suggestions--portal"
-                style={{
-                  position: "fixed",
-                  top: dropdownPosition.top,
-                  left: dropdownPosition.left,
-                  width: dropdownPosition.width,
-                  zIndex: 10000,
-                }}
-                role="listbox"
-                id="lab-suggestions-list"
-              >
-                {suggestionsLoading ? (
-                  <div className="vacancy-search__suggestion-item vacancy-search__suggestion-item--loading">
-                    Загрузка…
-                  </div>
-                ) : suggestions.length === 0 ? (
-                  <div className="vacancy-search__suggestion-item vacancy-search__suggestion-item--loading">
-                    Нет подсказок
-                  </div>
-                ) : (
-                  suggestions.map((text, i) => (
-                    <div
-                      key={i}
-                      role="option"
-                      id={`suggestion-${i}`}
-                      className={`vacancy-search__suggestion-item ${i === highlightedIndex ? "vacancy-search__suggestion-item--highlighted" : ""}`}
-                      onClick={() => applySuggestion(text)}
-                      onMouseEnter={() => setHighlightedIndex(i)}
-                    >
-                      {text}
-                    </div>
-                  ))
-                )}
-              </div>,
-              document.body
-            )}
           </>
         )}
         {loading && !selectedId && (

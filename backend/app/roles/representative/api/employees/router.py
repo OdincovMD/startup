@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
-from app.services.elasticsearch import reindex_laboratories_by_ids
+from app.services.elasticsearch import reindex_laboratories_by_ids, reindex_organizations_by_ids
 
 logger = logging.getLogger(__name__)
 from app.roles.representative.schemas import EmployeeCreate, EmployeeRead, EmployeeUpdate
@@ -79,6 +79,10 @@ async def create_org_employee(
         lab_ids = [l.id for l in (emp.laboratories or [])] if emp else (payload.laboratory_ids or [])
         if lab_ids:
             await reindex_laboratories_by_ids(lab_ids)
+        try:
+            await reindex_organizations_by_ids([org.id])
+        except Exception as e:
+            logger.warning("Organization reindex failed after employee create: org_id=%s %s", org.id, e)
         return emp
     if is_lab_representative(current_user):
         require_lab_link_for_lab_rep(payload.laboratory_ids)
@@ -103,6 +107,12 @@ async def create_org_employee(
         lab_ids = [l.id for l in (emp.laboratories or [])] if emp else (payload.laboratory_ids or [])
         if lab_ids:
             await reindex_laboratories_by_ids(lab_ids)
+        org_ids = list({l.organization_id for l in (emp.laboratories or []) if getattr(l, "organization_id", None)})
+        if org_ids:
+            try:
+                await reindex_organizations_by_ids(org_ids)
+            except Exception as e:
+                logger.warning("Organization reindex failed after employee create: %s", e)
         return emp
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -186,6 +196,14 @@ async def update_org_employee(
     lab_ids_to_reindex = list(set(old_lab_ids) | set(new_lab_ids))
     if lab_ids_to_reindex:
         await reindex_laboratories_by_ids(lab_ids_to_reindex)
+    org_ids = list({l.organization_id for l in (employee.laboratories or []) if getattr(l, "organization_id", None)})
+    if org:
+        org_ids = list(set(org_ids) | {org.id})
+    if org_ids:
+        try:
+            await reindex_organizations_by_ids(org_ids)
+        except Exception as e:
+            logger.warning("Organization reindex failed after employee update: %s", e)
     logger.info("Employee updated: id=%s", employee_id)
     return employee
 
@@ -335,6 +353,11 @@ async def delete_org_employee(employee_id: int, current_user=Depends(get_current
     lab_ids = [l.id for l in (employee_before.laboratories or [])] if employee_before else []
     if lab_ids:
         await reindex_laboratories_by_ids(lab_ids)
+    if org:
+        try:
+            await reindex_organizations_by_ids([org.id])
+        except Exception as e:
+            logger.warning("Organization reindex failed after employee delete: org_id=%s %s", org.id, e)
     logger.info("Employee deleted: id=%s org_id=%s", employee_id, org.id if org else None)
     # Уведомление соискателю, что его отвязали от лаборатории
     if user_id_to_notify:

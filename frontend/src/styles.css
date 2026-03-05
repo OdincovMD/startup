@@ -7144,13 +7144,215 @@ a.request-card__title:hover {
   min-width: 280px;
 }
 
+/* ----- Глобальный поиск на главной ----- */
+.hero-search-wrap {
+  width: 100%;
+  max-width: 480px;
+  overflow: visible;
+}
+
+.global-search {
+  width: 100%;
+}
+
+.global-search__field {
+  position: relative;
+  width: 100%;
+}
+
+.global-search__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.75rem;
+  background: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.5rem 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.global-search__bar:hover {
+  border-color: var(--accent-soft);
+}
+
+.global-search__bar:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+  outline: none;
+}
+
+.global-search__bar--loading {
+  position: relative;
+}
+
+.global-search__bar--loading::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  border-radius: 0 0 12px 12px;
+  animation: vacancy-search-pulse 1.2s ease-in-out infinite;
+}
+
+.global-search__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.global-search__bar:focus-within .global-search__icon {
+  color: var(--accent);
+}
+
+.global-search__input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  color: var(--text-primary-alt);
+  padding: 0.35rem 0;
+}
+
+.global-search__input::placeholder {
+  color: var(--text-muted);
+}
+
+.global-search__input:focus {
+  outline: none;
+}
+
+.global-search__clear {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.global-search__clear:hover,
+.global-search__clear:focus-visible {
+  background: var(--border);
+  color: var(--text-primary-alt);
+}
+
+.global-search__suggestions {
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0;
+}
+
+.global-search__suggestions--dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  z-index: 10000;
+  /* Привязка к строке поиска: всегда вниз, даже на мобильных */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+.global-search__suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9375rem;
+  color: var(--text-primary-alt);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.global-search__suggestion-item:hover,
+.global-search__suggestion-item--highlighted {
+  background: var(--accent-bg);
+}
+
+.global-search__suggestion-item--loading {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.global-search__suggestion-item--loading:hover {
+  background: transparent;
+}
+
+.global-search__type-badge {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  background: var(--border);
+  color: var(--text-muted);
+}
+
+.global-search__type-badge--vacancy {
+  background: rgba(76, 175, 80, 0.2);
+  color: #2e7d32;
+}
+
+.global-search__type-badge--organization {
+  background: rgba(33, 150, 243, 0.2);
+  color: #1565c0;
+}
+
+.global-search__type-badge--laboratory {
+  background: rgba(156, 39, 176, 0.2);
+  color: #7b1fa2;
+}
+
+.global-search__type-badge--query {
+  background: rgba(255, 152, 0, 0.2);
+  color: #e65100;
+}
+
+.global-search__suggestion-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ----- Поиск вакансий (современный UI: иконка, поле, очистка, статус) ----- */
 .vacancy-search {
   flex: 1;
   min-width: 0;
   max-width: 420px;
   margin-left: auto;
+}
+
+.vacancy-search__field,
+.lab-search .vacancy-search__field {
   position: relative;
+  width: 100%;
 }
 
 .vacancy-search__bar {
@@ -7284,8 +7486,18 @@ a.request-card__title:hover {
   padding: 0.25rem 0;
 }
 
-.vacancy-search__suggestions--portal {
+.vacancy-search__suggestions--dropdown,
+.lab-search .vacancy-search__suggestions--dropdown,
+.query-search__suggestions--dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
   z-index: 10000;
+  /* Привязка к строке поиска: всегда вниз, даже на мобильных */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 .vacancy-search__suggestion-item {
@@ -7333,7 +7545,11 @@ a.request-card__title:hover {
   min-width: 0;
   max-width: 420px;
   margin-left: auto;
+}
+
+.query-search__field {
   position: relative;
+  width: 100%;
 }
 
 .query-search__bar {
@@ -7461,7 +7677,12 @@ a.request-card__title:hover {
   padding: 0.25rem 0;
 }
 
-.query-search__suggestions--portal {
+.query-search__suggestions--dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
   z-index: 10000;
 }
 

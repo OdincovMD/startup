@@ -9,7 +9,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
-from app.services.elasticsearch import reindex_laboratories_by_ids
+from app.services.elasticsearch import (
+    reindex_laboratories_by_ids,
+    delete_organization,
+    reindex_organizations_by_ids,
+)
 from app.roles.representative.schemas import (
     OrganizationRead,
     OrganizationUpdate,
@@ -87,6 +91,12 @@ async def upsert_org_profile(
                 logging.getLogger(__name__).warning(
                     "Laboratory reindex failed after org profile update: org_id=%s %s", org.id, e
                 )
+        try:
+            await reindex_organizations_by_ids([org.id])
+        except Exception as e:
+            logging.getLogger(__name__).warning(
+                "Organization reindex failed after profile update: org_id=%s %s", org.id, e
+            )
     return org
 
 
@@ -110,4 +120,13 @@ async def set_org_publish_state(
     updated = await AsyncOrm.set_organization_published(org.id, payload.is_published)
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
+    try:
+        if payload.is_published:
+            await reindex_organizations_by_ids([org.id])
+        else:
+            await delete_organization(org.id)
+    except Exception as e:
+        logging.getLogger(__name__).warning(
+            "Organization index sync failed after publish toggle: org_id=%s %s", org.id, e
+        )
     return updated

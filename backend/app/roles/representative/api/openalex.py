@@ -13,6 +13,7 @@ from app.api.deps import get_current_user
 
 logger = logging.getLogger(__name__)
 from app.queries.async_orm import AsyncOrm
+from app.services.elasticsearch import reindex_organizations_by_ids
 from app.services.openalex import (
     fetch_institution_by_ror,
     map_institution_to_organization,
@@ -77,6 +78,10 @@ async def link_ror(
         website=mapped.get("website"),
     )
     logger.info("ROR linked to organization: org_id=%s ror_id=%s", org.id, ror_id)
+    try:
+        await reindex_organizations_by_ids([updated.id])
+    except Exception as e:
+        logger.warning("Organization reindex failed after ROR link: org_id=%s %s", updated.id, e)
     return {"ror_id": updated.ror_id, "display_name": institution.get("display_name")}
 
 
@@ -93,6 +98,10 @@ async def unlink_ror(current_user=Depends(get_current_user)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
     await AsyncOrm.update_organization_ror(org.id, None)
     logger.info("ROR unlinked from organization: org_id=%s", org.id)
+    try:
+        await reindex_organizations_by_ids([org.id])
+    except Exception as e:
+        logger.warning("Organization reindex failed after ROR unlink: org_id=%s %s", org.id, e)
     return {"ok": True}
 
 
@@ -127,4 +136,8 @@ async def import_org_openalex(current_user=Depends(get_current_user)):
         website=mapped.get("website"),
     )
     logger.info("Organization OpenAlex import completed: org_id=%s ror_id=%s", updated.id, org.ror_id)
+    try:
+        await reindex_organizations_by_ids([updated.id])
+    except Exception as e:
+        logger.warning("Organization reindex failed after OpenAlex import: org_id=%s %s", updated.id, e)
     return {"ok": True, "organization_id": updated.id}

@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -68,7 +67,6 @@ export default function Vacancies() {
   const [suggestionApplied, setSuggestionApplied] = useState(false);
   const searchInputRef = useRef(null);
   const searchWrapRef = useRef(null);
-  const [dropdownPosition, setDropdownPosition] = useState(null);
   const { publicId } = useParams();
   const navigate = useNavigate();
   const selectedId = useMemo(() => (publicId ? String(publicId) : null), [publicId]);
@@ -126,34 +124,6 @@ export default function Vacancies() {
     return () => clearTimeout(t);
   }, [suggestionApplied]);
 
-  const updateDropdownPosition = useCallback(() => {
-    if (searchWrapRef.current) {
-      const rect = searchWrapRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (suggestionsVisible) {
-      updateDropdownPosition();
-      const onScroll = () => {
-        hideSuggestions();
-      };
-      window.addEventListener("scroll", onScroll, true);
-      window.addEventListener("resize", updateDropdownPosition);
-      return () => {
-        window.removeEventListener("scroll", onScroll, true);
-        window.removeEventListener("resize", updateDropdownPosition);
-      };
-    } else {
-      setDropdownPosition(null);
-    }
-  }, [suggestionsVisible, updateDropdownPosition, hideSuggestions]);
-
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -175,7 +145,7 @@ export default function Vacancies() {
           apiRequest("/labs/"),
           apiRequest("/laboratories/"),
         ]);
-        setOrganizations(orgs || []);
+        setOrganizations(orgs?.items ?? (Array.isArray(orgs) ? orgs : []));
         setLaboratories(labs?.items ?? (Array.isArray(labs) ? labs : []));
       } catch {
         // ignore
@@ -320,6 +290,7 @@ export default function Vacancies() {
               <p>Опубликованные вакансии платформы. Откройте карточку, чтобы увидеть описание и контакты.</p>
               <div className="search-toolbar">
                 <div className="vacancy-search" ref={searchWrapRef}>
+                  <div className="vacancy-search__field">
                   <div className={`vacancy-search__bar ${loading ? "vacancy-search__bar--loading" : ""} ${suggestionApplied ? "vacancy-search__bar--applied" : ""}`}>
                     <span className="vacancy-search__icon" aria-hidden="true">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -365,7 +336,7 @@ export default function Vacancies() {
                       aria-label="Поиск по вакансиям"
                       autoComplete="off"
                       aria-autocomplete="list"
-                      aria-expanded={suggestionsVisible && suggestions.length > 0}
+                      aria-expanded={suggestionsVisible}
                       aria-controls="vacancy-suggestions-list"
                       aria-activedescendant={highlightedIndex >= 0 ? `suggestion-${highlightedIndex}` : undefined}
                     />
@@ -379,6 +350,39 @@ export default function Vacancies() {
                         ×
                       </button>
                     )}
+                  </div>
+                  {suggestionsVisible && (
+                    <ul
+                      data-vacancy-suggestions
+                      id="vacancy-suggestions-list"
+                      className="vacancy-search__suggestions vacancy-search__suggestions--dropdown"
+                      role="listbox"
+                    >
+                      {suggestionsLoading ? (
+                        <li className="vacancy-search__suggestion-item vacancy-search__suggestion-item--loading" role="option">
+                          Загрузка…
+                        </li>
+                      ) : suggestions.length === 0 ? (
+                        <li className="vacancy-search__suggestion-item vacancy-search__suggestion-item--loading" role="option">
+                          Нет подсказок
+                        </li>
+                      ) : (
+                        suggestions.map((text, i) => (
+                          <li
+                            key={`${text}-${i}`}
+                            id={`suggestion-${i}`}
+                            role="option"
+                            className={`vacancy-search__suggestion-item ${i === highlightedIndex ? "vacancy-search__suggestion-item--highlighted" : ""}`}
+                            aria-selected={i === highlightedIndex}
+                            onMouseEnter={() => setHighlightedIndex(i)}
+                            onClick={() => applySuggestion(text)}
+                          >
+                            {text}
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
                   </div>
                 </div>
                 <div className="search-toolbar__actions">
@@ -797,46 +801,6 @@ export default function Vacancies() {
         }}
       />
 
-      {typeof document !== "undefined" &&
-        document.body &&
-        suggestionsVisible &&
-        (suggestions.length > 0 || suggestionsLoading) &&
-        dropdownPosition &&
-        createPortal(
-          <ul
-            data-vacancy-suggestions
-            id="vacancy-suggestions-list"
-            className="vacancy-search__suggestions vacancy-search__suggestions--portal"
-            role="listbox"
-            style={{
-              position: "fixed",
-              top: dropdownPosition.top,
-              left: dropdownPosition.left,
-              width: dropdownPosition.width,
-            }}
-          >
-            {suggestionsLoading && suggestions.length === 0 ? (
-              <li className="vacancy-search__suggestion-item vacancy-search__suggestion-item--loading" role="option">
-                Загрузка…
-              </li>
-            ) : (
-              suggestions.map((text, i) => (
-                <li
-                  key={`${text}-${i}`}
-                  id={`suggestion-${i}`}
-                  role="option"
-                  className={`vacancy-search__suggestion-item ${i === highlightedIndex ? "vacancy-search__suggestion-item--highlighted" : ""}`}
-                  aria-selected={i === highlightedIndex}
-                  onMouseEnter={() => setHighlightedIndex(i)}
-                  onClick={() => applySuggestion(text)}
-                >
-                  {text}
-                </li>
-              ))
-            )}
-          </ul>,
-          document.body
-        )}
     </main>
   );
 }

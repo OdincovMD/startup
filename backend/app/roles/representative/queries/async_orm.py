@@ -55,6 +55,10 @@ class AsyncOrm:
         return await asyncio.to_thread(SyncOrm.list_published_organizations)
 
     @staticmethod
+    async def get_organizations_by_ids(org_ids: list) -> list:
+        return await asyncio.to_thread(SyncOrm.get_organizations_by_ids, org_ids)
+
+    @staticmethod
     async def upsert_organization_for_user(
         user_id: int,
         name: Optional[str] = None,

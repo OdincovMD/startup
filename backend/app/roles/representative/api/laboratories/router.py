@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
-from app.services.elasticsearch import index_laboratory, delete_laboratory, reindex_laboratories_by_ids
+from app.services.elasticsearch import (
+    index_laboratory,
+    delete_laboratory,
+    reindex_laboratories_by_ids,
+    reindex_organizations_by_ids,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +56,7 @@ async def create_org_laboratory(
 ):
     org = await AsyncOrm.get_organization_for_user(current_user.id)
     if org:
-        return await AsyncOrm.create_laboratory_for_org(
+        lab = await AsyncOrm.create_laboratory_for_org(
             org.id,
             creator_user_id=current_user.id,
             name=payload.name,
@@ -64,6 +69,10 @@ async def create_org_laboratory(
             task_solution_ids=payload.task_solution_ids,
         )
         logger.info("Laboratory created: id=%s org_id=%s", lab.id, org.id)
+        try:
+            await reindex_organizations_by_ids([org.id])
+        except Exception as e:
+            logger.warning("Organization reindex failed after lab create: org_id=%s %s", org.id, e)
         return lab
     if is_lab_representative(current_user):
         lab = await AsyncOrm.create_laboratory_for_org(
@@ -79,6 +88,11 @@ async def create_org_laboratory(
             task_solution_ids=payload.task_solution_ids,
         )
         logger.info("Laboratory created: id=%s creator_user_id=%s", lab.id, current_user.id)
+        if lab.organization_id:
+            try:
+                await reindex_organizations_by_ids([lab.organization_id])
+            except Exception as e:
+                logger.warning("Organization reindex failed after lab create: org_id=%s %s", lab.organization_id, e)
         return lab
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -126,6 +140,8 @@ async def update_org_laboratory(
     logger.info("Laboratory updated: id=%s", laboratory_id)
     try:
         await index_laboratory(lab)
+        if lab.organization_id:
+            await reindex_organizations_by_ids([lab.organization_id])
     except Exception as e:
         logger.warning("Elasticsearch sync failed for laboratory %s: %s", laboratory_id, e)
     return lab
@@ -140,6 +156,10 @@ async def delete_org_laboratory(laboratory_id: int, current_user=Depends(get_cur
             detail="Снимите с публикации связанные запросы и вакансии, затем удалите лабораторию.",
         )
     org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org_id = org.id if org else None
+    if not org_id and is_lab_representative(current_user):
+        labs_before = await AsyncOrm.get_laboratories_by_ids([laboratory_id])
+        org_id = getattr(labs_before[0], "organization_id", None) if labs_before else None
     if org:
         deleted, lab_rep_user_id, lab_name, fully_deleted = await AsyncOrm.delete_laboratory(
             laboratory_id, org.id
@@ -157,6 +177,8 @@ async def delete_org_laboratory(laboratory_id: int, current_user=Depends(get_cur
             await delete_laboratory(laboratory_id)
         else:
             await reindex_laboratories_by_ids([laboratory_id])
+        if org_id:
+            await reindex_organizations_by_ids([org_id])
     except Exception as e:
         logger.warning("Elasticsearch sync failed for laboratory %s: %s", laboratory_id, e)
     logger.info("Laboratory deleted: id=%s", laboratory_id)
@@ -193,6 +215,8 @@ async def set_lab_publish_state(
             await index_laboratory(lab)
         else:
             await delete_laboratory(laboratory_id)
+        if lab.organization_id:
+            await reindex_organizations_by_ids([lab.organization_id])
     except Exception as e:
         logger.warning("Elasticsearch sync failed for laboratory %s: %s", laboratory_id, e)
     logger.info("Laboratory publish state set: id=%s is_published=%s", laboratory_id, is_published)

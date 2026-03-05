@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import GlobalSearch from "../components/GlobalSearch";
 
 const FALLBACK_DIRECTIONS = [
   "AI", "Biomed", "Physics", "Climate", "Genomics", "Robotics",
@@ -76,7 +77,7 @@ export default function Home() {
           apiRequest("/vacancies/"),
           apiRequest("/stats/").catch(() => null),
         ]);
-        setOrgs(Array.isArray(orgsJson) ? orgsJson : []);
+        setOrgs(orgsJson?.items ?? (Array.isArray(orgsJson) ? orgsJson : []));
         setLaboratories(labsJson?.items ?? (Array.isArray(labsJson) ? labsJson : []));
         setVacancies(Array.isArray(vacanciesJson) ? vacanciesJson : (vacanciesJson?.items ?? []));
         setStats(statsJson);
@@ -117,6 +118,9 @@ export default function Home() {
             Платформа, где лаборатории публикуют исследования и вакансии, а исследователи и
             студенты находят подходящие возможности и ускоряют научные открытия.
           </p>
+          <div className="hero-search-wrap">
+            <GlobalSearch />
+          </div>
           <div className="hero-actions">
             <Link className="primary-btn" to="/laboratories">
               Смотреть лаборатории

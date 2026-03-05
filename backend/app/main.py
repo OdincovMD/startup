@@ -15,7 +15,7 @@ from app.logging_config import setup_logging
 from app.rate_limit import limiter
 from app.bootstrap import create_tables, ensure_storage, seed_roles, ensure_elasticsearch_indexes
 from app.middleware import StorageUrlRewriteMiddleware
-from app.api import profile, storage, analytics
+from app.api import profile, storage, analytics, search
 from app.core.api import auth, users, roles
 from app.jobs.openalex_sync import sync_openalex_data
 from app.roles.representative.api import (
@@ -30,7 +30,7 @@ scheduler = BackgroundScheduler()
 
 app = FastAPI(
     title="Синтезум",
-    version="release/D-01.003.00.0",
+    version="release/D-01.004.00.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None
@@ -66,6 +66,7 @@ def health_check():
 
 
 app.include_router(labs.router, prefix="/api")
+app.include_router(search.router, prefix="/api")
 app.include_router(laboratories_public.router, prefix="/api")
 app.include_router(queries_public.router, prefix="/api")
 app.include_router(vacancies_public.router, prefix="/api")

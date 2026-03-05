@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     VACANCIES_INDEX: str = "vacancies"
     QUERIES_INDEX: str = "queries"
     LABORATORIES_INDEX: str = "laboratories"
+    ORGANIZATIONS_INDEX: str = "organizations"
 
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "plain"  # plain | json

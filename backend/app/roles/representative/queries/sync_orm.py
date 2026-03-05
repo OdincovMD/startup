@@ -199,6 +199,37 @@ class SyncOrm:
             return orgs
 
     @staticmethod
+    def get_organizations_by_ids(org_ids: List[int]) -> List[models.Organization]:
+        """Загрузить организации по id с полными связями (для обогащения результатов ES)."""
+        if not org_ids:
+            return []
+        with session_factory() as session:
+            stmt = (
+                select(models.Organization)
+                .options(
+                    selectinload(models.Organization.laboratories).selectinload(
+                        models.OrganizationLaboratory.employees
+                    ),
+                    selectinload(models.Organization.laboratories).selectinload(
+                        models.OrganizationLaboratory.equipment
+                    ),
+                    selectinload(models.Organization.laboratories).selectinload(
+                        models.OrganizationLaboratory.head_employee
+                    ),
+                    selectinload(models.Organization.employees),
+                    selectinload(models.Organization.equipment),
+                )
+                .where(
+                    models.Organization.id.in_(org_ids),
+                    models.Organization.is_published.is_(True),
+                )
+            )
+            orgs = list(session.scalars(stmt).all())
+            id_order = {oid: i for i, oid in enumerate(org_ids)}
+            orgs.sort(key=lambda o: id_order.get(o.id, 999))
+            return orgs
+
+    @staticmethod
     def upsert_organization_for_user(
         user_id: int,
         name: Optional[str] = None,

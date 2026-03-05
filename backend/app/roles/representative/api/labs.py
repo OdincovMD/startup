@@ -1,17 +1,28 @@
 """
 Роуты FastAPI для работы с организациями (лабораториями).
 POST / — создание организации,
-GET / — список организаций,
+GET / — список организаций (с поиском и фильтрами через ES),
+GET /suggest — подсказки для автодополнения,
 GET /{org_id} — получение организации по ID.
 """
 
 import asyncio
+import logging
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, Query, status, Depends
 
-from app.roles.representative.schemas import OrganizationCreate, OrganizationRead, OrganizationDetails
+from app.roles.representative.schemas import (
+    OrganizationCreate,
+    OrganizationRead,
+    OrganizationDetails,
+    OrganizationListResponse,
+)
 from app.queries.async_orm import AsyncOrm
 from app.api.deps import get_current_user
+from app.services.elasticsearch import search_organizations, suggest_organizations
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/labs", tags=["labs"])
 
@@ -37,16 +48,73 @@ async def create_lab(lab_in: OrganizationCreate, _user=Depends(get_current_user)
         )
 
 
-@router.get("/", response_model=list[OrganizationRead])
-async def list_labs():
-    """Список опубликованных организаций для публичного каталога."""
+@router.get("/", response_model=OrganizationListResponse)
+async def list_labs(
+    q: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    min_laboratories: Optional[int] = Query(None, ge=0),
+    min_employees: Optional[int] = Query(None, ge=0),
+    sort_by: Optional[str] = Query(None),
+):
+    """
+    Список опубликованных организаций для публичного каталога.
+    При q или любом фильтре — поиск через Elasticsearch.
+    Иначе — полный список из БД.
+    """
+    use_search = bool((q or "").strip()) or (
+        min_laboratories is not None and min_laboratories > 0
+    ) or (min_employees is not None and min_employees > 0)
+    if use_search:
+        try:
+            result = await search_organizations(
+                q=(q or "").strip(),
+                page=page,
+                size=size,
+                min_laboratories=min_laboratories,
+                min_employees=min_employees,
+                sort_by=sort_by,
+            )
+            items = result.get("items", [])
+            org_ids = [it["id"] for it in items if it.get("id") is not None]
+            if org_ids:
+                orgs = await AsyncOrm.get_organizations_by_ids(org_ids)
+                return OrganizationListResponse(
+                    items=orgs,
+                    total=result.get("total", 0),
+                    page=result.get("page", page),
+                    size=result.get("size", size),
+                )
+            return OrganizationListResponse(
+                items=[],
+                total=result.get("total", 0),
+                page=result.get("page", page),
+                size=result.get("size", size),
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "ORGANIZATION_SEARCH_FAILURE", "message": str(e)},
+            )
     try:
-        return await AsyncOrm.list_published_organizations()
+        orgs = await AsyncOrm.list_published_organizations()
+        total = len(orgs)
+        return OrganizationListResponse(items=orgs, total=total, page=1, size=total)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": "LAB_LIST_FAILURE", "message": str(e)},
         )
+
+
+@router.get("/suggest")
+async def suggest_labs(
+    q: str = Query(""),
+    limit: int = Query(10, ge=1, le=20),
+):
+    """Подсказки для автодополнения поиска организаций."""
+    suggestions = await suggest_organizations(q=q, limit=limit)
+    return {"suggestions": suggestions}
 
 
 @router.get("/{org_id}", response_model=OrganizationRead)
