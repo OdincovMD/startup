@@ -47,6 +47,23 @@ class AsyncOrm:
         return await asyncio.to_thread(SyncOrm.get_organizations_with_ror)
 
     @staticmethod
+    async def update_organization_fields(
+        organization_id: int,
+        name: Optional[str] = None,
+        avatar_url: Optional[str] = None,
+        address: Optional[str] = None,
+        website: Optional[str] = None,
+    ) -> Optional[models.Organization]:
+        return await asyncio.to_thread(
+            SyncOrm.update_organization_fields,
+            organization_id,
+            name=name,
+            avatar_url=avatar_url,
+            address=address,
+            website=website,
+        )
+
+    @staticmethod
     async def list_organizations() -> List[models.Organization]:
         return await asyncio.to_thread(SyncOrm.list_organizations)
 

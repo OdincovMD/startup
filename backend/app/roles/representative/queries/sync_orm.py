@@ -16,8 +16,6 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import session_factory
 from app import models
-from app.roles.researcher.queries.sync_orm import SyncOrm as ResearcherSyncOrm
-from app.roles.student.queries.sync_orm import SyncOrm as StudentSyncOrm
 
 
 class SyncOrm:
@@ -3472,7 +3470,9 @@ class SyncOrm:
             for r in rows:
                 applicant_name = getattr(r.user, "full_name", None) or getattr(r.user, "mail", "") or "?"
                 preview_parts = []
-                researcher = ResearcherSyncOrm.get_researcher_by_user(r.user_id)
+                researcher = session.scalars(
+                    select(models.Researcher).where(models.Researcher.user_id == r.user_id)
+                ).first()
                 if researcher:
                     if getattr(researcher, "research_interests", None):
                         preview_parts.append("Направления: " + ", ".join((researcher.research_interests or [])[:3]))
@@ -3481,7 +3481,9 @@ class SyncOrm:
                         edu_str = first_edu.get("institution", "") if isinstance(first_edu, dict) else str(first_edu)
                         preview_parts.append("Образование: " + (edu_str or ""))
                 else:
-                    student = StudentSyncOrm.get_student_by_user(r.user_id)
+                    student = session.scalars(
+                        select(models.Student).where(models.Student.user_id == r.user_id)
+                    ).first()
                     if student:
                         preview_parts.append("Студент")
                         if getattr(student, "direction", None):

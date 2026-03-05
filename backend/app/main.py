@@ -13,7 +13,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.logging_config import setup_logging
 from app.rate_limit import limiter
-from app.bootstrap import create_tables, ensure_storage, seed_roles, ensure_elasticsearch_indexes
+from app.bootstrap import (
+    create_tables,
+    ensure_storage,
+    seed_roles,
+    ensure_elasticsearch_indexes,
+)
 from app.middleware import StorageUrlRewriteMiddleware
 from app.api import profile, storage, analytics, search
 from app.core.api import auth, users, roles
@@ -52,8 +57,8 @@ app.add_middleware(
 @app.on_event("startup")
 async def on_startup():
     setup_logging()
-    create_tables()
-    seed_roles()
+    await create_tables()
+    await seed_roles()
     ensure_storage()
     await ensure_elasticsearch_indexes()
     scheduler.add_job(sync_openalex_data, "cron", hour=3, minute=0)

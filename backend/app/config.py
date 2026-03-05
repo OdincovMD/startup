@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "https://pi-hardbox.ru"
     CORS_ORIGINS: str = ""  # Comma-separated origins. Empty = FRONTEND_URL + localhost for dev.
 
+    # Токены верификации и сброса пароля (срок действия в часах).
+    VERIFICATION_TOKEN_TTL_HOURS: int = 24
+    PASSWORD_RESET_TTL_HOURS: int = 1
+
     # Почта (верификация email, сброс пароля). Задаются через .env.
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
@@ -85,12 +89,27 @@ class Settings(BaseSettings):
     @property
     def DATABASE_URL_pg(self) -> str:
         """
-        Формирует строку подключения к PostgreSQL для SQLAlchemy.
+        Формирует строку подключения к PostgreSQL для SQLAlchemy (sync, psycopg2).
         Если задан DATABASE_URL — используется он, иначе собирается из DB_*.
         """
         if self.DATABASE_URL:
             return self.DATABASE_URL
         return f"postgresql+psycopg2://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+
+    @property
+    def DATABASE_URL_async(self) -> str:
+        """
+        Строка подключения для asyncpg (SQLAlchemy async).
+        DATABASE_URL с postgresql:// или postgresql+psycopg2:// преобразуется в postgresql+asyncpg://.
+        """
+        if self.DATABASE_URL:
+            url = self.DATABASE_URL
+            if url.startswith("postgresql+psycopg2://"):
+                return url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
+            if url.startswith("postgresql://"):
+                return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            return url
+        return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -3,11 +3,9 @@
 Создание таблиц, начальные данные, подготовка хранилища.
 """
 
-import asyncio
-
 import app.models  # noqa: F401 — регистрация моделей в metadata
-from app.database import Base, sync_engine
-from app.core.queries.sync_orm import SyncOrm as UserSyncOrm
+from app.database import Base, async_engine
+from app.core.queries.async_orm import AsyncOrm
 from app.storage.s3 import ensure_bucket_ready
 from app.services.elasticsearch import (
     reindex_laboratories_if_empty,
@@ -21,16 +19,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def create_tables() -> None:
+async def create_tables() -> None:
     """Создание всех таблиц в БД."""
-    Base.metadata.create_all(sync_engine)
+    async with async_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created")
 
 
-def seed_roles() -> None:
+async def seed_roles() -> None:
     """Создание базовых ролей, если их нет."""
     for name in ("student", "researcher", "lab_admin", "lab_representative"):
-        UserSyncOrm.get_or_create_role(name)
+        await AsyncOrm.get_or_create_role(name)
     logger.info("Roles seeded")
 
 

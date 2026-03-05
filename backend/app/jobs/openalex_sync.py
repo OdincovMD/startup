@@ -3,10 +3,10 @@
 Вызывается APScheduler раз в день (03:00).
 """
 
+import asyncio
 import logging
 
-from app.core.queries.sync_orm import SyncOrm
-from app.roles.representative.queries.sync_orm import SyncOrm as RepSyncOrm
+from app.queries.async_orm import AsyncOrm
 from app.services.openalex import (
     fetch_author_by_orcid,
     fetch_author_by_id,
@@ -25,10 +25,10 @@ def _extract_openalex_id(val: str) -> str:
     return val.split("/")[-1] if "/" in val else val
 
 
-def sync_openalex_data():
-    """Синхронизация исследователей и организаций из OpenAlex."""
+async def _sync_openalex_data_async() -> None:
+    """Синхронизация исследователей и организаций из OpenAlex (async)."""
     logger.info("OpenAlex sync started")
-    users = SyncOrm.get_users_with_openalex_or_orcid()
+    users = await AsyncOrm.get_users_with_openalex_or_orcid()
     for user in users:
         try:
             author = None
@@ -40,7 +40,7 @@ def sync_openalex_data():
                 if author:
                     oa_id = _extract_openalex_id(author.get("id", ""))
                     if oa_id:
-                        SyncOrm.update_user_openalex(user.id, oa_id)
+                        await AsyncOrm.update_user_openalex(user.id, oa_id)
                         openalex_id = oa_id
             if not author:
                 continue
@@ -49,8 +49,7 @@ def sync_openalex_data():
             if user.role and user.role.name == "researcher":
                 works = fetch_author_works(openalex_id, per_page=25)
                 mapped = map_author_to_researcher(author, works)
-                from app.roles.researcher.queries.sync_orm import SyncOrm as ResSyncOrm
-                ResSyncOrm.upsert_researcher_profile(
+                await AsyncOrm.upsert_researcher_profile(
                     user.id,
                     full_name=mapped.get("full_name"),
                     research_interests=mapped.get("research_interests"),
@@ -61,14 +60,14 @@ def sync_openalex_data():
         except Exception as e:
             logger.warning("OpenAlex sync user %s: %s", user.id, e)
 
-    orgs = RepSyncOrm.get_organizations_with_ror()
+    orgs = await AsyncOrm.get_organizations_with_ror()
     for org in orgs:
         try:
             institution = fetch_institution_by_ror(org.ror_id)
             if not institution:
                 continue
             mapped = map_institution_to_organization(institution)
-            RepSyncOrm.update_organization_fields(
+            await AsyncOrm.update_organization_fields(
                 org.id,
                 name=mapped.get("name"),
                 avatar_url=mapped.get("avatar_url"),
@@ -79,3 +78,8 @@ def sync_openalex_data():
             logger.warning("OpenAlex sync org %s: %s", org.id, e)
 
     logger.info("OpenAlex sync completed")
+
+
+def sync_openalex_data() -> None:
+    """Синхронная обёртка для APScheduler."""
+    asyncio.run(_sync_openalex_data_async())
