@@ -112,7 +112,7 @@ svg {
 .header {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 500;
   flex-shrink: 0;
   width: 100%;
   background: var(--card-bg-glass);
@@ -291,7 +291,7 @@ svg {
 .nav-drawer {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 1000;
   pointer-events: none;
   visibility: hidden;
 }
