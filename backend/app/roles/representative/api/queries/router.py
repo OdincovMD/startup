@@ -10,7 +10,7 @@ from app.roles.representative.schemas import (
     OrganizationQueryUpdate,
 )
 from app.roles.representative.api._helpers import is_lab_representative, require_lab_link_for_lab_rep
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 from app.services.elasticsearch import index_query, delete_query
 
 router = APIRouter()

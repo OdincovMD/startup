@@ -13,7 +13,7 @@ from app.roles.representative.schemas import (
     OrganizationTaskSolutionUpdate,
 )
 from app.roles.representative.api._helpers import is_lab_representative, require_lab_link_for_lab_rep
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 
 router = APIRouter()
 

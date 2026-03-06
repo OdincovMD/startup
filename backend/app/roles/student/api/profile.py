@@ -10,7 +10,7 @@ from app.api.deps import get_current_user
 
 logger = logging.getLogger(__name__)
 from app.roles.student.schemas import StudentRead, StudentUpdate
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 
 router = APIRouter()
 

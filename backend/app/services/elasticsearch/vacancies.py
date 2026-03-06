@@ -412,7 +412,7 @@ async def reindex_vacancies(force: bool = False) -> int:
     if not force and count > 0:
         logger.debug("Vacancies index already has %d documents, skipping reindex", count)
         return count
-    from app.queries.async_orm import AsyncOrm
+    from app.queries.orm import AsyncOrm
     vacancies = await AsyncOrm.list_published_vacancies()
     logger.info("Vacancies reindex: %d published vacancies", len(vacancies))
     indexed = 0

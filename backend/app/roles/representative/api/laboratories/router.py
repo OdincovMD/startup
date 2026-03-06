@@ -24,7 +24,7 @@ from app.roles.representative.schemas import (
     OrganizationLaboratoryUpdate,
 )
 from app.roles.representative.api._helpers import is_lab_representative
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 
 router = APIRouter()
 

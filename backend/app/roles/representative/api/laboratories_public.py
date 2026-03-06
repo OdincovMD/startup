@@ -14,7 +14,7 @@ from app.roles.representative.schemas import (
     LaboratoryListResponse,
     LaboratoryDetails,
 )
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 from app.services.elasticsearch import search_laboratories, suggest_laboratories
 
 router = APIRouter(prefix="/laboratories", tags=["laboratories"])

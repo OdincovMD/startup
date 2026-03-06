@@ -11,7 +11,7 @@ from app.api.deps import get_current_user
 from app.services.elasticsearch import reindex_laboratories_by_ids
 
 logger = logging.getLogger(__name__)
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 from app.roles.representative.api._helpers import is_lab_representative
 
 router = APIRouter(prefix="/join-requests", tags=["profile-join-requests"])

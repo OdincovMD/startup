@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.api.deps import get_current_user, get_current_user_optional
 from app.config import settings
 from app.roles.representative.schemas import VacancyOrganizationRead, VacancyResponseRead, VacancyListResponse
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 from app.services.email import render_vacancy_response, send_vacancy_response_email
 from app.services.elasticsearch import search_vacancies, suggest_vacancies
 

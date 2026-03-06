@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from app.api.deps import get_current_user
 
 logger = logging.getLogger(__name__)
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 from app.services.openalex import (
     fetch_author_by_id,
     fetch_author_by_orcid,

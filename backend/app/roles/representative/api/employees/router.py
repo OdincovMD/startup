@@ -11,7 +11,7 @@ from app.services.elasticsearch import reindex_laboratories_by_ids, reindex_orga
 logger = logging.getLogger(__name__)
 from app.roles.representative.schemas import EmployeeCreate, EmployeeRead, EmployeeUpdate
 from app.roles.representative.api._helpers import is_lab_representative, require_lab_link_for_lab_rep
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 from app.services.openalex import (
     fetch_author_by_id,
     fetch_author_by_orcid,

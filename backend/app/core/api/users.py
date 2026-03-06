@@ -10,7 +10,7 @@ from app.api.deps import get_current_user
 
 logger = logging.getLogger(__name__)
 from app.core.schemas import UserRead, UserRoleUpdate, UserProfileUpdate, UserAvatarUpdate, user_to_read
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 
 router = APIRouter(prefix="/users", tags=["users"])
 

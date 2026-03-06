@@ -10,7 +10,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 from app.roles.representative.schemas import (
     OrganizationQueryBase,
     OrganizationLaboratoryShort,

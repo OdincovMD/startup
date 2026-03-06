@@ -6,7 +6,7 @@
 import asyncio
 import logging
 
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 from app.services.openalex import (
     fetch_author_by_orcid,
     fetch_author_by_id,

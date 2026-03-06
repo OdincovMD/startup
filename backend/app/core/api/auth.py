@@ -35,7 +35,7 @@ from app.core.schemas import (
     OrcidCompleteRequest,
     SetPasswordRequest,
 )
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 from app.api.deps import get_current_user
 from app.services.email import send_verification_email, send_password_reset_email
 

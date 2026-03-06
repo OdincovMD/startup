@@ -36,7 +36,7 @@ from app.roles.representative.schemas import (
     EmployeeRead,
     EmployeeUpdate,
 )
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 
 from .equipment import router as equipment_router
 from .laboratories import router as laboratories_router

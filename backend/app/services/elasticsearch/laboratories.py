@@ -399,7 +399,7 @@ async def reindex_laboratories_by_ids(lab_ids: List[int]) -> None:
     """
     if not lab_ids:
         return
-    from app.roles.representative.queries.async_orm import AsyncOrm
+    from app.roles.representative.queries.orm import AsyncOrm
 
     labs = await AsyncOrm.get_laboratories_by_ids(lab_ids)
     for lab in labs:
@@ -423,7 +423,7 @@ async def reindex_laboratories(force: bool = False) -> int:
     force=True — всегда переиндексировать; force=False — только если индекс пуст.
     """
     await ensure_laboratories_index()
-    from app.roles.representative.queries.async_orm import AsyncOrm
+    from app.roles.representative.queries.orm import AsyncOrm
 
     labs = await AsyncOrm.list_published_laboratories()
     if not force and labs:

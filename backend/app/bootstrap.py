@@ -5,7 +5,7 @@
 
 import app.models  # noqa: F401 — регистрация моделей в metadata
 from app.database import Base, async_engine
-from app.core.queries.async_orm import AsyncOrm
+from app.core.queries.orm import AsyncOrm
 from app.storage.s3 import ensure_bucket_ready
 from app.services.elasticsearch import (
     reindex_laboratories_if_empty,

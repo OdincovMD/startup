@@ -5,7 +5,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.deps import get_current_user
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 
 router = APIRouter(prefix="/analytics", tags=["profile-analytics"])
 

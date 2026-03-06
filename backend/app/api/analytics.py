@@ -8,7 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Request
 
 from app.api.deps import get_current_user_optional
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 from app.rate_limit import limiter
 from app.core.models import User
 

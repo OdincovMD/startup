@@ -389,7 +389,7 @@ async def reindex_queries(force: bool = False) -> int:
     if not force and count > 0:
         logger.debug("Queries index already has %d documents, skipping reindex", count)
         return count
-    from app.queries.async_orm import AsyncOrm
+    from app.queries.orm import AsyncOrm
     queries = await AsyncOrm.list_published_queries()
     logger.info("Queries reindex: %d published queries", len(queries))
     indexed = 0

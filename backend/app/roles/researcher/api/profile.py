@@ -10,7 +10,7 @@ from app.api.deps import get_current_user
 
 logger = logging.getLogger(__name__)
 from app.roles.researcher.schemas import ResearcherRead, ResearcherUpdate
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 
 router = APIRouter()
 

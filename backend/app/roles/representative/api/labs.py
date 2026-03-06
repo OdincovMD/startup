@@ -18,7 +18,7 @@ from app.roles.representative.schemas import (
     OrganizationDetails,
     OrganizationListResponse,
 )
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import AsyncOrm
 from app.api.deps import get_current_user
 from app.services.elasticsearch import search_organizations, suggest_organizations
 

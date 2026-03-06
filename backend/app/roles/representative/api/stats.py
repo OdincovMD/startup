@@ -4,7 +4,7 @@
 
 from fastapi import APIRouter
 
-from app.roles.representative.queries.async_orm import AsyncOrm
+from app.roles.representative.queries.orm import AsyncOrm
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
