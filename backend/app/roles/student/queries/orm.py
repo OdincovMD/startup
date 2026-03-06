@@ -1,5 +1,5 @@
 """
-Синхронный слой работы с БД для роли студента.
+AsyncOrm — нативный асинхронный слой для роли студента.
 """
 
 from typing import Optional, List
@@ -7,19 +7,20 @@ from typing import Optional, List
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.database import session_factory
 from app import models
+from app.database import async_session_factory
 
 
-class SyncOrm:
+class AsyncOrm:
     @staticmethod
-    def get_student_by_user(user_id: int) -> Optional[models.Student]:
-        with session_factory() as session:
+    async def get_student_by_user(user_id: int) -> Optional[models.Student]:
+        async with async_session_factory() as session:
             stmt = select(models.Student).where(models.Student.user_id == user_id)
-            return session.scalars(stmt).first()
+            result = await session.execute(stmt)
+            return result.scalars().first()
 
     @staticmethod
-    def upsert_student_profile(
+    async def upsert_student_profile(
         user_id: int,
         full_name: Optional[str] = None,
         status: Optional[str] = None,
@@ -30,10 +31,10 @@ class SyncOrm:
         education: Optional[List[str]] = None,
         research_interests: Optional[List[str]] = None,
     ) -> models.Student:
-        with session_factory() as session:
-            student = session.scalars(
-                select(models.Student).where(models.Student.user_id == user_id)
-            ).first()
+        async with async_session_factory() as session:
+            stmt = select(models.Student).where(models.Student.user_id == user_id)
+            result = await session.execute(stmt)
+            student = result.scalars().first()
             if not student:
                 student = models.Student(
                     user_id=user_id,
@@ -65,9 +66,9 @@ class SyncOrm:
                 if research_interests is not None:
                     student.research_interests = research_interests
             try:
-                session.commit()
+                await session.commit()
             except SQLAlchemyError:
-                session.rollback()
+                await session.rollback()
                 raise
-            session.refresh(student)
+            await session.refresh(student)
             return student

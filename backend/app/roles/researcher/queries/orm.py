@@ -1,5 +1,5 @@
 """
-Синхронный слой работы с БД для роли исследователя.
+AsyncOrm — нативный асинхронный слой для роли исследователя.
 """
 
 from typing import Optional, List
@@ -8,33 +8,24 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.database import session_factory
 from app import models
+from app.database import async_session_factory
 
 
-class SyncOrm:
+class AsyncOrm:
     @staticmethod
-    def _get_labs_by_ids(session, laboratory_ids: Optional[List[int]]):
-        """Получить лаборатории по списку id (для привязки к исследователю)."""
-        if not laboratory_ids:
-            return []
-        stmt = select(models.OrganizationLaboratory).where(
-            models.OrganizationLaboratory.id.in_(laboratory_ids),
-        )
-        return list(session.scalars(stmt).all())
-
-    @staticmethod
-    def get_researcher_by_user(user_id: int) -> Optional[models.Researcher]:
-        with session_factory() as session:
+    async def get_researcher_by_user(user_id: int) -> Optional[models.Researcher]:
+        async with async_session_factory() as session:
             stmt = (
                 select(models.Researcher)
                 .options(selectinload(models.Researcher.laboratories))
                 .where(models.Researcher.user_id == user_id)
             )
-            return session.scalars(stmt).first()
+            result = await session.execute(stmt)
+            return result.scalars().first()
 
     @staticmethod
-    def upsert_researcher_profile(
+    async def upsert_researcher_profile(
         user_id: int,
         full_name: Optional[str] = None,
         position: Optional[str] = None,
@@ -56,10 +47,10 @@ class SyncOrm:
         resume_url: Optional[str] = None,
         document_urls: Optional[List[str]] = None,
     ) -> models.Researcher:
-        with session_factory() as session:
-            researcher = session.scalars(
-                select(models.Researcher).where(models.Researcher.user_id == user_id)
-            ).first()
+        async with async_session_factory() as session:
+            stmt = select(models.Researcher).where(models.Researcher.user_id == user_id)
+            result = await session.execute(stmt)
+            researcher = result.scalars().first()
             if not researcher:
                 researcher = models.Researcher(
                     user_id=user_id,
@@ -84,7 +75,7 @@ class SyncOrm:
                     document_urls=document_urls or [],
                 )
                 session.add(researcher)
-                session.flush()
+                await session.flush()
             else:
                 if full_name is not None:
                     researcher.full_name = full_name
@@ -125,14 +116,15 @@ class SyncOrm:
                 if document_urls is not None:
                     researcher.document_urls = document_urls
             try:
-                session.commit()
+                await session.commit()
             except SQLAlchemyError:
-                session.rollback()
+                await session.rollback()
                 raise
-            session.refresh(researcher)
+            await session.refresh(researcher)
             stmt = (
                 select(models.Researcher)
                 .options(selectinload(models.Researcher.laboratories))
                 .where(models.Researcher.id == researcher.id)
             )
-            return session.scalars(stmt).first()
+            result = await session.execute(stmt)
+            return result.scalars().first()

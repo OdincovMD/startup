@@ -3,38 +3,20 @@
 Авторизация опциональна: при наличии JWT подставляется user_id.
 """
 
-import asyncio
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 
 from app.api.deps import get_current_user_optional
+from app.queries.async_orm import AsyncOrm
 from app.rate_limit import limiter
-from app.core.models import User, AnalyticsEvent
-from app.database import session_factory
+from app.core.models import User
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 ALLOWED_EVENT_TYPES = {"page_view", "page_leave", "button_click"}
 ALLOWED_ENTITY_TYPES = {"vacancy", "organization", "laboratory", "query", "profile", "home", "list"}
 MAX_EVENTS_PER_REQUEST = 50
-
-
-def _insert_events(events: list[dict]) -> int:
-    """Синхронная вставка событий в БД."""
-    with session_factory() as session:
-        for ev in events:
-            row = AnalyticsEvent(
-                event_type=ev["event_type"],
-                user_id=ev.get("user_id"),
-                session_id=ev.get("session_id"),
-                entity_type=ev.get("entity_type"),
-                entity_id=ev.get("entity_id"),
-                payload=ev.get("payload"),
-            )
-            session.add(row)
-        session.commit()
-        return len(events)
 
 
 @router.post("/events")
@@ -85,5 +67,5 @@ async def post_events(
     if not events:
         return {"accepted": 0}
 
-    accepted = await asyncio.to_thread(_insert_events, events)
+    accepted = await AsyncOrm.insert_analytics_events(events)
     return {"accepted": accepted}
