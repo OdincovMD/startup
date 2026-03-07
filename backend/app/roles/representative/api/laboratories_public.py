@@ -14,7 +14,7 @@ from app.roles.representative.schemas import (
     LaboratoryListResponse,
     LaboratoryDetails,
 )
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import Orm
 from app.services.elasticsearch import search_laboratories, suggest_laboratories
 
 router = APIRouter(prefix="/laboratories", tags=["laboratories"])
@@ -66,7 +66,7 @@ async def list_laboratories(
             items = result.get("items", [])
             lab_ids = [it["id"] for it in items if it.get("id") is not None]
             if lab_ids:
-                labs = await AsyncOrm.get_laboratories_by_ids(lab_ids)
+                labs = await Orm.get_laboratories_by_ids(lab_ids)
                 labs = _prepare_labs_for_response(labs)
                 return LaboratoryListResponse(
                     items=labs,
@@ -86,7 +86,7 @@ async def list_laboratories(
                 detail={"error": "LABORATORY_SEARCH_FAILURE", "message": str(e)},
             )
     try:
-        labs = await AsyncOrm.list_published_laboratories()
+        labs = await Orm.list_published_laboratories()
         labs = _prepare_labs_for_response(labs)
         total = len(labs)
         # Без фильтров возвращаем все лаборатории (пагинация не применяется)
@@ -116,7 +116,7 @@ async def suggest_laboratories_endpoint(
 @router.get("/public/{public_id}/details", response_model=LaboratoryDetails)
 async def get_laboratory_details(public_id: str):
     """Получение детальной информации о лаборатории по public_id."""
-    lab = await AsyncOrm.get_laboratory_by_public_id(public_id)
+    lab = await Orm.get_laboratory_by_public_id(public_id)
     if not lab:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -131,13 +131,13 @@ async def get_laboratory_details(public_id: str):
     # Загружаем связанные запросы (queries) и вакансии для этой лаборатории
     org_queries = []
     if lab.organization_id:
-        all_queries = await AsyncOrm.list_published_queries_for_org(lab.organization_id)
+        all_queries = await Orm.list_published_queries_for_org(lab.organization_id)
         org_queries = [q for q in all_queries if any(l.id == lab.id for l in (q.laboratories or []))]
     else:
         # Лаборатория без организации (lab representative): запросы по creator / query_laboratories
-        all_queries = await AsyncOrm.list_published_queries()
+        all_queries = await Orm.list_published_queries()
         org_queries = [q for q in all_queries if any(l.id == lab.id for l in (q.laboratories or []))]
-    vacancies = await AsyncOrm.list_published_vacancies_for_laboratory(lab.id)
+    vacancies = await Orm.list_published_vacancies_for_laboratory(lab.id)
 
     # Формируем объект организации для ответа (только если она опубликована)
     org_short = None

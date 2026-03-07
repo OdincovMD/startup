@@ -24,7 +24,7 @@ from app.roles.representative.schemas import (
     OrganizationLaboratoryUpdate,
 )
 from app.roles.representative.api._helpers import is_lab_representative
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import Orm
 
 router = APIRouter()
 
@@ -39,14 +39,15 @@ def _filter_duplicate_researchers(labs):
 
 @router.get("/organization/laboratories", response_model=list[OrganizationLaboratoryRead])
 async def list_org_laboratories(current_user=Depends(get_current_user)):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        labs = await AsyncOrm.list_laboratories_for_org(org.id)
+        labs = await Orm.list_laboratories_for_org(org.id)
     elif is_lab_representative(current_user):
-        labs = await AsyncOrm.list_laboratories_for_creator(current_user.id)
+        labs = await Orm.list_laboratories_for_creator(current_user.id)
     else:
         return []
-    return _filter_duplicate_researchers(labs)
+    labs = _filter_duplicate_researchers(labs)
+    return [OrganizationLaboratoryRead.model_validate(lab) for lab in labs]
 
 
 @router.post("/organization/laboratories", response_model=OrganizationLaboratoryRead)
@@ -54,9 +55,9 @@ async def create_org_laboratory(
     payload: OrganizationLaboratoryCreate,
     current_user=Depends(get_current_user),
 ):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        lab = await AsyncOrm.create_laboratory_for_org(
+        lab = await Orm.create_laboratory_for_org(
             org.id,
             creator_user_id=current_user.id,
             name=payload.name,
@@ -73,9 +74,9 @@ async def create_org_laboratory(
             await reindex_organizations_by_ids([org.id])
         except Exception as e:
             logger.warning("Organization reindex failed after lab create: org_id=%s %s", org.id, e)
-        return lab
+        return OrganizationLaboratoryRead.model_validate(lab)
     if is_lab_representative(current_user):
-        lab = await AsyncOrm.create_laboratory_for_org(
+        lab = await Orm.create_laboratory_for_org(
             None,
             creator_user_id=current_user.id,
             name=payload.name,
@@ -93,7 +94,7 @@ async def create_org_laboratory(
                 await reindex_organizations_by_ids([lab.organization_id])
             except Exception as e:
                 logger.warning("Organization reindex failed after lab create: org_id=%s %s", lab.organization_id, e)
-        return lab
+        return OrganizationLaboratoryRead.model_validate(lab)
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Organization profile not found. Сначала заполните и сохраните профиль организации.",
@@ -106,9 +107,9 @@ async def update_org_laboratory(
     payload: OrganizationLaboratoryUpdate,
     current_user=Depends(get_current_user),
 ):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        lab = await AsyncOrm.update_laboratory(
+        lab = await Orm.update_laboratory(
             laboratory_id,
             org.id,
             name=payload.name,
@@ -121,7 +122,7 @@ async def update_org_laboratory(
             task_solution_ids=payload.task_solution_ids,
         )
     elif is_lab_representative(current_user):
-        lab = await AsyncOrm.update_laboratory_for_creator(
+        lab = await Orm.update_laboratory_for_creator(
             laboratory_id,
             current_user.id,
             name=payload.name,
@@ -144,28 +145,29 @@ async def update_org_laboratory(
             await reindex_organizations_by_ids([lab.organization_id])
     except Exception as e:
         logger.warning("Elasticsearch sync failed for laboratory %s: %s", laboratory_id, e)
-    return lab
+    # Сериализуем в Pydantic до возврата, чтобы не обращаться к ORM после закрытия сессии (MissingGreenlet).
+    return OrganizationLaboratoryRead.model_validate(lab)
 
 
 @router.delete("/organization/laboratories/{laboratory_id}")
 async def delete_org_laboratory(laboratory_id: int, current_user=Depends(get_current_user)):
-    has_published = await AsyncOrm.has_published_vacancies_or_queries_for_lab(laboratory_id)
+    has_published = await Orm.has_published_vacancies_or_queries_for_lab(laboratory_id)
     if has_published:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Снимите с публикации связанные запросы и вакансии, затем удалите лабораторию.",
         )
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     org_id = org.id if org else None
     if not org_id and is_lab_representative(current_user):
-        labs_before = await AsyncOrm.get_laboratories_by_ids([laboratory_id])
+        labs_before = await Orm.get_laboratories_by_ids([laboratory_id])
         org_id = getattr(labs_before[0], "organization_id", None) if labs_before else None
     if org:
-        deleted, lab_rep_user_id, lab_name, fully_deleted = await AsyncOrm.delete_laboratory(
+        deleted, lab_rep_user_id, lab_name, fully_deleted = await Orm.delete_laboratory(
             laboratory_id, org.id
         )
     elif is_lab_representative(current_user):
-        deleted, lab_rep_user_id, lab_name, fully_deleted = await AsyncOrm.delete_laboratory_for_creator(
+        deleted, lab_rep_user_id, lab_name, fully_deleted = await Orm.delete_laboratory_for_creator(
             laboratory_id, current_user.id
         )
     else:
@@ -184,7 +186,7 @@ async def delete_org_laboratory(laboratory_id: int, current_user=Depends(get_cur
     logger.info("Laboratory deleted: id=%s", laboratory_id)
     # Уведомление представителю лаборатории о том, что лаборатория удалена/отвязана
     if lab_rep_user_id and lab_name:
-        await AsyncOrm.create_notification(
+        await Orm.create_notification(
             lab_rep_user_id,
             "lab_deleted",
             {"lab_name": lab_name},
@@ -199,11 +201,11 @@ async def set_lab_publish_state(
     current_user=Depends(get_current_user),
 ):
     is_published = payload.is_published
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        lab = await AsyncOrm.set_laboratory_published(laboratory_id, org.id, is_published)
+        lab = await Orm.set_laboratory_published(laboratory_id, org.id, is_published)
     elif is_lab_representative(current_user):
-        lab = await AsyncOrm.set_laboratory_published_for_creator(
+        lab = await Orm.set_laboratory_published_for_creator(
             laboratory_id, current_user.id, is_published
         )
     else:

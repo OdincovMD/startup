@@ -415,9 +415,9 @@ async def reindex_organizations_by_ids(org_ids: List[int]) -> None:
     """
     if not org_ids:
         return
-    from app.roles.representative.queries.async_orm import AsyncOrm
+    from app.roles.representative.queries.orm import Orm
 
-    orgs = await AsyncOrm.get_organizations_by_ids(org_ids)
+    orgs = await Orm.get_organizations_by_ids(org_ids)
     for org in orgs:
         try:
             await index_organization(org)
@@ -439,9 +439,9 @@ async def reindex_organizations(force: bool = False) -> int:
     force=True — всегда переиндексировать; force=False — только если индекс пуст.
     """
     await ensure_organizations_index()
-    from app.roles.representative.queries.async_orm import AsyncOrm
+    from app.roles.representative.queries.orm import Orm
 
-    orgs = await AsyncOrm.list_published_organizations()
+    orgs = await Orm.list_published_organizations()
     if not force and orgs:
         client = get_es_client()
         try:
@@ -459,7 +459,7 @@ async def reindex_organizations(force: bool = False) -> int:
     indexed = 0
     for org in orgs:
         try:
-            org_with_relations = await AsyncOrm.get_organizations_by_ids([org.id])
+            org_with_relations = await Orm.get_organizations_by_ids([org.id])
             if org_with_relations:
                 await index_organization(org_with_relations[0])
                 indexed += 1

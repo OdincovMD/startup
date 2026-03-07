@@ -11,7 +11,7 @@ from app.roles.representative.schemas import (
     VacancyOrganizationUpdate,
 )
 from app.roles.representative.api._helpers import is_lab_representative, require_lab_link_for_lab_rep
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import Orm
 from app.services.elasticsearch import index_vacancy, delete_vacancy
 
 logger = logging.getLogger(__name__)
@@ -25,11 +25,11 @@ class PublishToggle(BaseModel):
 
 @router.get("/organization/vacancies", response_model=list[VacancyOrganizationRead])
 async def list_org_vacancies(current_user=Depends(get_current_user)):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        return await AsyncOrm.list_vacancies_for_org(org.id)
+        return await Orm.list_vacancies_for_org(org.id)
     if is_lab_representative(current_user):
-        return await AsyncOrm.list_vacancies_for_creator(current_user.id)
+        return await Orm.list_vacancies_for_creator(current_user.id)
     return []
 
 
@@ -38,9 +38,9 @@ async def create_org_vacancy(
     payload: VacancyOrganizationCreate,
     current_user=Depends(get_current_user),
 ):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        return await AsyncOrm.create_vacancy(
+        return await Orm.create_vacancy(
             org.id,
             creator_user_id=current_user.id,
             name=payload.name,
@@ -59,7 +59,7 @@ async def create_org_vacancy(
             laboratory_id=payload.laboratory_id,
             query_id=payload.query_id,
         )
-        return await AsyncOrm.create_vacancy(
+        return await Orm.create_vacancy(
             None,
             creator_user_id=current_user.id,
             name=payload.name,
@@ -92,7 +92,7 @@ async def update_org_vacancy(
     payload: VacancyOrganizationUpdate,
     current_user=Depends(get_current_user),
 ):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     patch = payload.model_dump(exclude_unset=True)
     laboratory_id = patch.get("laboratory_id")
     query_id = patch.get("query_id")
@@ -103,9 +103,9 @@ async def update_org_vacancy(
     # Проверка: нельзя удалять контакт или лабораторию у опубликованной вакансии
     vacancy = None
     if org:
-        vacancy = await AsyncOrm.get_vacancy_for_org(vacancy_id, org.id)
+        vacancy = await Orm.get_vacancy_for_org(vacancy_id, org.id)
     elif is_lab_representative(current_user):
-        vacancy = await AsyncOrm.get_vacancy_for_creator(vacancy_id, current_user.id)
+        vacancy = await Orm.get_vacancy_for_creator(vacancy_id, current_user.id)
     if vacancy and getattr(vacancy, "is_published", False):
         eff_contact_id = patch.get("contact_employee_id", vacancy.contact_employee_id)
         eff_email = patch.get("contact_email", vacancy.contact_email)
@@ -122,7 +122,7 @@ async def update_org_vacancy(
                 detail="Снимите вакансию с публикации, затем удалите лабораторию.",
             )
     if org:
-        vacancy = await AsyncOrm.update_vacancy(
+        vacancy = await Orm.update_vacancy(
             vacancy_id,
             org.id,
             name=patch.get("name"),
@@ -137,7 +137,7 @@ async def update_org_vacancy(
             patch=patch,
         )
     elif is_lab_representative(current_user):
-        vacancy = await AsyncOrm.update_vacancy_for_creator(
+        vacancy = await Orm.update_vacancy_for_creator(
             vacancy_id,
             current_user.id,
             name=patch.get("name"),
@@ -167,11 +167,11 @@ async def update_org_vacancy(
 
 @router.delete("/organization/vacancies/{vacancy_id}")
 async def delete_org_vacancy(vacancy_id: int, current_user=Depends(get_current_user)):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        deleted = await AsyncOrm.delete_vacancy(vacancy_id, org.id)
+        deleted = await Orm.delete_vacancy(vacancy_id, org.id)
     elif is_lab_representative(current_user):
-        deleted = await AsyncOrm.delete_vacancy_for_creator(vacancy_id, current_user.id)
+        deleted = await Orm.delete_vacancy_for_creator(vacancy_id, current_user.id)
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not deleted:
@@ -189,12 +189,12 @@ async def set_vacancy_publish_state(
     payload: PublishToggle,
     current_user=Depends(get_current_user),
 ):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     vacancy_before = None
     if org:
-        vacancy_before = await AsyncOrm.get_vacancy_for_org(vacancy_id, org.id)
+        vacancy_before = await Orm.get_vacancy_for_org(vacancy_id, org.id)
     elif is_lab_representative(current_user):
-        vacancy_before = await AsyncOrm.get_vacancy_for_creator(vacancy_id, current_user.id)
+        vacancy_before = await Orm.get_vacancy_for_creator(vacancy_id, current_user.id)
     if not vacancy_before:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacancy not found")
     if payload.is_published:
@@ -213,9 +213,9 @@ async def set_vacancy_publish_state(
                 detail="Нельзя опубликовать вакансию без лаборатории. Привяжите лабораторию.",
             )
     if org:
-        vacancy = await AsyncOrm.set_vacancy_published(vacancy_id, org.id, payload.is_published)
+        vacancy = await Orm.set_vacancy_published(vacancy_id, org.id, payload.is_published)
     else:
-        vacancy = await AsyncOrm.set_vacancy_published_for_creator(
+        vacancy = await Orm.set_vacancy_published_for_creator(
             vacancy_id, current_user.id, payload.is_published
         )
     try:

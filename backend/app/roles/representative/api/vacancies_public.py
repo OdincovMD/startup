@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.api.deps import get_current_user, get_current_user_optional
 from app.config import settings
 from app.roles.representative.schemas import VacancyOrganizationRead, VacancyResponseRead, VacancyListResponse
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import Orm
 from app.services.email import render_vacancy_response, send_vacancy_response_email
 from app.services.elasticsearch import search_vacancies, suggest_vacancies
 
@@ -190,7 +190,7 @@ async def list_vacancies(
             return {"items": [], "total": 0, "page": page, "size": size}
 
     try:
-        vacancies = await AsyncOrm.list_published_vacancies()
+        vacancies = await Orm.list_published_vacancies()
         if sort_by == "date_asc":
             vacancies = sorted(vacancies, key=lambda v: getattr(v, "created_at") or "", reverse=False)
         else:
@@ -209,7 +209,7 @@ async def list_vacancies(
 @router.get("/public/{public_id}/details", response_model=VacancyOrganizationRead)
 async def get_vacancy_details(public_id: str):
     """Публичная карточка вакансии по public_id (только опубликованные)."""
-    vacancy = await AsyncOrm.get_vacancy_by_public_id(public_id)
+    vacancy = await Orm.get_vacancy_by_public_id(public_id)
     if not vacancy or not getattr(vacancy, "is_published", False):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -226,17 +226,17 @@ async def respond_to_vacancy(public_id: str, current_user=Depends(get_current_us
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Откликаться могут только студенты и исследователи",
         )
-    vacancy = await AsyncOrm.get_vacancy_by_public_id(public_id)
+    vacancy = await Orm.get_vacancy_by_public_id(public_id)
     if not vacancy or not getattr(vacancy, "is_published", False):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacancy not found")
     try:
-        resp = await AsyncOrm.create_vacancy_response(current_user.id, vacancy.id)
+        resp = await Orm.create_vacancy_response(current_user.id, vacancy.id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     applicant_name = getattr(current_user, "full_name", None) or getattr(current_user, "mail", "") or "Соискатель"
     role_name = getattr(current_user.role, "name", "") or ""
-    researcher = await AsyncOrm.get_researcher_by_user(current_user.id)
-    student = await AsyncOrm.get_student_by_user(current_user.id)
+    researcher = await Orm.get_researcher_by_user(current_user.id)
+    student = await Orm.get_student_by_user(current_user.id)
     use_researcher = role_name == "researcher"
     preview_parts = []
     if use_researcher and researcher:
@@ -262,7 +262,7 @@ async def respond_to_vacancy(public_id: str, current_user=Depends(get_current_us
     }
     notified = set()
     if vacancy.creator_user_id:
-        await AsyncOrm.create_notification(
+        await Orm.create_notification(
             vacancy.creator_user_id,
             "vacancy_response_created",
             notification_data,
@@ -273,9 +273,9 @@ async def respond_to_vacancy(public_id: str, current_user=Depends(get_current_us
         getattr(vacancy.laboratory, "organization_id", None) if getattr(vacancy, "laboratory", None) else None
     )
     if org_id:
-        for uid in await AsyncOrm.get_organization_representative_user_ids(org_id):
+        for uid in await Orm.get_organization_representative_user_ids(org_id):
             if uid not in notified:
-                await AsyncOrm.create_notification(uid, "vacancy_response_created", notification_data)
+                await Orm.create_notification(uid, "vacancy_response_created", notification_data)
                 notified.add(uid)
 
     # Email: контактному лицу или создателю вакансии (fallback на личный аккаунт)
@@ -351,10 +351,10 @@ async def get_my_response(public_id: str, current_user=Depends(get_current_user_
     """Отклик текущего пользователя на эту вакансию (или отсутствие)."""
     if current_user is None:
         return {"has_response": False}
-    vacancy = await AsyncOrm.get_vacancy_by_public_id(public_id)
+    vacancy = await Orm.get_vacancy_by_public_id(public_id)
     if not vacancy:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacancy not found")
-    resp = await AsyncOrm.get_my_response_for_vacancy(current_user.id, vacancy.id)
+    resp = await Orm.get_my_response_for_vacancy(current_user.id, vacancy.id)
     if not resp:
         return {"has_response": False}
     return {"has_response": True, "id": resp.id, "status": resp.status}

@@ -1,12 +1,13 @@
 """
 Фоновая синхронизация данных OpenAlex.
 Вызывается APScheduler раз в день (03:00).
+Использует app.queries.Orm (Core + Researcher + Representative, native async).
 """
 
 import asyncio
 import logging
 
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import Orm
 from app.services.openalex import (
     fetch_author_by_orcid,
     fetch_author_by_id,
@@ -28,7 +29,7 @@ def _extract_openalex_id(val: str) -> str:
 async def _sync_openalex_data_async() -> None:
     """Синхронизация исследователей и организаций из OpenAlex (async)."""
     logger.info("OpenAlex sync started")
-    users = await AsyncOrm.get_users_with_openalex_or_orcid()
+    users = await Orm.get_users_with_openalex_or_orcid()
     for user in users:
         try:
             author = None
@@ -40,7 +41,7 @@ async def _sync_openalex_data_async() -> None:
                 if author:
                     oa_id = _extract_openalex_id(author.get("id", ""))
                     if oa_id:
-                        await AsyncOrm.update_user_openalex(user.id, oa_id)
+                        await Orm.update_user_openalex(user.id, oa_id)
                         openalex_id = oa_id
             if not author:
                 continue
@@ -49,7 +50,7 @@ async def _sync_openalex_data_async() -> None:
             if user.role and user.role.name == "researcher":
                 works = fetch_author_works(openalex_id, per_page=25)
                 mapped = map_author_to_researcher(author, works)
-                await AsyncOrm.upsert_researcher_profile(
+                await Orm.upsert_researcher_profile(
                     user.id,
                     full_name=mapped.get("full_name"),
                     research_interests=mapped.get("research_interests"),
@@ -60,14 +61,14 @@ async def _sync_openalex_data_async() -> None:
         except Exception as e:
             logger.warning("OpenAlex sync user %s: %s", user.id, e)
 
-    orgs = await AsyncOrm.get_organizations_with_ror()
+    orgs = await Orm.get_organizations_with_ror()
     for org in orgs:
         try:
             institution = fetch_institution_by_ror(org.ror_id)
             if not institution:
                 continue
             mapped = map_institution_to_organization(institution)
-            await AsyncOrm.update_organization_fields(
+            await Orm.update_organization_fields(
                 org.id,
                 name=mapped.get("name"),
                 avatar_url=mapped.get("avatar_url"),

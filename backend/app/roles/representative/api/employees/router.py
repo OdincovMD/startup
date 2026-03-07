@@ -11,7 +11,7 @@ from app.services.elasticsearch import reindex_laboratories_by_ids, reindex_orga
 logger = logging.getLogger(__name__)
 from app.roles.representative.schemas import EmployeeCreate, EmployeeRead, EmployeeUpdate
 from app.roles.representative.api._helpers import is_lab_representative, require_lab_link_for_lab_rep
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import Orm
 from app.services.openalex import (
     fetch_author_by_id,
     fetch_author_by_orcid,
@@ -43,11 +43,11 @@ class EmployeeImportOpenAlexBody(BaseModel):
 
 @router.get("/organization/employees", response_model=list[EmployeeRead])
 async def list_org_employees(current_user=Depends(get_current_user)):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        return await AsyncOrm.list_employees_for_org(org.id)
+        return await Orm.list_employees_for_org(org.id)
     if is_lab_representative(current_user):
-        return await AsyncOrm.list_employees_for_creator(current_user.id)
+        return await Orm.list_employees_for_creator(current_user.id)
     return []
 
 
@@ -56,9 +56,9 @@ async def create_org_employee(
     payload: EmployeeCreate,
     current_user=Depends(get_current_user),
 ):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        emp = await AsyncOrm.create_employee_for_org(
+        emp = await Orm.create_employee_for_org(
             org.id,
             creator_user_id=current_user.id,
             full_name=payload.full_name,
@@ -86,7 +86,7 @@ async def create_org_employee(
         return emp
     if is_lab_representative(current_user):
         require_lab_link_for_lab_rep(payload.laboratory_ids)
-        emp = await AsyncOrm.create_employee_for_org(
+        emp = await Orm.create_employee_for_org(
             None,
             creator_user_id=current_user.id,
             full_name=payload.full_name,
@@ -122,11 +122,11 @@ async def create_org_employee(
 
 @router.get("/organization/employees/{employee_id}", response_model=EmployeeRead)
 async def get_org_employee(employee_id: int, current_user=Depends(get_current_user)):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        employee = await AsyncOrm.get_employee(employee_id, org.id)
+        employee = await Orm.get_employee(employee_id, org.id)
     elif is_lab_representative(current_user):
-        employee = await AsyncOrm.get_employee_for_creator(employee_id, current_user.id)
+        employee = await Orm.get_employee_for_creator(employee_id, current_user.id)
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not employee:
@@ -140,7 +140,7 @@ async def update_org_employee(
     payload: EmployeeUpdate,
     current_user=Depends(get_current_user),
 ):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     patch = payload.model_dump(exclude_unset=True)
     laboratory_ids = patch.get("laboratory_ids")
     if is_lab_representative(current_user) and "laboratory_ids" in patch:
@@ -148,12 +148,12 @@ async def update_org_employee(
     # Получить старые lab_ids до обновления (для переиндексации при снятии сотрудника с лабораторий)
     employee_before = None
     if org:
-        employee_before = await AsyncOrm.get_employee(employee_id, org.id)
+        employee_before = await Orm.get_employee(employee_id, org.id)
     elif is_lab_representative(current_user):
-        employee_before = await AsyncOrm.get_employee_for_creator(employee_id, current_user.id)
+        employee_before = await Orm.get_employee_for_creator(employee_id, current_user.id)
     old_lab_ids = [l.id for l in (employee_before.laboratories or [])] if employee_before else []
     if org:
-        employee = await AsyncOrm.update_employee(
+        employee = await Orm.update_employee(
             employee_id,
             org.id,
             full_name=patch.get("full_name"),
@@ -171,7 +171,7 @@ async def update_org_employee(
             laboratory_ids=laboratory_ids,
         )
     elif is_lab_representative(current_user):
-        employee = await AsyncOrm.update_employee_for_creator(
+        employee = await Orm.update_employee_for_creator(
             employee_id,
             current_user.id,
             full_name=patch.get("full_name"),
@@ -222,7 +222,7 @@ async def import_employee_openalex_preview(
     current_user=Depends(get_current_user),
 ):
     """Preview импорта данных сотрудника по ORCID или OpenAlex ID (для формы «Новый сотрудник»)."""
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if not org and not is_lab_representative(current_user):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
 
@@ -265,11 +265,11 @@ async def import_employee_openalex(
     current_user=Depends(get_current_user),
 ):
     """Импорт данных сотрудника по ORCID или OpenAlex ID."""
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        employee = await AsyncOrm.get_employee(employee_id, org.id)
+        employee = await Orm.get_employee(employee_id, org.id)
     elif is_lab_representative(current_user):
-        employee = await AsyncOrm.get_employee_for_creator(employee_id, current_user.id)
+        employee = await Orm.get_employee_for_creator(employee_id, current_user.id)
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not employee:
@@ -300,7 +300,7 @@ async def import_employee_openalex(
     mapped = map_author_to_researcher(author, works)
 
     if org:
-        updated = await AsyncOrm.update_employee(
+        updated = await Orm.update_employee(
             employee_id,
             org.id,
             full_name=mapped.get("full_name"),
@@ -310,7 +310,7 @@ async def import_employee_openalex(
             hindex_openalex=mapped.get("hindex_openalex"),
         )
     else:
-        updated = await AsyncOrm.update_employee_for_creator(
+        updated = await Orm.update_employee_for_creator(
             employee_id,
             current_user.id,
             full_name=mapped.get("full_name"),
@@ -330,20 +330,20 @@ async def import_employee_openalex(
 
 @router.delete("/organization/employees/{employee_id}")
 async def delete_org_employee(employee_id: int, current_user=Depends(get_current_user)):
-    has_published = await AsyncOrm.has_published_vacancies_as_contact_for_employee(employee_id)
+    has_published = await Orm.has_published_vacancies_as_contact_for_employee(employee_id)
     if has_published:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Снимите с публикации вакансии, где указан этот сотрудник как контакт, или смените контактное лицо, затем удалите сотрудника.",
         )
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     employee_before = None
     if org:
-        employee_before = await AsyncOrm.get_employee(employee_id, org.id)
-        deleted, user_id_to_notify, lab_names = await AsyncOrm.delete_employee(employee_id, org.id)
+        employee_before = await Orm.get_employee(employee_id, org.id)
+        deleted, user_id_to_notify, lab_names = await Orm.delete_employee(employee_id, org.id)
     elif is_lab_representative(current_user):
-        employee_before = await AsyncOrm.get_employee_for_creator(employee_id, current_user.id)
-        deleted, user_id_to_notify, lab_names = await AsyncOrm.delete_employee_for_creator(
+        employee_before = await Orm.get_employee_for_creator(employee_id, current_user.id)
+        deleted, user_id_to_notify, lab_names = await Orm.delete_employee_for_creator(
             employee_id, current_user.id
         )
     else:
@@ -361,7 +361,7 @@ async def delete_org_employee(employee_id: int, current_user=Depends(get_current
     logger.info("Employee deleted: id=%s org_id=%s", employee_id, org.id if org else None)
     # Уведомление соискателю, что его отвязали от лаборатории
     if user_id_to_notify:
-        await AsyncOrm.create_notification(
+        await Orm.create_notification(
             user_id_to_notify,
             "lab_join_removed",
             {"lab_names": lab_names or ["лабораторию"]},

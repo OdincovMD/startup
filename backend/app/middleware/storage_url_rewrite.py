@@ -3,7 +3,8 @@
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from app.storage.s3 import LOCALHOST_STORAGE_PREFIX, _public_base_url
+from app.config import settings
+from app.storage.s3 import _public_base_url
 
 
 class StorageUrlRewriteMiddleware(BaseHTTPMiddleware):
@@ -18,9 +19,10 @@ class StorageUrlRewriteMiddleware(BaseHTTPMiddleware):
         async for chunk in response.body_iterator:
             body += chunk
         text = body.decode("utf-8", errors="replace")
-        if LOCALHOST_STORAGE_PREFIX in text:
+        prefix = settings.S3_LOCALHOST_STORAGE_PREFIX
+        if prefix in text:
             public = _public_base_url()
-            text = text.replace(LOCALHOST_STORAGE_PREFIX, public)
+            text = text.replace(prefix, public)
         new_body = text.encode("utf-8")
         headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
         return Response(

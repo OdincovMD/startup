@@ -8,7 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Request
 
 from app.api.deps import get_current_user_optional
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import Orm
 from app.rate_limit import limiter
 from app.core.models import User
 
@@ -67,5 +67,5 @@ async def post_events(
     if not events:
         return {"accepted": 0}
 
-    accepted = await AsyncOrm.insert_analytics_events(events)
+    accepted = await Orm.insert_analytics_events(events)
     return {"accepted": accepted}

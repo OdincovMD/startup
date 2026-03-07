@@ -10,7 +10,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import Orm
 from app.roles.representative.schemas import (
     OrganizationQueryBase,
     OrganizationLaboratoryShort,
@@ -81,7 +81,7 @@ async def list_queries(
         except Exception:
             return []
     try:
-        queries = await AsyncOrm.list_published_queries()
+        queries = await Orm.list_published_queries()
         for query in queries:
             query.vacancies = [v for v in (query.vacancies or []) if getattr(v, "is_published", False)]
         if sort_by == "date_asc":
@@ -99,7 +99,7 @@ async def list_queries(
 @router.get("/public/{public_id}/details", response_model=QueryDetails)
 async def get_query_details(public_id: str):
     """Получение детальной информации о запросе по public_id."""
-    query = await AsyncOrm.get_query_by_public_id(public_id)
+    query = await Orm.get_query_by_public_id(public_id)
     if not query or not getattr(query, "is_published", False):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -1,13 +1,12 @@
 """
-AsyncOrm — асинхронная обёртка над SyncOrm.
-Сохранён совместимый импорт через композицию доменных AsyncOrm.
+Композитный Orm — объединяет Core, Student, Researcher, Representative (async).
 """
 
-from app.core.queries.async_orm import AsyncOrm as CoreAsyncOrm
-from app.roles.student.queries.async_orm import AsyncOrm as StudentAsyncOrm
-from app.roles.researcher.queries.async_orm import AsyncOrm as ResearcherAsyncOrm
-from app.roles.representative.queries.async_orm import AsyncOrm as RepresentativeAsyncOrm
+from app.core.queries.orm import Orm as CoreOrm
+from app.roles.student.queries.orm import Orm as StudentOrm
+from app.roles.researcher.queries.orm import Orm as ResearcherOrm
+from app.roles.representative.queries.orm import Orm as RepresentativeOrm
 
 
-class AsyncOrm(CoreAsyncOrm, StudentAsyncOrm, ResearcherAsyncOrm, RepresentativeAsyncOrm):
+class Orm(CoreOrm, StudentOrm, ResearcherOrm, RepresentativeOrm):
     pass

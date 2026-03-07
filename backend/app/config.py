@@ -6,7 +6,6 @@
 
 from typing import Optional
 
-from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_JWT_SECRET = "hnkHNJhQ-FX2SOlFppIGlMWLsJvaOZlhFO66sOPn2-46y-hvfZCOXUItMGMP6TK8"
@@ -33,6 +32,8 @@ class Settings(BaseSettings):
     S3_BUCKET: str = "labportal"
     S3_REGION: str = "us-east-1"
     S3_PUBLIC_BASE_URL: str = "http://localhost:9000/labportal"
+    # URL-префикс localhost-хранилища для подмены на публичный (middleware, normalize_*).
+    S3_LOCALHOST_STORAGE_PREFIX: str = "http://localhost:9000/labportal"
     S3_FORCE_PATH_STYLE: bool = True
     S3_APPLY_CORS: bool = False
 
@@ -85,16 +86,6 @@ class Settings(BaseSettings):
         if self.ENV == "development":
             origins.extend(["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"])
         return origins
-
-    @property
-    def DATABASE_URL_pg(self) -> str:
-        """
-        Формирует строку подключения к PostgreSQL для SQLAlchemy (sync, psycopg2).
-        Если задан DATABASE_URL — используется он, иначе собирается из DB_*.
-        """
-        if self.DATABASE_URL:
-            return self.DATABASE_URL
-        return f"postgresql+psycopg2://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
     @property
     def DATABASE_URL_async(self) -> str:

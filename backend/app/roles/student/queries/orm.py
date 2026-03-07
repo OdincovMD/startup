@@ -1,5 +1,5 @@
 """
-AsyncOrm — нативный асинхронный слой для роли студента.
+Orm — асинхронный слой для роли студента (asyncpg, SQLAlchemy AsyncSession).
 """
 
 from typing import Optional, List
@@ -11,7 +11,7 @@ from app import models
 from app.database import async_session_factory
 
 
-class AsyncOrm:
+class Orm:
     @staticmethod
     async def get_student_by_user(user_id: int) -> Optional[models.Student]:
         async with async_session_factory() as session:

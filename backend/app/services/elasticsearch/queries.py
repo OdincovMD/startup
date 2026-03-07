@@ -9,14 +9,36 @@ from typing import Any, List, Optional
 
 from elasticsearch.exceptions import NotFoundError
 from elastic_transport import ConnectionTimeout
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
+from app import models
 from app.config import settings
+from app.database import async_session_factory
 
 from .client import get_es_client
 from .mappings import QUERIES_INDEX_MAPPING
 from .utils import escape_wildcard, significant_words, sort_by_date
 
 logger = logging.getLogger(__name__)
+
+
+async def _load_query_doc_for_indexing(query_id: int) -> Optional[dict]:
+    """Загрузить запрос с organization и laboratories в своей сессии и вернуть документ для ES."""
+    async with async_session_factory() as session:
+        stmt = (
+            select(models.OrganizationQuery)
+            .options(
+                selectinload(models.OrganizationQuery.organization),
+                selectinload(models.OrganizationQuery.laboratories),
+            )
+            .where(models.OrganizationQuery.id == query_id)
+        )
+        result = await session.execute(stmt)
+        query = result.scalars().first()
+        if not query or not getattr(query, "is_published", False):
+            return None
+        return _query_to_doc(query)
 
 
 async def ensure_queries_index() -> None:
@@ -145,31 +167,31 @@ def _doc_to_query_item(doc: dict) -> dict:
     }
 
 
-async def index_query(query: Any) -> None:
-    """Проиндексировать запрос в Elasticsearch."""
-    if not getattr(query, "is_published", False):
+async def index_query(query_id: int) -> None:
+    """Проиндексировать запрос в Elasticsearch (загружает запрос с organization/laboratories в своей сессии)."""
+    doc = await _load_query_doc_for_indexing(query_id)
+    if doc is None:
         return
     client = get_es_client()
-    doc = _query_to_doc(query)
     last_err = None
     for attempt in range(3):
         try:
             await client.index(
                 index=settings.QUERIES_INDEX,
-                id=str(query.id),
+                id=str(query_id),
                 document=doc,
                 request_timeout=settings.ELASTICSEARCH_REQUEST_TIMEOUT,
             )
-            logger.debug("Indexed query id=%s", query.id)
+            logger.debug("Indexed query id=%s", query_id)
             return
         except ConnectionTimeout as e:
             last_err = e
             if attempt < 2:
                 await asyncio.sleep(2 * (attempt + 1))
         except Exception as e:
-            logger.exception("Failed to index query id=%s: %s", query.id, e)
+            logger.exception("Failed to index query id=%s: %s", query_id, e)
             return
-    logger.warning("Failed to index query id=%s after retries: %s", query.id, last_err)
+    logger.warning("Failed to index query id=%s after retries: %s", query_id, last_err)
 
 
 async def delete_query(query_id: int) -> None:
@@ -389,13 +411,13 @@ async def reindex_queries(force: bool = False) -> int:
     if not force and count > 0:
         logger.debug("Queries index already has %d documents, skipping reindex", count)
         return count
-    from app.queries.async_orm import AsyncOrm
-    queries = await AsyncOrm.list_published_queries()
+    from app.queries.orm import Orm
+    queries = await Orm.list_published_queries()
     logger.info("Queries reindex: %d published queries", len(queries))
     indexed = 0
     for q in queries:
         try:
-            await index_query(q)
+            await index_query(q.id)
             indexed += 1
         except Exception as e:
             logger.warning("Failed to index query id=%s: %s", q.id, e)

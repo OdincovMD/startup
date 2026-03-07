@@ -4,7 +4,7 @@
 
 from fastapi import APIRouter
 
-from app.roles.representative.queries.async_orm import AsyncOrm
+from app.roles.representative.queries.orm import Orm
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -12,4 +12,4 @@ router = APIRouter(prefix="/stats", tags=["stats"])
 @router.get("/")
 async def get_stats():
     """Счётчики платформы: лаборатории, вакансии, организации, страны."""
-    return await AsyncOrm.count_platform_stats()
+    return await Orm.count_platform_stats()

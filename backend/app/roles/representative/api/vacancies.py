@@ -13,7 +13,7 @@ from app.roles.representative.schemas import VacancyOrganizationCreate, VacancyO
 
 logger = logging.getLogger(__name__)
 
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import Orm
 from app.api.deps import get_current_user
 
 router = APIRouter(prefix="/vacancies", tags=["vacancies"])
@@ -22,14 +22,14 @@ router = APIRouter(prefix="/vacancies", tags=["vacancies"])
 @router.post("/", response_model=VacancyOrganizationRead, status_code=status.HTTP_201_CREATED)
 async def create_vacancy(vacancy_in: VacancyOrganizationCreate, _user=Depends(get_current_user)):
     """Создание новой вакансии."""
-    org = await AsyncOrm.get_organization(vacancy_in.organization_id)
+    org = await Orm.get_organization(vacancy_in.organization_id)
     if not org:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Organization does not exist",
         )
     try:
-        vac = await AsyncOrm.create_vacancy(
+        vac = await Orm.create_vacancy(
             organization_id=vacancy_in.organization_id,
             creator_user_id=_user.id,
             name=vacancy_in.name,
@@ -54,7 +54,7 @@ async def create_vacancy(vacancy_in: VacancyOrganizationCreate, _user=Depends(ge
 async def list_vacancies():
     """Список опубликованных вакансий."""
     try:
-        return await AsyncOrm.list_published_vacancies()
+        return await Orm.list_published_vacancies()
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -65,7 +65,7 @@ async def list_vacancies():
 @router.get("/{vacancy_id}", response_model=VacancyOrganizationRead)
 async def get_vacancy(vacancy_id: int):
     """Получение вакансии по ID."""
-    vacancy = await AsyncOrm.get_vacancy(vacancy_id)
+    vacancy = await Orm.get_vacancy(vacancy_id)
     if not vacancy:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -77,7 +77,7 @@ async def get_vacancy(vacancy_id: int):
 @router.get("/public/{public_id}/details", response_model=VacancyOrganizationRead)
 async def get_vacancy_details(public_id: str):
     """Публичная карточка вакансии по public_id (только опубликованные)."""
-    vacancy = await AsyncOrm.get_vacancy_by_public_id(public_id)
+    vacancy = await Orm.get_vacancy_by_public_id(public_id)
     if not vacancy or not getattr(vacancy, "is_published", False):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

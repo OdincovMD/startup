@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.api.deps import get_current_user
 
 logger = logging.getLogger(__name__)
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import Orm
 from app.services.elasticsearch import reindex_organizations_by_ids
 from app.services.openalex import (
     fetch_institution_by_ror,
@@ -49,9 +49,12 @@ async def link_ror(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Доступно только для представителя организации",
         )
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if not org:
-        org = await AsyncOrm.upsert_organization_for_user(current_user.id)
+        try:
+            org = await Orm.upsert_organization_for_user(current_user.id)
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     ror_id = _extract_ror_id(body.ror_id)
     if not ror_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный ROR ID")
@@ -63,14 +66,14 @@ async def link_ror(
             detail="Организация не найдена в OpenAlex. Проверьте ROR ID.",
         )
     try:
-        await AsyncOrm.update_organization_ror(org.id, ror_id)
+        await Orm.update_organization_ror(org.id, ror_id)
     except IntegrityError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Организация с таким ROR ID уже добавлена на платформу.",
         )
     mapped = map_institution_to_organization(institution)
-    updated = await AsyncOrm.upsert_organization_for_user(
+    updated = await Orm.upsert_organization_for_user(
         current_user.id,
         name=mapped.get("name"),
         avatar_url=mapped.get("avatar_url"),
@@ -93,10 +96,10 @@ async def unlink_ror(current_user=Depends(get_current_user)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Доступно только для представителя организации",
         )
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if not org:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
-    await AsyncOrm.update_organization_ror(org.id, None)
+    await Orm.update_organization_ror(org.id, None)
     logger.info("ROR unlinked from organization: org_id=%s", org.id)
     try:
         await reindex_organizations_by_ids([org.id])
@@ -113,7 +116,7 @@ async def import_org_openalex(current_user=Depends(get_current_user)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Доступно только для представителя организации",
         )
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if not org:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
     if not org.ror_id:
@@ -128,7 +131,7 @@ async def import_org_openalex(current_user=Depends(get_current_user)):
             detail="Организация не найдена в OpenAlex.",
         )
     mapped = map_institution_to_organization(institution)
-    updated = await AsyncOrm.upsert_organization_for_user(
+    updated = await Orm.upsert_organization_for_user(
         current_user.id,
         name=mapped.get("name"),
         avatar_url=mapped.get("avatar_url"),

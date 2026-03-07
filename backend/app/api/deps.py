@@ -9,7 +9,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import settings
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import Orm
 
 logger = logging.getLogger(__name__)
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -33,7 +33,7 @@ async def get_current_user(
         logger.warning("Auth failed: invalid token")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    user = await AsyncOrm.get_user(user_id)
+    user = await Orm.get_user(user_id)
     if not user:
         logger.warning("Auth failed: user not found user_id=%s", user_id)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
@@ -59,5 +59,5 @@ async def get_current_user_optional(
         user_id = int(payload.get("sub"))
     except Exception:
         return None
-    user = await AsyncOrm.get_user(user_id)
+    user = await Orm.get_user(user_id)
     return user

@@ -18,7 +18,7 @@ from app.roles.representative.schemas import (
     OrganizationDetails,
     OrganizationListResponse,
 )
-from app.queries.async_orm import AsyncOrm
+from app.queries.orm import Orm
 from app.api.deps import get_current_user
 from app.services.elasticsearch import search_organizations, suggest_organizations
 
@@ -31,7 +31,7 @@ router = APIRouter(prefix="/labs", tags=["labs"])
 async def create_lab(lab_in: OrganizationCreate, _user=Depends(get_current_user)):
     """Создание новой организации."""
     try:
-        org = await AsyncOrm.create_organization(
+        org = await Orm.create_organization(
             name=lab_in.name,
             avatar_url=lab_in.avatar_url,
             description=lab_in.description,
@@ -78,7 +78,7 @@ async def list_labs(
             items = result.get("items", [])
             org_ids = [it["id"] for it in items if it.get("id") is not None]
             if org_ids:
-                orgs = await AsyncOrm.get_organizations_by_ids(org_ids)
+                orgs = await Orm.get_organizations_by_ids(org_ids)
                 return OrganizationListResponse(
                     items=orgs,
                     total=result.get("total", 0),
@@ -97,7 +97,7 @@ async def list_labs(
                 detail={"error": "ORGANIZATION_SEARCH_FAILURE", "message": str(e)},
             )
     try:
-        orgs = await AsyncOrm.list_published_organizations()
+        orgs = await Orm.list_published_organizations()
         total = len(orgs)
         return OrganizationListResponse(items=orgs, total=total, page=1, size=total)
     except Exception as e:
@@ -120,7 +120,7 @@ async def suggest_labs(
 @router.get("/{org_id}", response_model=OrganizationRead)
 async def get_lab(org_id: int):
     """Получение организации по ID."""
-    org = await AsyncOrm.get_organization(org_id)
+    org = await Orm.get_organization(org_id)
     if not org:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -131,7 +131,7 @@ async def get_lab(org_id: int):
 
 @router.get("/public/{public_id}/details", response_model=OrganizationDetails)
 async def get_lab_details(public_id: str):
-    org = await AsyncOrm.get_organization_by_public_id(public_id)
+    org = await Orm.get_organization_by_public_id(public_id)
     if not org:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -143,12 +143,12 @@ async def get_lab_details(public_id: str):
             detail="Organization not published",
         )
     equipment, laboratories, employees, task_solutions, queries, vacancies = await asyncio.gather(
-        AsyncOrm.list_equipment_for_org(org.id),
-        AsyncOrm.list_published_laboratories_for_org(org.id),
-        AsyncOrm.list_employees_for_org(org.id),
-        AsyncOrm.list_task_solutions_for_org(org.id),
-        AsyncOrm.list_published_queries_for_org(org.id),
-        AsyncOrm.list_published_vacancies_for_org(org.id),
+        Orm.list_equipment_for_org(org.id),
+        Orm.list_published_laboratories_for_org(org.id),
+        Orm.list_employees_for_org(org.id),
+        Orm.list_task_solutions_for_org(org.id),
+        Orm.list_published_queries_for_org(org.id),
+        Orm.list_published_vacancies_for_org(org.id),
     )
     for lab in laboratories:
         employee_user_ids = {e.user_id for e in (lab.employees or []) if getattr(e, "user_id", None)}

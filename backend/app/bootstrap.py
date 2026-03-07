@@ -1,11 +1,11 @@
 """
 Общие функции инициализации приложения.
-Создание таблиц, начальные данные, подготовка хранилища.
+Создание таблиц (async_engine), seed_roles через Core Orm, S3, Elasticsearch.
 """
 
 import app.models  # noqa: F401 — регистрация моделей в metadata
 from app.database import Base, async_engine
-from app.core.queries.async_orm import AsyncOrm
+from app.core.queries.orm import Orm
 from app.storage.s3 import ensure_bucket_ready
 from app.services.elasticsearch import (
     reindex_laboratories_if_empty,
@@ -29,7 +29,7 @@ async def create_tables() -> None:
 async def seed_roles() -> None:
     """Создание базовых ролей, если их нет."""
     for name in ("student", "researcher", "lab_admin", "lab_representative"):
-        await AsyncOrm.get_or_create_role(name)
+        await Orm.get_or_create_role(name)
     logger.info("Roles seeded")
 
 
