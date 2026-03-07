@@ -14,18 +14,18 @@ from app.roles.representative.schemas import (
     OrganizationEquipmentUpdate,
 )
 from app.roles.representative.api._helpers import is_lab_representative, require_lab_link_for_lab_rep
-from app.queries.orm import AsyncOrm
+from app.queries.orm import Orm
 
 router = APIRouter()
 
 
 @router.get("/organization/equipment", response_model=list[OrganizationEquipmentRead])
 async def list_org_equipment(current_user=Depends(get_current_user)):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        return await AsyncOrm.list_equipment_for_org(org.id)
+        return await Orm.list_equipment_for_org(org.id)
     if is_lab_representative(current_user):
-        return await AsyncOrm.list_equipment_for_creator(current_user.id)
+        return await Orm.list_equipment_for_creator(current_user.id)
     return []
 
 
@@ -34,9 +34,9 @@ async def create_org_equipment(
     payload: OrganizationEquipmentCreate,
     current_user=Depends(get_current_user),
 ):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        eq = await AsyncOrm.create_equipment_for_org(
+        eq = await Orm.create_equipment_for_org(
             org.id,
             creator_user_id=current_user.id,
             name=payload.name,
@@ -56,7 +56,7 @@ async def create_org_equipment(
         return eq
     if is_lab_representative(current_user):
         require_lab_link_for_lab_rep(payload.laboratory_ids)
-        eq = await AsyncOrm.create_equipment_for_org(
+        eq = await Orm.create_equipment_for_org(
             None,
             creator_user_id=current_user.id,
             name=payload.name,
@@ -88,7 +88,7 @@ async def update_org_equipment(
     payload: OrganizationEquipmentUpdate,
     current_user=Depends(get_current_user),
 ):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     patch = payload.model_dump(exclude_unset=True)
     laboratory_ids = patch.get("laboratory_ids")
     if is_lab_representative(current_user) and "laboratory_ids" in patch:
@@ -96,12 +96,12 @@ async def update_org_equipment(
     # Получить старые lab_ids до обновления (для переиндексации при снятии оборудования с лабораторий)
     equipment_before = None
     if org:
-        equipment_before = await AsyncOrm.get_equipment(equipment_id, org.id)
+        equipment_before = await Orm.get_equipment(equipment_id, org.id)
     elif is_lab_representative(current_user):
-        equipment_before = await AsyncOrm.get_equipment_for_creator(equipment_id, current_user.id)
+        equipment_before = await Orm.get_equipment_for_creator(equipment_id, current_user.id)
     old_lab_ids = [l.id for l in (equipment_before.laboratories or [])] if equipment_before else []
     if org:
-        equipment = await AsyncOrm.update_equipment(
+        equipment = await Orm.update_equipment(
             equipment_id,
             org.id,
             name=patch.get("name"),
@@ -111,7 +111,7 @@ async def update_org_equipment(
             laboratory_ids=laboratory_ids,
         )
     elif is_lab_representative(current_user):
-        equipment = await AsyncOrm.update_equipment_for_creator(
+        equipment = await Orm.update_equipment_for_creator(
             equipment_id,
             current_user.id,
             name=patch.get("name"),
@@ -142,14 +142,14 @@ async def update_org_equipment(
 
 @router.delete("/organization/equipment/{equipment_id}")
 async def delete_org_equipment(equipment_id: int, current_user=Depends(get_current_user)):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     equipment_before = None
     if org:
-        equipment_before = await AsyncOrm.get_equipment(equipment_id, org.id)
-        deleted = await AsyncOrm.delete_equipment(equipment_id, org.id)
+        equipment_before = await Orm.get_equipment(equipment_id, org.id)
+        deleted = await Orm.delete_equipment(equipment_id, org.id)
     elif is_lab_representative(current_user):
-        equipment_before = await AsyncOrm.get_equipment_for_creator(equipment_id, current_user.id)
-        deleted = await AsyncOrm.delete_equipment_for_creator(equipment_id, current_user.id)
+        equipment_before = await Orm.get_equipment_for_creator(equipment_id, current_user.id)
+        deleted = await Orm.delete_equipment_for_creator(equipment_id, current_user.id)
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not deleted:

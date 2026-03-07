@@ -10,7 +10,7 @@ from app.api.deps import get_current_user
 
 logger = logging.getLogger(__name__)
 from app.roles.representative.schemas import VacancyResponseRead, VacancyResponseStatusUpdate
-from app.queries.orm import AsyncOrm
+from app.queries.orm import Orm
 
 router = APIRouter(tags=["profile-vacancy-responses"])
 
@@ -18,7 +18,7 @@ router = APIRouter(tags=["profile-vacancy-responses"])
 @router.get("/vacancy-responses", response_model=list[VacancyResponseRead])
 async def list_vacancy_responses_for_employer(current_user=Depends(get_current_user)):
     """Список откликов на вакансии текущего пользователя (работодатель)."""
-    items = await AsyncOrm.list_vacancy_responses_for_employer(current_user.id)
+    items = await Orm.list_vacancy_responses_for_employer(current_user.id)
     return items
 
 
@@ -29,7 +29,7 @@ async def update_vacancy_response_status(
     current_user=Depends(get_current_user),
 ):
     """Изменить статус отклика (только для создателя вакансии)."""
-    updated = await AsyncOrm.update_vacancy_response_status(
+    updated = await Orm.update_vacancy_response_status(
         response_id, current_user.id, payload.status
     )
     if not updated:
@@ -38,7 +38,7 @@ async def update_vacancy_response_status(
     # Уведомление соискателю о смене статуса
     applicant_user_id = updated.get("user_id")
     if applicant_user_id:
-        await AsyncOrm.create_notification(
+        await Orm.create_notification(
             applicant_user_id,
             "vacancy_response_status_changed",
             {
@@ -55,5 +55,5 @@ async def update_vacancy_response_status(
 @router.get("/my-vacancy-responses", response_model=list[VacancyResponseRead])
 async def list_my_vacancy_responses(current_user=Depends(get_current_user)):
     """Список своих откликов (соискатель)."""
-    items = await AsyncOrm.list_my_vacancy_responses(current_user.id)
+    items = await Orm.list_my_vacancy_responses(current_user.id)
     return items

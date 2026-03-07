@@ -36,7 +36,7 @@ from app.roles.representative.schemas import (
     EmployeeRead,
     EmployeeUpdate,
 )
-from app.queries.orm import AsyncOrm
+from app.queries.orm import Orm
 
 from .equipment import router as equipment_router
 from .laboratories import router as laboratories_router
@@ -64,7 +64,7 @@ router.include_router(profile_analytics_router)
 
 @router.get("/organization", response_model=OrganizationRead | None)
 async def get_org_profile(current_user=Depends(get_current_user)):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     return org
 
 
@@ -73,17 +73,20 @@ async def upsert_org_profile(
     payload: OrganizationUpdate,
     current_user=Depends(get_current_user),
 ):
-    org = await AsyncOrm.upsert_organization_for_user(
-        current_user.id,
-        name=payload.name,
-        avatar_url=payload.avatar_url,
-        description=payload.description,
-        address=payload.address,
-        website=payload.website,
-        ror_id=payload.ror_id,
-    )
+    try:
+        org = await Orm.upsert_organization_for_user(
+            current_user.id,
+            name=payload.name,
+            avatar_url=payload.avatar_url,
+            description=payload.description,
+            address=payload.address,
+            website=payload.website,
+            ror_id=payload.ror_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     if org and org.id:
-        labs = await AsyncOrm.list_published_laboratories_for_org(org.id)
+        labs = await Orm.list_published_laboratories_for_org(org.id)
         if labs:
             try:
                 await reindex_laboratories_by_ids([l.id for l in labs])
@@ -109,7 +112,7 @@ async def set_org_publish_state(
     payload: PublishToggle,
     current_user=Depends(get_current_user),
 ):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if not org:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if payload.is_published and (not org.name or not str(org.name).strip()):
@@ -117,7 +120,7 @@ async def set_org_publish_state(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Сначала заполните и сохраните профиль организации.",
         )
-    updated = await AsyncOrm.set_organization_published(org.id, payload.is_published)
+    updated = await Orm.set_organization_published(org.id, payload.is_published)
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     try:

@@ -10,14 +10,14 @@ from app.api.deps import get_current_user
 
 logger = logging.getLogger(__name__)
 from app.roles.student.schemas import StudentRead, StudentUpdate
-from app.queries.orm import AsyncOrm
+from app.queries.orm import Orm
 
 router = APIRouter()
 
 
 @router.get("/student", response_model=StudentRead | None)
 async def get_student_profile(current_user=Depends(get_current_user)):
-    student = await AsyncOrm.get_student_by_user(current_user.id)
+    student = await Orm.get_student_by_user(current_user.id)
     return student
 
 
@@ -27,7 +27,7 @@ async def upsert_student_profile(
     current_user=Depends(get_current_user),
 ):
     patch = payload.model_dump(exclude_unset=True)
-    student = await AsyncOrm.upsert_student_profile(
+    student = await Orm.upsert_student_profile(
         current_user.id,
         full_name=patch.get("full_name"),
         status=patch.get("status"),

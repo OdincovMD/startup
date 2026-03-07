@@ -8,6 +8,7 @@ import string
 from typing import List, Optional
 
 from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import models
@@ -21,6 +22,16 @@ def generate_public_id() -> str:
         return "".join(secrets.choice(alphabet) for _ in range(size))
 
     return f"R-{part(5)}-{part(5)}-{part(5)}"
+
+
+async def ensure_unique_org_public_id(session: AsyncSession) -> str:
+    """Уникальный public_id для Organization."""
+    while True:
+        candidate = generate_public_id()
+        stmt = select(models.Organization).where(models.Organization.public_id == candidate)
+        result = await session.execute(stmt)
+        if result.scalars().first() is None:
+            return candidate
 
 
 async def ensure_unique_lab_public_id(session: AsyncSession) -> str:
@@ -227,15 +238,9 @@ async def ensure_employee_from_researcher_in_lab(
     lab: "models.OrganizationLaboratory",
 ) -> None:
     """Создаёт или находит Employee из Researcher и добавляет в лабораторию (сотрудники/профиль)."""
-    from sqlalchemy.orm import selectinload
-
     org_id = lab.organization_id
     creator_id = lab.creator_user_id
-    stmt = (
-        select(models.Employee)
-        .options(selectinload(models.Employee.laboratories))
-        .where(models.Employee.user_id == researcher.user_id)
-    )
+    stmt = select(models.Employee).where(models.Employee.user_id == researcher.user_id)
     if org_id is not None:
         stmt = stmt.where(models.Employee.organization_id == org_id)
     else:
@@ -246,8 +251,11 @@ async def ensure_employee_from_researcher_in_lab(
     result = await session.execute(stmt)
     employee = result.scalars().first()
     if employee:
-        if lab not in employee.laboratories:
-            employee.laboratories.append(lab)
+        await session.execute(
+            pg_insert(models.employee_laboratories)
+            .values(employee_id=employee.id, laboratory_id=lab.id)
+            .on_conflict_do_nothing()
+        )
     else:
         user = await session.get(models.User, researcher.user_id)
         photo_url = user.photo_url if user else None
@@ -277,4 +285,8 @@ async def ensure_employee_from_researcher_in_lab(
         )
         session.add(employee)
         await session.flush()
-        employee.laboratories.append(lab)
+        await session.execute(
+            pg_insert(models.employee_laboratories)
+            .values(employee_id=employee.id, laboratory_id=lab.id)
+            .on_conflict_do_nothing()
+        )

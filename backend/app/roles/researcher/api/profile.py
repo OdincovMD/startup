@@ -10,7 +10,7 @@ from app.api.deps import get_current_user
 
 logger = logging.getLogger(__name__)
 from app.roles.researcher.schemas import ResearcherRead, ResearcherUpdate
-from app.queries.orm import AsyncOrm
+from app.queries.orm import Orm
 
 router = APIRouter()
 
@@ -23,7 +23,7 @@ def _is_researcher(user) -> bool:
 async def get_researcher_profile(current_user=Depends(get_current_user)):
     if not _is_researcher(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступно только для роли исследователя")
-    researcher = await AsyncOrm.get_researcher_by_user(current_user.id)
+    researcher = await Orm.get_researcher_by_user(current_user.id)
     return researcher
 
 
@@ -35,7 +35,7 @@ async def upsert_researcher_profile(
     if not _is_researcher(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступно только для роли исследователя")
     patch = payload.model_dump(exclude_unset=True)
-    researcher = await AsyncOrm.upsert_researcher_profile(
+    researcher = await Orm.upsert_researcher_profile(
         current_user.id,
         full_name=patch.get("full_name"),
         position=patch.get("position"),

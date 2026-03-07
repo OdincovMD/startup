@@ -36,15 +36,13 @@ def _public_base_url() -> str:
     return base
 
 
-LOCALHOST_STORAGE_PREFIX = "http://localhost:9000/labportal"
-
-
 def normalize_storage_url(url: str | None) -> str | None:
     """Заменяет localhost-URL хранилища на публичный (для доступа через туннель)."""
     if not url:
         return url
-    if url.startswith(LOCALHOST_STORAGE_PREFIX):
-        return url.replace(LOCALHOST_STORAGE_PREFIX, _public_base_url(), 1)
+    prefix = settings.S3_LOCALHOST_STORAGE_PREFIX
+    if url.startswith(prefix):
+        return url.replace(prefix, _public_base_url(), 1)
     return url
 
 
@@ -52,7 +50,7 @@ def normalize_storage_urls_in_text(text: str | None) -> str | None:
     """Заменяет все localhost-URL хранилища в строке на публичные."""
     if not text:
         return text
-    return text.replace(LOCALHOST_STORAGE_PREFIX, _public_base_url())
+    return text.replace(settings.S3_LOCALHOST_STORAGE_PREFIX, _public_base_url())
 
 
 def _sanitize_filename(filename: str) -> str:

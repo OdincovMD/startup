@@ -15,9 +15,9 @@ router = APIRouter(prefix="/notifications", tags=["profile-notifications"])
 @router.get("")
 async def get_my_notifications(current_user=Depends(get_current_user)):
     """Список уведомлений текущего пользователя."""
-    from app.queries.orm import AsyncOrm
+    from app.queries.orm import Orm
 
-    notifications = await AsyncOrm.get_notifications_for_user(current_user.id)
+    notifications = await Orm.get_notifications_for_user(current_user.id)
     return [
         {
             "id": n.id,
@@ -33,9 +33,9 @@ async def get_my_notifications(current_user=Depends(get_current_user)):
 @router.get("/unread-count")
 async def get_unread_count(current_user=Depends(get_current_user)):
     """Количество непрочитанных уведомлений (для бейджа)."""
-    from app.queries.orm import AsyncOrm
+    from app.queries.orm import Orm
 
-    count = await AsyncOrm.get_unread_notification_count(current_user.id)
+    count = await Orm.get_unread_notification_count(current_user.id)
     return {"count": count}
 
 
@@ -45,13 +45,13 @@ async def mark_notification_read(
     current_user=Depends(get_current_user),
 ):
     """Отметить уведомление прочитанным и удалить (очистка просмотренных)."""
-    from app.queries.orm import AsyncOrm
+    from app.queries.orm import Orm
 
-    n = await AsyncOrm.mark_notification_read(notification_id, current_user.id)
+    n = await Orm.mark_notification_read(notification_id, current_user.id)
     if not n:
         logger.warning("Mark notification read failed: notification_id=%s user_id=%s not found", notification_id, current_user.id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Уведомление не найдено")
-    await AsyncOrm.delete_notification(notification_id, current_user.id)
+    await Orm.delete_notification(notification_id, current_user.id)
     logger.info("Notification marked read and deleted: notification_id=%s user_id=%s", notification_id, current_user.id)
     return {"ok": True}
 
@@ -62,9 +62,9 @@ async def delete_notification(
     current_user=Depends(get_current_user),
 ):
     """Удалить уведомление."""
-    from app.queries.orm import AsyncOrm
+    from app.queries.orm import Orm
 
-    ok = await AsyncOrm.delete_notification(notification_id, current_user.id)
+    ok = await Orm.delete_notification(notification_id, current_user.id)
     if not ok:
         logger.warning("Delete notification failed: notification_id=%s user_id=%s not found", notification_id, current_user.id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Уведомление не найдено")

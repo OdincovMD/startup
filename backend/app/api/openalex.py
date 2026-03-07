@@ -6,11 +6,12 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import get_current_user
 
 logger = logging.getLogger(__name__)
-from app.queries.orm import AsyncOrm
+from app.queries.orm import Orm
 from app.services.openalex import (
     fetch_author_by_id,
     fetch_author_by_orcid,
@@ -53,12 +54,25 @@ async def link_openalex(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Автор не найден в OpenAlex. Проверьте ID.",
         )
-    await AsyncOrm.update_user_openalex(current_user.id, openalex_id)
+    try:
+        await Orm.update_user_openalex(current_user.id, openalex_id)
+    except ValueError as e:
+        if "уже привязан" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            )
+        raise
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Этот OpenAlex ID уже привязан к другому аккаунту.",
+        )
     logger.info("OpenAlex linked: user_id=%s openalex_id=%s", current_user.id, openalex_id)
     if _is_researcher(current_user):
         works = fetch_author_works(openalex_id, per_page=25)
         mapped = map_author_to_researcher(author, works)
-        await AsyncOrm.upsert_researcher_profile(
+        await Orm.upsert_researcher_profile(
             current_user.id,
             full_name=mapped.get("full_name"),
             research_interests=mapped.get("research_interests"),
@@ -72,7 +86,7 @@ async def link_openalex(
 @router.delete("/unlink")
 async def unlink_openalex(current_user=Depends(get_current_user)):
     """Отвязать OpenAlex ID."""
-    await AsyncOrm.update_user_openalex(current_user.id, None)
+    await Orm.update_user_openalex(current_user.id, None)
     logger.info("OpenAlex unlinked: user_id=%s", current_user.id)
     return {"ok": True}
 
@@ -88,7 +102,7 @@ async def import_openalex(current_user=Depends(get_current_user)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Импорт доступен только для роли исследователя",
         )
-    user = await AsyncOrm.get_user(current_user.id)
+    user = await Orm.get_user(current_user.id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
@@ -102,7 +116,7 @@ async def import_openalex(current_user=Depends(get_current_user)):
         if author:
             oa_id = _extract_openalex_id(author.get("id", ""))
             if oa_id:
-                await AsyncOrm.update_user_openalex(current_user.id, oa_id)
+                await Orm.update_user_openalex(current_user.id, oa_id)
                 openalex_id = oa_id
 
     if not author:
@@ -117,7 +131,7 @@ async def import_openalex(current_user=Depends(get_current_user)):
     works = fetch_author_works(openalex_id, per_page=25)
     mapped = map_author_to_researcher(author, works)
 
-    researcher = await AsyncOrm.upsert_researcher_profile(
+    researcher = await Orm.upsert_researcher_profile(
         current_user.id,
         full_name=mapped.get("full_name"),
         research_interests=mapped.get("research_interests"),

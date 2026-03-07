@@ -1,6 +1,6 @@
 """
 Точка входа FastAPI-приложения.
-Инициализирует базу данных, создаёт подключение к s3 и регистрирует роутеры.
+Инициализирует базу данных, создаёт подключение к s3, создаёт индексы elasticsearch, ставит cron job и регистрирует роутеры.
 """
 
 from apscheduler.schedulers.background import BackgroundScheduler

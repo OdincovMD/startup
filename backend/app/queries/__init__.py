@@ -1,1 +1,1 @@
-from .orm import AsyncOrm  # noqa: F401
+from .orm import Orm  # noqa: F401

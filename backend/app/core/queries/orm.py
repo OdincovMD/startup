@@ -1,6 +1,5 @@
 """
-AsyncOrm — нативный асинхронный слой для ядра: User, Role, Notifications.
-Использует asyncpg и SQLAlchemy AsyncSession.
+Orm — асинхронный слой для ядра: User, Role, Notifications (asyncpg, SQLAlchemy AsyncSession).
 """
 
 import secrets
@@ -17,7 +16,7 @@ from app.config import settings
 from app.core.queries.password_utils import hash_password, verify_password
 
 
-class AsyncOrm:
+class Orm:
     # =============================
     #           ROLES
     # =============================
@@ -176,7 +175,7 @@ class AsyncOrm:
     @staticmethod
     async def link_orcid_to_user(user_id: int, orcid: str) -> models.User:
         normalized = orcid.replace("https://orcid.org/", "").strip()
-        existing = await AsyncOrm.get_user_by_orcid(normalized)
+        existing = await Orm.get_user_by_orcid(normalized)
         if existing and existing.id != user_id:
             raise ValueError("Этот ORCID уже привязан к другому аккаунту")
         async with async_session_factory() as session:
@@ -219,6 +218,14 @@ class AsyncOrm:
             user = await session.get(models.User, user_id)
             if not user:
                 raise ValueError("User not found")
+            if openalex_id is not None:
+                stmt = select(models.User).where(
+                    models.User.openalex_id == openalex_id,
+                    models.User.id != user_id,
+                )
+                result = await session.execute(stmt)
+                if result.scalars().first() is not None:
+                    raise ValueError("Этот OpenAlex ID уже привязан к другому аккаунту")
             user.openalex_id = openalex_id
             await session.commit()
             await session.refresh(user)

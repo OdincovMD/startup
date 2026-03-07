@@ -10,7 +10,7 @@ from app.roles.representative.schemas import (
     OrganizationQueryUpdate,
 )
 from app.roles.representative.api._helpers import is_lab_representative, require_lab_link_for_lab_rep
-from app.queries.orm import AsyncOrm
+from app.queries.orm import Orm
 from app.services.elasticsearch import index_query, delete_query
 
 router = APIRouter()
@@ -22,11 +22,11 @@ class PublishToggle(BaseModel):
 
 @router.get("/organization/queries", response_model=list[OrganizationQueryRead])
 async def list_org_queries(current_user=Depends(get_current_user)):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        return await AsyncOrm.list_queries_for_org(org.id)
+        return await Orm.list_queries_for_org(org.id)
     if is_lab_representative(current_user):
-        return await AsyncOrm.list_queries_for_creator(current_user.id)
+        return await Orm.list_queries_for_creator(current_user.id)
     return []
 
 
@@ -35,9 +35,9 @@ async def create_org_query(
     payload: OrganizationQueryCreate,
     current_user=Depends(get_current_user),
 ):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        query = await AsyncOrm.create_query_for_org(
+        query = await Orm.create_query_for_org(
             org.id,
             creator_user_id=current_user.id,
             title=payload.title,
@@ -52,11 +52,11 @@ async def create_org_query(
             employee_ids=payload.employee_ids,
         )
         if getattr(query, "is_published", False):
-            await index_query(query)
+            await index_query(query.id)
         return query
     if is_lab_representative(current_user):
         require_lab_link_for_lab_rep(payload.laboratory_ids)
-        query = await AsyncOrm.create_query_for_org(
+        query = await Orm.create_query_for_org(
             None,
             creator_user_id=current_user.id,
             title=payload.title,
@@ -71,7 +71,7 @@ async def create_org_query(
             employee_ids=payload.employee_ids,
         )
         if getattr(query, "is_published", False):
-            await index_query(query)
+            await index_query(query.id)
         return query
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -85,7 +85,7 @@ async def update_org_query(
     payload: OrganizationQueryUpdate,
     current_user=Depends(get_current_user),
 ):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     patch = payload.model_dump(exclude_unset=True)
     laboratory_ids = patch.get("laboratory_ids")
     employee_ids = patch.get("employee_ids")
@@ -94,9 +94,9 @@ async def update_org_query(
     # Проверка: нельзя удалять лабораторию у опубликованного запроса
     query_before = None
     if org:
-        query_before = await AsyncOrm.get_query_for_org(query_id, org.id)
+        query_before = await Orm.get_query_for_org(query_id, org.id)
     elif is_lab_representative(current_user):
-        query_before = await AsyncOrm.get_query_for_creator(query_id, current_user.id)
+        query_before = await Orm.get_query_for_creator(query_id, current_user.id)
     if query_before and getattr(query_before, "is_published", False) and "laboratory_ids" in patch:
         new_labs = laboratory_ids if laboratory_ids is not None else []
         if not new_labs:
@@ -105,7 +105,7 @@ async def update_org_query(
                 detail="Снимите запрос с публикации, затем удалите лабораторию.",
             )
     if org:
-        query = await AsyncOrm.update_query(
+        query = await Orm.update_query(
             query_id,
             org.id,
             title=patch.get("title"),
@@ -120,7 +120,7 @@ async def update_org_query(
             employee_ids=employee_ids,
         )
     elif is_lab_representative(current_user):
-        query = await AsyncOrm.update_query_for_creator(
+        query = await Orm.update_query_for_creator(
             query_id,
             current_user.id,
             title=patch.get("title"),
@@ -139,7 +139,7 @@ async def update_org_query(
     if not query:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Query not found")
     if getattr(query, "is_published", False):
-        await index_query(query)
+        await index_query(query.id)
     else:
         await delete_query(query_id)
     return query
@@ -147,11 +147,11 @@ async def update_org_query(
 
 @router.delete("/organization/queries/{query_id}")
 async def delete_org_query(query_id: int, current_user=Depends(get_current_user)):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     if org:
-        deleted = await AsyncOrm.delete_query(query_id, org.id)
+        deleted = await Orm.delete_query(query_id, org.id)
     elif is_lab_representative(current_user):
-        deleted = await AsyncOrm.delete_query_for_creator(query_id, current_user.id)
+        deleted = await Orm.delete_query_for_creator(query_id, current_user.id)
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization profile not found")
     if not deleted:
@@ -166,12 +166,12 @@ async def set_query_publish_state(
     payload: PublishToggle,
     current_user=Depends(get_current_user),
 ):
-    org = await AsyncOrm.get_organization_for_user(current_user.id)
+    org = await Orm.get_organization_for_user(current_user.id)
     query_before = None
     if org:
-        query_before = await AsyncOrm.get_query_for_org(query_id, org.id)
+        query_before = await Orm.get_query_for_org(query_id, org.id)
     elif is_lab_representative(current_user):
-        query_before = await AsyncOrm.get_query_for_creator(query_id, current_user.id)
+        query_before = await Orm.get_query_for_creator(query_id, current_user.id)
     if not query_before:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Query not found")
     if payload.is_published:
@@ -182,13 +182,13 @@ async def set_query_publish_state(
                 detail="Нельзя опубликовать запрос без лаборатории. Привяжите хотя бы одну лабораторию.",
             )
     if org:
-        query = await AsyncOrm.set_query_published(query_id, org.id, payload.is_published)
+        query = await Orm.set_query_published(query_id, org.id, payload.is_published)
     else:
-        query = await AsyncOrm.set_query_published_for_creator(
+        query = await Orm.set_query_published_for_creator(
             query_id, current_user.id, payload.is_published
         )
     if payload.is_published:
-        await index_query(query)
+        await index_query(query_id)
     else:
         await delete_query(query_id)
     return query

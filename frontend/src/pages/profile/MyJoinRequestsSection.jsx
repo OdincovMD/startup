@@ -224,7 +224,7 @@ export default function MyJoinRequestsSection({ roleKey, onError, creatorLabs = 
   const loadOrgSuggestions = async () => {
     try {
       const list = await apiRequest("/labs/");
-      setOrgSuggestions(list || []);
+      setOrgSuggestions(list?.items ?? (Array.isArray(list) ? list : []));
     } catch {
       setOrgSuggestions([]);
     }
