@@ -59,6 +59,7 @@ class UserRead(ORMModel, UserBase):
     openalex_id: Optional[str] = None
     contacts: Optional[Dict[str, Any]] = None
     has_password: bool = False
+    role_name: Optional[str] = None
 
     @field_validator("has_password", mode="before")
     @classmethod
@@ -73,6 +74,7 @@ class UserRead(ORMModel, UserBase):
 
 def user_to_read(user) -> UserRead:
     """Convert User model to UserRead. Avoids model_validate issues with ORM."""
+    role_name = user.role.name if user.role else None
     return UserRead(
         id=user.id,
         mail=user.mail,
@@ -85,6 +87,7 @@ def user_to_read(user) -> UserRead:
         openalex_id=user.openalex_id,
         contacts=user.contacts,
         has_password=user.has_password,
+        role_name=role_name,
     )
 
 

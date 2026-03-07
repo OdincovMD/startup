@@ -48,12 +48,14 @@ class ResearcherCreate(ResearcherBase):
 class ResearcherRead(ORMModel, ResearcherBase):
     id: int
     organization_id: Optional[int] = None
+    is_published: Optional[bool] = None
     laboratories: Optional[List["OrganizationLaboratoryShort"]] = None
     created_at: datetime
 
 
 class ResearcherUpdate(BaseModel):
     full_name: Optional[str] = None
+    is_published: Optional[bool] = None
     position: Optional[str] = None
     academic_degree: Optional[str] = None
     research_interests: Optional[List[str]] = None

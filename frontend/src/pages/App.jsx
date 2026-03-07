@@ -17,6 +17,7 @@ const Organizations = lazy(() => import("./Organizations"));
 const Laboratories = lazy(() => import("./Laboratories"));
 const Queries = lazy(() => import("./Queries"));
 const Vacancies = lazy(() => import("./Vacancies"));
+const Applicants = lazy(() => import("./Applicants"));
 const Privacy = lazy(() => import("./Privacy"));
 import NotificationsDropdown from "../components/NotificationsDropdown";
 import CookieBanner from "../components/CookieBanner";
@@ -115,6 +116,11 @@ export default function App() {
             <NavLink className={navLinkClass} to="/vacancies" end={false}>
               Вакансии
             </NavLink>
+            {(auth?.user?.role_name === "lab_admin" || auth?.user?.role_name === "lab_representative") && (
+              <NavLink className={navLinkClass} to="/applicants" end={false}>
+                Соискатели
+              </NavLink>
+            )}
             <NavLink className={navLinkClass} to="/" end={true}>
               Главная
             </NavLink>
@@ -189,6 +195,11 @@ export default function App() {
               <NavLink className={navLinkClass} to="/vacancies" end={false} onClick={closeMenu}>
                 Вакансии
               </NavLink>
+              {(auth?.user?.role_name === "lab_admin" || auth?.user?.role_name === "lab_representative") && (
+                <NavLink className={navLinkClass} to="/applicants" end={false} onClick={closeMenu}>
+                  Соискатели
+                </NavLink>
+              )}
               {auth ? (
                 <div className="nav-drawer__user">
                   <NavLink className={navLinkClass} to="/profile" onClick={closeMenu}>
@@ -236,6 +247,8 @@ export default function App() {
             <Route path="/queries/:publicId" element={<Queries />} />
             <Route path="/vacancies" element={<Vacancies />} />
             <Route path="/vacancies/:publicId" element={<Vacancies />} />
+            <Route path="/applicants" element={<Applicants />} />
+            <Route path="/applicants/:publicId" element={<Applicants />} />
             <Route path="/privacy" element={<Privacy />} />
           </Routes>
         </Suspense>

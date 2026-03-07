@@ -39,6 +39,7 @@ class User(BaseModel):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
+    public_id = Column(String(32), unique=True, nullable=True, index=True)
     mail = Column("email", String(255), unique=True, nullable=False, index=True)
     hash_parameter = Column("hashed_password", String(255), nullable=True)
     orcid = Column(String(19), unique=True, nullable=True, index=True)

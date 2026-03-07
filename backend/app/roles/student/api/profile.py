@@ -37,6 +37,7 @@ async def upsert_student_profile(
         document_urls=patch.get("document_urls"),
         education=patch.get("education"),
         research_interests=patch.get("research_interests"),
+        is_published=patch.get("is_published"),
     )
     logger.info("Student profile upserted: user_id=%s student_id=%s", current_user.id, student.id)
     return student

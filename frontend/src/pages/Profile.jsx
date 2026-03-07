@@ -24,7 +24,7 @@ const EMPTY_ORG_PROFILE = {
 };
 
 export default function Profile() {
-  const { auth, logout } = useAuth();
+  const { auth, logout, refreshUser } = useAuth();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [profile, setProfile] = useState(null);
@@ -438,6 +438,7 @@ export default function Profile() {
         body: JSON.stringify({ role_id: Number(selectedRoleId) }),
       });
       setProfile(updated);
+      await refreshUser();
       const updatedRole = roles.find((item) => Number(item.id) === Number(updated.role_id));
       const isOrg = updatedRole?.name === "lab_admin" || updatedRole?.name === "lab_representative";
       const isResearcher = updatedRole?.name === "researcher";
@@ -1864,11 +1865,11 @@ export default function Profile() {
     }
   };
 
-  const saveStudent = async () => {
+  const saveStudent = async (patch = {}) => {
     setSaving(true);
     setError(null);
     try {
-      const s = studentProfile || {};
+      const s = { ...(studentProfile || {}), ...patch };
       const payload = {
         full_name: profile?.full_name || s.full_name?.trim() || "Студент",
         university: s.university?.trim() || "",
@@ -1883,6 +1884,7 @@ export default function Profile() {
         education: s.education || [],
         research_interests: s.research_interests || [],
         contacts: s.contacts || {},
+        is_published: s.is_published ?? false,
       };
       const data = await apiRequest("/profile/student", {
         method: "PUT",
@@ -1968,11 +1970,11 @@ export default function Profile() {
     }));
   };
 
-  const saveResearcher = async () => {
+  const saveResearcher = async (patch = {}) => {
     setSaving(true);
     setError(null);
     try {
-      const r = researcherProfile || {};
+      const r = { ...(researcherProfile || {}), ...patch };
       const payload = {
         full_name: r.full_name?.trim() || profile?.full_name || "Исследователь",
         positions: r.positions || [],
@@ -1994,6 +1996,7 @@ export default function Profile() {
         job_search_notes: r.job_search_notes?.trim() || null,
         resume_url: r.resume_url || null,
         document_urls: r.document_urls || [],
+        is_published: r.is_published ?? false,
       };
       const data = await apiRequest("/profile/researcher", {
         method: "PUT",
@@ -2007,6 +2010,18 @@ export default function Profile() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const toggleStudentPublish = async () => {
+    const next = !(studentProfile?.is_published ?? false);
+    setStudentProfile((prev) => ({ ...(prev || {}), is_published: next }));
+    await saveStudent({ is_published: next });
+  };
+
+  const toggleResearcherPublish = async () => {
+    const next = !(researcherProfile?.is_published ?? false);
+    setResearcherProfile((prev) => ({ ...(prev || {}), is_published: next }));
+    await saveResearcher({ is_published: next });
   };
 
   const uploadResearcherPhoto = async (file) => {
@@ -2310,18 +2325,19 @@ export default function Profile() {
                 title="Профиль студента"
                 hideTitle
                 studentProfile={studentProfile}
-              handleStudentChange={handleStudentChange}
-              saveStudent={saveStudent}
-              uploadStudentPhoto={uploadStudentPhoto}
-              uploadStudentResume={uploadStudentResume}
-              uploadStudentDocument={uploadStudentDocument}
-              removeStudentDocument={removeStudentDocument}
-              saving={saving}
-              uploading={uploading}
-              onFileInputRefsReady={(refs) => {
-                studentFileInputRefs.current = refs || [];
-              }}
-            />
+                handleStudentChange={handleStudentChange}
+                saveStudent={saveStudent}
+                togglePublish={toggleStudentPublish}
+                uploadStudentPhoto={uploadStudentPhoto}
+                uploadStudentResume={uploadStudentResume}
+                uploadStudentDocument={uploadStudentDocument}
+                removeStudentDocument={removeStudentDocument}
+                saving={saving}
+                uploading={uploading}
+                onFileInputRefsReady={(refs) => {
+                  studentFileInputRefs.current = refs || [];
+                }}
+              />
             )}
             {profileSection === "my-requests" && profile && (roleKey === "researcher" || roleKey === "lab_representative") && (
               <MyJoinRequestsSection
@@ -2335,20 +2351,21 @@ export default function Profile() {
             )}
             {profileSection === "researcher" && profile && roleKey === "researcher" && (
               <ResearcherProfileSection
-              hideTitle
-              researcherProfile={researcherProfile}
-              handleResearcherChange={handleResearcherChange}
-              saveResearcher={saveResearcher}
-              uploadResearcherPhoto={uploadResearcherPhoto}
-              uploadResearcherResume={uploadResearcherResume}
-              uploadResearcherDocument={uploadResearcherDocument}
-              removeResearcherDocument={removeResearcherDocument}
-              saving={saving}
-              uploading={uploading}
-              onFileInputRefsReady={(refs) => {
-                researcherFileInputRefs.current = refs || [];
-              }}
-            />
+                hideTitle
+                researcherProfile={researcherProfile}
+                handleResearcherChange={handleResearcherChange}
+                saveResearcher={saveResearcher}
+                togglePublish={toggleResearcherPublish}
+                uploadResearcherPhoto={uploadResearcherPhoto}
+                uploadResearcherResume={uploadResearcherResume}
+                uploadResearcherDocument={uploadResearcherDocument}
+                removeResearcherDocument={removeResearcherDocument}
+                saving={saving}
+                uploading={uploading}
+                onFileInputRefsReady={(refs) => {
+                  researcherFileInputRefs.current = refs || [];
+                }}
+              />
             )}
           </div>
         </div>

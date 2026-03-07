@@ -90,7 +90,9 @@ export async function apiRequest(path, options = {}) {
       .replace("Laboratory not published", "Лаборатория не опубликована")
       .replace("Organization not published", "Организация не опубликована")
       .replace("Body has already been consumed", "Организация с таким ROR ID уже добавлена на платформу.");
-    throw new Error(normalized);
+    const err = new Error(normalized);
+    err.status = response.status;
+    throw err;
   }
   if (response.status === 204) return null;
   return response.json();

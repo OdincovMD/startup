@@ -7,6 +7,21 @@ def is_lab_representative(user) -> bool:
     return user.role is not None and user.role.name == "lab_representative"
 
 
+def is_lab_admin(user) -> bool:
+    return user.role is not None and user.role.name == "lab_admin"
+
+
+def require_lab_admin_or_representative(user) -> None:
+    """403 если роль не lab_admin и не lab_representative."""
+    if not user or not user.role:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ запрещён")
+    if user.role.name not in ("lab_admin", "lab_representative"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Доступно только для представителей организации и лаборатории",
+        )
+
+
 _MSG_LAB_LINK_REQUIRED = (
     "Сущность должна быть привязана к лаборатории или организации. "
     "Укажите хотя бы одну лабораторию."

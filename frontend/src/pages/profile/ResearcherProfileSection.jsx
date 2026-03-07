@@ -84,6 +84,7 @@ export default function ResearcherProfileSection({
   researcherProfile,
   handleResearcherChange,
   saveResearcher,
+  togglePublish,
   uploadResearcherResume,
   uploadResearcherDocument,
   removeResearcherDocument,
@@ -114,7 +115,16 @@ export default function ResearcherProfileSection({
 
       <div className="profile-form profile-form--grouped">
         <div className="profile-form-group">
-          <div className="profile-form-group-title">Научная деятельность</div>
+          <div className="profile-form-group-title">
+            Научная деятельность
+            <span
+              className={`org-detail-chip org-detail-chip--status ${p.is_published ? "org-detail-chip--published" : "org-detail-chip--draft"}`}
+              style={{ marginLeft: "0.5rem" }}
+              title={p.is_published ? "Профиль виден в разделе «Соискатели»" : "Черновик — видно только вам"}
+            >
+              {p.is_published ? "Опубликовано" : "Черновик"}
+            </span>
+          </div>
           <label>
             Учёная степень / звание
             <input
@@ -456,9 +466,20 @@ export default function ResearcherProfileSection({
           ))}
         </div>
 
-        <button className="primary-btn" onClick={handleSave} disabled={saving}>
-          {saving ? "Сохраняем..." : "Сохранить"}
-        </button>
+        <div className="profile-actions-wrap">
+          <button className="primary-btn" onClick={handleSave} disabled={saving}>
+            {saving ? "Сохраняем..." : "Сохранить"}
+          </button>
+          {togglePublish && (
+            <button
+              className={p.is_published ? "ghost-btn secondary" : "ghost-btn"}
+              onClick={() => togglePublish()}
+              disabled={saving}
+            >
+              {p.is_published ? "Снять с публикации" : "Опубликовать"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

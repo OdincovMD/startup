@@ -56,6 +56,7 @@ async def upsert_researcher_profile(
         job_search_notes=patch.get("job_search_notes"),
         resume_url=patch.get("resume_url"),
         document_urls=patch.get("document_urls"),
+        is_published=patch.get("is_published"),
     )
     logger.info("Researcher profile upserted: user_id=%s researcher_id=%s", current_user.id, researcher.id)
     return researcher

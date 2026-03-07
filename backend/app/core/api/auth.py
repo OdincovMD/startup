@@ -101,12 +101,12 @@ async def login(request: Request, payload: LoginRequest):
 @router.post("/verify-email", response_model=UserRead)
 @limiter.limit("10/minute")
 async def verify_email(request: Request, payload: EmailVerificationRequest):
-    user = await Orm.verify_email_by_token(payload.token)
-    if not user:
+    user_read = await Orm.verify_email_by_token(payload.token)
+    if not user_read:
         logger.warning("Email verification failed: invalid token")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")
-    logger.info("Email verified: user_id=%s", user.id)
-    return user_to_read(user)
+    logger.info("Email verified: user_id=%s", user_read.id)
+    return user_read
 
 
 @router.post("/resend-verification")

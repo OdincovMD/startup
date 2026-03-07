@@ -2,7 +2,7 @@
 SQLAlchemy ORM-модели для роли студента.
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, JSON, Index, func
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Text, JSON, Index, func
 from sqlalchemy.orm import relationship
 
 from app.database import BaseModel
@@ -21,6 +21,7 @@ class Student(BaseModel):
     document_urls = Column(JSON, nullable=True)
     education = Column(JSON, nullable=True)
     research_interests = Column(JSON, nullable=True)
+    is_published = Column(Boolean, nullable=False, server_default="false")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="student_profile")

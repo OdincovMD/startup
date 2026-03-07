@@ -24,6 +24,7 @@ from app.api import profile, storage, analytics, search
 from app.core.api import auth, users, roles
 from app.jobs.openalex_sync import sync_openalex_data
 from app.roles.representative.api import (
+    applicants_public,
     laboratories_public,
     queries_public,
     labs,
@@ -75,6 +76,7 @@ app.include_router(search.router, prefix="/api")
 app.include_router(laboratories_public.router, prefix="/api")
 app.include_router(queries_public.router, prefix="/api")
 app.include_router(vacancies_public.router, prefix="/api")
+app.include_router(applicants_public.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")

@@ -1,5 +1,12 @@
 import React, { useRef, useState } from "react";
 
+const STUDENT_STATUS_OPTIONS = [
+  { value: "", label: "Не указано" },
+  { value: "Практика", label: "Практика" },
+  { value: "Трудоустройство", label: "Трудоустройство" },
+  { value: "Стажировка", label: "Стажировка" },
+];
+
 const fileNameFromUrl = (url) => {
   try {
     const withoutQuery = url.split("?")[0];
@@ -77,6 +84,7 @@ export default function StudentProfileSection({
   studentProfile,
   handleStudentChange,
   saveStudent,
+  togglePublish,
   uploadStudentResume,
   uploadStudentDocument,
   removeStudentDocument,
@@ -106,15 +114,31 @@ export default function StudentProfileSection({
 
       <div className="profile-form profile-form--grouped">
         <div className="profile-form-group">
-          <div className="profile-form-group-title">Основная информация</div>
-          <label>
-            Статус
-            <input
-              value={p.status || ""}
-              onChange={(e) => handleStudentChange("status", e.target.value)}
-              placeholder="Ищу практику/стажировку/вариант трудоустройства..."
-            />
-          </label>
+          <div className="profile-form-group-title">
+            Основная информация
+            <span
+              className={`org-detail-chip org-detail-chip--status ${p.is_published ? "org-detail-chip--published" : "org-detail-chip--draft"}`}
+              style={{ marginLeft: "0.5rem" }}
+              title={p.is_published ? "Профиль виден в разделе «Соискатели»" : "Черновик — видно только вам"}
+            >
+              {p.is_published ? "Опубликовано" : "Черновик"}
+            </span>
+          </div>
+          <div className="profile-form-group-title">Статус</div>
+          <div className="job-search-status-selector">
+            {STUDENT_STATUS_OPTIONS.map((opt) => (
+              <label key={opt.value || "empty"} className="job-search-option">
+                <input
+                  type="radio"
+                  name="student_status"
+                  value={opt.value}
+                  checked={(p.status || "") === opt.value}
+                  onChange={(e) => handleStudentChange("status", e.target.value || null)}
+                />
+                <span className="job-search-option-label">{opt.label}</span>
+              </label>
+            ))}
+          </div>
           <label>
             Описание
             <textarea
@@ -271,9 +295,20 @@ export default function StudentProfileSection({
           ))}
         </div>
 
-        <button className="primary-btn" onClick={handleSave} disabled={saving}>
-          {saving ? "Сохраняем..." : "Сохранить"}
-        </button>
+        <div className="profile-actions-wrap">
+          <button className="primary-btn" onClick={handleSave} disabled={saving}>
+            {saving ? "Сохраняем..." : "Сохранить"}
+          </button>
+          {togglePublish && (
+            <button
+              className={p.is_published ? "ghost-btn secondary" : "ghost-btn"}
+              onClick={() => togglePublish()}
+              disabled={saving}
+            >
+              {p.is_published ? "Снять с публикации" : "Опубликовать"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

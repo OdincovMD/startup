@@ -28,12 +28,14 @@ class StudentCreate(StudentBase):
 
 class StudentRead(ORMModel, StudentBase):
     id: int
+    is_published: Optional[bool] = None
     created_at: datetime
 
 
 class StudentUpdate(BaseModel):
     full_name: Optional[str] = None
     status: Optional[str] = None
+    is_published: Optional[bool] = None
     skills: Optional[List[str]] = None
     summary: Optional[str] = None
     resume_url: Optional[str] = None

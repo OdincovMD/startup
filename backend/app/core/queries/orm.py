@@ -4,9 +4,9 @@ Orm — асинхронный слой для ядра: User, Role, Notificatio
 
 import secrets
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, or_, and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
@@ -14,6 +14,7 @@ from app import models
 from app.database import async_session_factory
 from app.config import settings
 from app.core.queries.password_utils import hash_password, verify_password
+from app.core.schemas import user_to_read
 
 
 class Orm:
@@ -72,7 +73,12 @@ class Orm:
                 await session.rollback()
                 raise ValueError("User with this mail already exists")
             await session.refresh(user)
-            return user
+            stmt = (
+                select(models.User)
+                .options(selectinload(models.User.role))
+                .where(models.User.id == user.id)
+            )
+            return (await session.execute(stmt)).scalars().first()
 
     @staticmethod
     async def get_user(user_id: int) -> Optional[models.User]:
@@ -88,7 +94,11 @@ class Orm:
     @staticmethod
     async def get_user_by_mail(mail: str) -> Optional[models.User]:
         async with async_session_factory() as session:
-            stmt = select(models.User).where(models.User.mail == mail)
+            stmt = (
+                select(models.User)
+                .options(selectinload(models.User.role))
+                .where(models.User.mail == mail)
+            )
             result = await session.execute(stmt)
             return result.scalars().first()
 
@@ -103,6 +113,166 @@ class Orm:
             )
             result = await session.execute(stmt)
             return result.scalars().first()
+
+    @staticmethod
+    async def get_user_by_public_id(public_id: str) -> Optional[models.User]:
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.User)
+                .options(
+                    selectinload(models.User.role),
+                    selectinload(models.User.student_profile),
+                    selectinload(models.User.researcher_profile).selectinload(
+                        models.Researcher.laboratories
+                    ),
+                )
+                .where(models.User.public_id == public_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def list_published_applicants(
+        page: int = 1,
+        page_size: int = 20,
+        role_filter: Optional[str] = None,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """Список опубликованных соискателей. Возвращает список dict (данные внутри сессии)."""
+        async with async_session_factory() as session:
+            role_filter_cond = or_(
+                and_(
+                    models.Role.name == "student",
+                    models.Student.is_published == True,
+                ),
+                and_(
+                    models.Role.name == "researcher",
+                    models.Researcher.is_published == True,
+                ),
+            )
+            if role_filter == "student":
+                role_filter_cond = and_(
+                    models.Role.name == "student",
+                    models.Student.is_published == True,
+                )
+            elif role_filter == "researcher":
+                role_filter_cond = and_(
+                    models.Role.name == "researcher",
+                    models.Researcher.is_published == True,
+                )
+            base_stmt = (
+                select(models.User.id)
+                .join(models.Role, models.User.role_id == models.Role.id)
+                .outerjoin(models.Student, models.User.id == models.Student.user_id)
+                .outerjoin(models.Researcher, models.User.id == models.Researcher.user_id)
+                .where(models.User.public_id.isnot(None), role_filter_cond)
+            )
+            count_stmt = select(func.count()).select_from(base_stmt.subquery())
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.User)
+                .options(
+                    selectinload(models.User.role),
+                    selectinload(models.User.student_profile),
+                    selectinload(models.User.researcher_profile),
+                )
+                .join(models.Role, models.User.role_id == models.Role.id)
+                .outerjoin(models.Student, models.User.id == models.Student.user_id)
+                .outerjoin(models.Researcher, models.User.id == models.Researcher.user_id)
+                .where(models.User.public_id.isnot(None), role_filter_cond)
+                .order_by(models.User.id.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+            result = await session.execute(stmt)
+            users = list(result.unique().scalars().all())
+            items = []
+            for u in users:
+                role_name = u.role.name if u.role else ""
+                profile = u.student_profile if role_name == "student" else u.researcher_profile
+                full_name = (profile.full_name if profile else None) or u.full_name or ""
+                summary = None
+                if profile:
+                    summary = getattr(profile, "summary", None)
+                    if not summary and role_name == "researcher":
+                        summary = (getattr(profile, "job_search_notes", None) or "")[:200] or None
+                items.append({
+                    "public_id": u.public_id,
+                    "full_name": full_name,
+                    "photo_url": u.photo_url,
+                    "role": role_name,
+                    "summary": summary,
+                })
+            return items, int(total)
+
+    @staticmethod
+    async def get_applicant_detail_by_public_id(public_id: str) -> Optional[Dict[str, Any]]:
+        """Загружает соискателя и возвращает dict для ApplicantDetail (внутри сессии)."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.User)
+                .options(
+                    selectinload(models.User.role),
+                    selectinload(models.User.student_profile),
+                    selectinload(models.User.researcher_profile).selectinload(
+                        models.Researcher.laboratories
+                    ),
+                )
+                .where(models.User.public_id == public_id)
+            )
+            result = await session.execute(stmt)
+            user = result.scalars().first()
+            if not user:
+                return None
+            role_name = user.role.name if user.role else ""
+            if role_name not in ("student", "researcher"):
+                return None
+            profile = user.student_profile if role_name == "student" else user.researcher_profile
+            if not profile or not getattr(profile, "is_published", False):
+                return None
+            contacts = user.contacts if isinstance(user.contacts, dict) else {}
+            mail = user.mail or contacts.get("email") or contacts.get("mail")
+            full_name = (profile.full_name if profile else None) or user.full_name or ""
+            out = {
+                "public_id": user.public_id,
+                "full_name": full_name,
+                "photo_url": user.photo_url,
+                "role": role_name,
+                "mail": mail,
+                "contacts": contacts,
+            }
+            if role_name == "student":
+                out["status"] = getattr(profile, "status", None)
+                out["summary"] = getattr(profile, "summary", None)
+                out["education"] = profile.education or []
+                out["skills"] = profile.skills or []
+                out["research_interests"] = profile.research_interests or []
+                out["resume_url"] = getattr(profile, "resume_url", None)
+                out["document_urls"] = profile.document_urls or []
+            else:
+                out["position"] = getattr(profile, "position", None)
+                out["academic_degree"] = getattr(profile, "academic_degree", None)
+                out["research_interests"] = profile.research_interests or []
+                out["education"] = profile.education or []
+                out["publications"] = getattr(profile, "publications", None)
+                out["hindex_wos"] = getattr(profile, "hindex_wos", None)
+                out["hindex_scopus"] = getattr(profile, "hindex_scopus", None)
+                out["hindex_rsci"] = getattr(profile, "hindex_rsci", None)
+                out["hindex_openalex"] = getattr(profile, "hindex_openalex", None)
+                out["resume_url"] = getattr(profile, "resume_url", None)
+                out["document_urls"] = profile.document_urls or []
+                out["job_search_status"] = getattr(profile, "job_search_status", None)
+                out["desired_positions"] = getattr(profile, "desired_positions", None)
+                out["employment_type_preference"] = getattr(profile, "employment_type_preference", None)
+                out["preferred_region"] = getattr(profile, "preferred_region", None)
+                out["availability_date"] = getattr(profile, "availability_date", None)
+                out["salary_expectation"] = getattr(profile, "salary_expectation", None)
+                out["job_search_notes"] = getattr(profile, "job_search_notes", None)
+                if profile.laboratories:
+                    out["laboratories"] = [
+                        {"public_id": lab.public_id, "name": lab.name or ""}
+                        for lab in profile.laboratories
+                    ]
+            return out
 
     @staticmethod
     async def create_user_orcid(
@@ -128,7 +298,12 @@ class Orm:
                 await session.rollback()
                 raise ValueError("User with this mail or ORCID already exists")
             await session.refresh(user)
-            return user
+            stmt = (
+                select(models.User)
+                .options(selectinload(models.User.role))
+                .where(models.User.id == user.id)
+            )
+            return (await session.execute(stmt)).scalars().first()
 
     @staticmethod
     async def update_user_role(user_id: int, role_id: int) -> models.User:
@@ -170,7 +345,12 @@ class Orm:
             user.role_id = role_id
             await session.commit()
             await session.refresh(user)
-            return user
+            stmt = (
+                select(models.User)
+                .options(selectinload(models.User.role))
+                .where(models.User.id == user.id)
+            )
+            return (await session.execute(stmt)).scalars().first()
 
     @staticmethod
     async def link_orcid_to_user(user_id: int, orcid: str) -> models.User:
@@ -261,7 +441,12 @@ class Orm:
                 user.contacts = contacts
             await session.commit()
             await session.refresh(user)
-            return user
+            stmt = (
+                select(models.User)
+                .options(selectinload(models.User.role))
+                .where(models.User.id == user.id)
+            )
+            return (await session.execute(stmt)).scalars().first()
 
     @staticmethod
     async def update_user_avatar(user_id: int, photo_url: Optional[str]) -> models.User:
@@ -272,7 +457,12 @@ class Orm:
             user.photo_url = photo_url
             await session.commit()
             await session.refresh(user)
-            return user
+            stmt = (
+                select(models.User)
+                .options(selectinload(models.User.role))
+                .where(models.User.id == user.id)
+            )
+            return (await session.execute(stmt)).scalars().first()
 
     # =============================
     #   EMAIL VERIFICATION
@@ -302,7 +492,8 @@ class Orm:
             return token
 
     @staticmethod
-    async def verify_email_by_token(token: str) -> Optional[models.User]:
+    async def verify_email_by_token(token: str):
+        """Возвращает UserRead при успехе, None при неверном/истёкшем токене."""
         async with async_session_factory() as session:
             stmt = select(models.EmailVerificationToken).where(
                 models.EmailVerificationToken.token == token
@@ -325,7 +516,13 @@ class Orm:
             session.delete(rec)
             await session.commit()
             await session.refresh(user)
-            return user
+            stmt_user = (
+                select(models.User)
+                .options(selectinload(models.User.role))
+                .where(models.User.id == user.id)
+            )
+            user_with_role = (await session.execute(stmt_user)).scalars().first()
+            return user_to_read(user_with_role) if user_with_role else None
 
     # =============================
     #   PASSWORD RESET TOKENS
@@ -381,7 +578,12 @@ class Orm:
             session.delete(rec)
             await session.commit()
             await session.refresh(user)
-            return user
+            stmt = (
+                select(models.User)
+                .options(selectinload(models.User.role))
+                .where(models.User.id == user.id)
+            )
+            return (await session.execute(stmt)).scalars().first()
 
     # =============================
     #       ANALYTICS EVENTS
