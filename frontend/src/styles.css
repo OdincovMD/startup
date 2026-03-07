@@ -4971,6 +4971,15 @@ a.request-card__title:hover {
   margin-bottom: 0.2rem;
 }
 
+.profile-list-title-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.profile-list-title-link:hover {
+  text-decoration: underline;
+}
+
 .profile-list-text {
   color: var(--text-secondary);
   font-size: 0.9rem;

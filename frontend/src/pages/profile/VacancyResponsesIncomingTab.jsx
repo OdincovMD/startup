@@ -3,6 +3,7 @@
  * Краткая статистика по вакансиям (просмотры, отклики). Полный дашборд — на вкладке «Дашборд».
  */
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { apiRequest } from "../../api/client";
 import { useToast } from "../../ToastContext";
 
@@ -114,7 +115,13 @@ export default function VacancyResponsesIncomingTab({ onError }) {
           <div key={item.id} className="profile-list-card">
             <div className="profile-list-content">
               <div className="profile-list-title">
-                {item.applicant_name || "Соискатель"}
+                {item.applicant_public_id ? (
+                  <Link to={`/applicants/${item.applicant_public_id}`} className="profile-list-title-link">
+                    {item.applicant_name || "Соискатель"}
+                  </Link>
+                ) : (
+                  (item.applicant_name || "Соискатель")
+                )}
                 <span className={`org-detail-chip org-detail-chip--status org-detail-chip--${item.status}`}>
                   {STATUS_CHIP[item.status] ?? item.status}
                 </span>

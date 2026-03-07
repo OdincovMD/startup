@@ -11,6 +11,7 @@ from app.api.deps import get_current_user
 logger = logging.getLogger(__name__)
 from app.roles.researcher.schemas import ResearcherRead, ResearcherUpdate
 from app.queries.orm import Orm
+from app.services.elasticsearch import index_applicant, delete_applicant
 
 router = APIRouter()
 
@@ -59,4 +60,11 @@ async def upsert_researcher_profile(
         is_published=patch.get("is_published"),
     )
     logger.info("Researcher profile upserted: user_id=%s researcher_id=%s", current_user.id, researcher.id)
+    try:
+        if getattr(researcher, "is_published", False):
+            await index_applicant(current_user.id)
+        else:
+            await delete_applicant(current_user.id)
+    except Exception as e:
+        logger.warning("Elasticsearch index/delete applicant failed: %s", e)
     return researcher

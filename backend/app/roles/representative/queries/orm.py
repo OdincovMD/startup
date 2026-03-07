@@ -3681,6 +3681,7 @@ class Orm:
                     "vacancy_public_id": getattr(r.vacancy, "public_id", None) if r.vacancy else None,
                     "applicant_name": applicant_name,
                     "applicant_preview": applicant_preview or None,
+                    "applicant_public_id": getattr(r.user, "public_id", None) if r.user else None,
                 })
             return out
 

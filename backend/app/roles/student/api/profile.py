@@ -11,6 +11,7 @@ from app.api.deps import get_current_user
 logger = logging.getLogger(__name__)
 from app.roles.student.schemas import StudentRead, StudentUpdate
 from app.queries.orm import Orm
+from app.services.elasticsearch import index_applicant, delete_applicant
 
 router = APIRouter()
 
@@ -40,4 +41,11 @@ async def upsert_student_profile(
         is_published=patch.get("is_published"),
     )
     logger.info("Student profile upserted: user_id=%s student_id=%s", current_user.id, student.id)
+    try:
+        if getattr(student, "is_published", False):
+            await index_applicant(current_user.id)
+        else:
+            await delete_applicant(current_user.id)
+    except Exception as e:
+        logger.warning("Elasticsearch index/delete applicant failed: %s", e)
     return student

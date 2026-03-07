@@ -42,6 +42,13 @@ from .vacancies import (
     search_vacancies,
     suggest_vacancies,
 )
+from .applicants import (
+    delete_applicant,
+    index_applicant,
+    reindex_applicants_if_empty,
+    search_applicants,
+    suggest_applicants,
+)
 from .global_search import suggest_global
 
 __all__ = [
@@ -52,6 +59,12 @@ __all__ = [
     "index_vacancy",
     "delete_vacancy",
     "reindex_vacancies_if_empty",
+    # Applicants
+    "search_applicants",
+    "suggest_applicants",
+    "index_applicant",
+    "delete_applicant",
+    "reindex_applicants_if_empty",
     # Queries
     "search_queries",
     "suggest_queries",

@@ -104,6 +104,40 @@ QUERIES_INDEX_MAPPING = {
     }
 }
 
+APPLICANTS_INDEX_MAPPING = {
+    "settings": {"number_of_replicas": 0},
+    "mappings": {
+        "properties": {
+            "id": {"type": "integer"},
+            "public_id": {"type": "keyword"},
+            "user_id": {"type": "integer"},
+            "role": {"type": "keyword"},
+            "full_name": {"type": "text", "analyzer": "standard"},
+            "status": {"type": "text", "analyzer": "standard", "fields": {"keyword": {"type": "keyword"}}},
+            "education_text": {"type": "text", "analyzer": "standard"},
+            "skills_text": {"type": "text", "analyzer": "standard"},
+            "research_interests_text": {"type": "text", "analyzer": "standard"},
+            "summary": {"type": "text", "analyzer": "standard"},
+            "position": {"type": "text", "analyzer": "standard"},
+            "job_search_status": {"type": "keyword"},
+            "employment_type_preference": {"type": "text", "analyzer": "standard"},
+            "photo_url": {"type": "keyword", "index": False},
+            "created_at": {"type": "date"},
+            "full_name_suggest": {
+                "type": "completion",
+                "analyzer": "simple",
+                "preserve_separators": True,
+                "max_input_length": 50,
+            },
+            "skills_suggest": {"type": "completion", "analyzer": "simple", "max_input_length": 50},
+            "research_interests_suggest": {"type": "completion", "analyzer": "simple", "max_input_length": 50},
+            "position_suggest": {"type": "completion", "analyzer": "simple", "max_input_length": 50},
+            "status_suggest": {"type": "completion", "analyzer": "simple", "max_input_length": 30},
+            "public_id_suggest": {"type": "completion", "analyzer": "simple", "max_input_length": 50},
+        }
+    }
+}
+
 ORGANIZATIONS_INDEX_MAPPING = {
     "settings": {"number_of_replicas": 0},
     "mappings": {

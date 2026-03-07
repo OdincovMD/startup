@@ -299,17 +299,19 @@ async def respond_to_vacancy(public_id: str, current_user=Depends(get_current_us
         )
         profile_url = ""
         profile_block = ""
-        if settings.PROFILE_PUBLIC_URL_TEMPLATE:
-            profile_url = settings.PROFILE_PUBLIC_URL_TEMPLATE.format(user_id=current_user.id)
+        profile_block_txt = ""
+        applicant_public_id = getattr(current_user, "public_id", None)
+        if applicant_public_id:
+            profile_url = f"{settings.FRONTEND_URL.rstrip('/')}/applicants/{applicant_public_id}"
             profile_block = (
                 '<p style="margin: 0 0 20px; padding: 16px 20px; background-color: #f0fdf4; border-radius: 8px; '
                 'border-left: 4px solid #22c55e; font-size: 0.875rem; color: #166534;">'
                 f'<strong>Профиль кандидата:</strong> '
                 f'<a href="{profile_url}" target="_blank" rel="noopener" style="color: #2563eb; font-weight: 600;">открыть ссылку</a></p>'
             )
-        profile_block_txt = (
-            f"Профиль кандидата: {profile_url}" if profile_url else ""
-        )
+            profile_block_txt = f"Профиль кандидата: {profile_url}"
+        else:
+            profile_block_txt = ""
         resume_url = _get_resume_url(student, researcher, role_name=role_name)
         if resume_url:
             resume_block = (

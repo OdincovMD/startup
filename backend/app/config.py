@@ -61,17 +61,13 @@ class Settings(BaseSettings):
     MAIL_FROM: str = ""
     MAIL_FROM_NAME: str = "Синтезум"
 
-    # Шаблон URL профиля кандидата для писем об отклике. {user_id} — плейсхолдер.
-    # Пример: https://pi-hardbox.ru/profile/{user_id}
-    # Пусто — ссылка в письме не добавляется (до внедрения платной подписки).
-    PROFILE_PUBLIC_URL_TEMPLATE: Optional[str] = None
-
     ELASTICSEARCH_URL: str = "http://localhost:9200"
     ELASTICSEARCH_REQUEST_TIMEOUT: int = 60  # индекс может инициализироваться до 1 мин
     VACANCIES_INDEX: str = "vacancies"
     QUERIES_INDEX: str = "queries"
     LABORATORIES_INDEX: str = "laboratories"
     ORGANIZATIONS_INDEX: str = "organizations"
+    APPLICANTS_INDEX: str = "applicants"
 
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "plain"  # plain | json

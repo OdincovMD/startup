@@ -1,11 +1,27 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import PageLoader from "../components/PageLoader";
 
 const APPLICANTS_PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 350;
+const SUGGEST_DEBOUNCE_MS = 180;
 const ROLE_LABELS = { student: "Студент", researcher: "Исследователь" };
+const ROLE_OPTIONS = [
+  { value: "", label: "Все" },
+  { value: "student", label: "Студент" },
+  { value: "researcher", label: "Исследователь" },
+];
+const STATUS_OPTIONS = [
+  { value: "", label: "Любой статус" },
+  { value: "Практика", label: "Практика" },
+  { value: "Трудоустройство", label: "Трудоустройство" },
+  { value: "Стажировка", label: "Стажировка" },
+  { value: "active", label: "Активно ищу работу" },
+  { value: "passive", label: "Рассматриваю предложения" },
+  { value: "not_active", label: "Не ищу работу" },
+];
 const JOB_SEARCH_LABELS = {
   active: "Активно ищу работу",
   passive: "Рассматриваю предложения",
@@ -441,6 +457,19 @@ export default function Applicants() {
   const [loading, setLoading] = useState(true);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchDebounced, setSearchDebounced] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [sortBy, setSortBy] = useState("date_desc");
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsVisible, setSuggestionsVisible] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [suggestionApplied, setSuggestionApplied] = useState(false);
+  const searchInputRef = useRef(null);
+  const searchWrapRef = useRef(null);
 
   const roleKey = auth?.user?.role_name;
   const canAccess =
@@ -462,6 +491,99 @@ export default function Applicants() {
   }, [auth, canAccess, navigate, refreshUser]);
 
   useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(searchQuery.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      setSuggestionsLoading(false);
+      setSuggestionsVisible(false);
+      return;
+    }
+    setSuggestionsVisible(true);
+    setSuggestionsLoading(true);
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const data = await apiRequest(`/applicants/suggest?q=${encodeURIComponent(q)}&limit=8`);
+        if (!cancelled) {
+          setSuggestions(data?.suggestions || []);
+          setHighlightedIndex(-1);
+        }
+      } catch {
+        if (!cancelled) setSuggestions([]);
+      } finally {
+        if (!cancelled) setSuggestionsLoading(false);
+      }
+    }, SUGGEST_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [searchQuery]);
+
+  const hideSuggestions = useCallback(() => {
+    setSuggestionsVisible(false);
+    setHighlightedIndex(-1);
+  }, []);
+
+  const applySuggestion = useCallback((item) => {
+    const textToSearch = item?.text || item?.full_name || "";
+    const isNameMatch = item?.public_id && item?.text === item?.full_name;
+    if (isNameMatch) {
+      navigate(`/applicants/${item.public_id}`);
+      hideSuggestions();
+    } else {
+      setSearchQuery(textToSearch);
+      setSuggestionApplied(true);
+      hideSuggestions();
+      searchInputRef.current?.focus();
+    }
+  }, [hideSuggestions, navigate]);
+
+  useEffect(() => {
+    if (!suggestionApplied) return;
+    const t = setTimeout(() => setSuggestionApplied(false), 450);
+    return () => clearTimeout(t);
+  }, [suggestionApplied]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        searchWrapRef.current &&
+        !searchWrapRef.current.contains(e.target) &&
+        !e.target.closest("[data-applicant-suggestions]")
+      ) {
+        hideSuggestions();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [hideSuggestions]);
+
+  const hasFilters = searchDebounced || roleFilter || statusFilter;
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchDebounced, roleFilter, statusFilter]);
+
+  useEffect(() => {
+    if (selectedId) hideSuggestions();
+  }, [selectedId, hideSuggestions]);
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setSearchDebounced("");
+    setRoleFilter("");
+    setStatusFilter("");
+    setPage(1);
+    hideSuggestions();
+  };
+
+  useEffect(() => {
     if (!canAccess) return;
     let cancelled = false;
     async function load() {
@@ -471,6 +593,10 @@ export default function Applicants() {
         const params = new URLSearchParams();
         params.set("page", String(page));
         params.set("size", String(APPLICANTS_PAGE_SIZE));
+        if (searchDebounced) params.set("q", searchDebounced);
+        if (roleFilter) params.set("role", roleFilter);
+        if (statusFilter) params.set("status", statusFilter);
+        if (sortBy && sortBy !== "date_desc") params.set("sort_by", sortBy);
         const data = await apiRequest(`/applicants/?${params.toString()}`);
         if (cancelled) return;
         setApplicants(data?.items ?? []);
@@ -489,7 +615,7 @@ export default function Applicants() {
     }
     load();
     return () => { cancelled = true; };
-  }, [canAccess, page, navigate, refreshUser]);
+  }, [canAccess, searchDebounced, roleFilter, statusFilter, sortBy, page, navigate, refreshUser]);
 
   useEffect(() => {
     if (!canAccess || !selectedId) {
@@ -570,10 +696,184 @@ export default function Applicants() {
   return (
     <main className="main">
       <section className="section" aria-label={selectedId ? "Профиль соискателя" : "Соискатели"}>
-        <div className="section-header">
-          <h2>Соискатели</h2>
-          <p>Опубликованные профили студентов и исследователей. Откройте карточку для просмотра контактов и резюме.</p>
-        </div>
+        {!selectedId && (
+          <>
+            <div className="section-header section-header--search">
+              <h2>Соискатели</h2>
+              <p>Опубликованные профили студентов и исследователей. Откройте карточку для просмотра контактов и резюме.</p>
+              <div className="search-toolbar">
+                <div className="vacancy-search" ref={searchWrapRef}>
+                  <div className="vacancy-search__field">
+                    <div className={`vacancy-search__bar ${loading ? "vacancy-search__bar--loading" : ""} ${suggestionApplied ? "vacancy-search__bar--applied" : ""}`}>
+                      <span className="vacancy-search__icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="11" cy="11" r="8" />
+                          <path d="m21 21-4.35-4.35" />
+                        </svg>
+                      </span>
+                      <input
+                        ref={searchInputRef}
+                        type="search"
+                        className="vacancy-search__input"
+                        placeholder="Имя, навыки, интересы…"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onFocus={() => searchQuery.trim().length >= 2 && setSuggestionsVisible(true)}
+                        onKeyDown={(e) => {
+                          if (!suggestionsVisible || suggestions.length === 0) return;
+                          if (e.key === "Escape") {
+                            e.preventDefault();
+                            hideSuggestions();
+                            return;
+                          }
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setHighlightedIndex((i) => (i < suggestions.length - 1 ? i + 1 : -1));
+                            return;
+                          }
+                          if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setHighlightedIndex((i) => (i <= 0 ? -1 : i - 1));
+                            return;
+                          }
+                          if (e.key === "Enter") {
+                            if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {
+                              e.preventDefault();
+                              applySuggestion(suggestions[highlightedIndex]);
+                            } else {
+                              hideSuggestions();
+                            }
+                            return;
+                          }
+                        }}
+                        aria-label="Поиск по соискателям"
+                        autoComplete="off"
+                        aria-autocomplete="list"
+                        aria-expanded={suggestionsVisible}
+                        aria-controls="applicant-suggestions-list"
+                        aria-activedescendant={highlightedIndex >= 0 ? `suggestion-${highlightedIndex}` : undefined}
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          className="vacancy-search__clear"
+                          onClick={() => setSearchQuery("")}
+                          aria-label="Очистить поиск"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                    {suggestionsVisible && (
+                      <ul
+                        data-applicant-suggestions
+                        id="applicant-suggestions-list"
+                        className="vacancy-search__suggestions vacancy-search__suggestions--dropdown"
+                        role="listbox"
+                      >
+                        {suggestionsLoading ? (
+                          <li className="vacancy-search__suggestion-item vacancy-search__suggestion-item--loading" role="option">
+                            Загрузка…
+                          </li>
+                        ) : suggestions.length === 0 ? (
+                          <li className="vacancy-search__suggestion-item vacancy-search__suggestion-item--loading" role="option">
+                            Нет подсказок
+                          </li>
+                        ) : (
+                          suggestions.map((item, i) => (
+                            <li
+                              key={`${item.public_id || item.text}-${i}`}
+                              id={`suggestion-${i}`}
+                              role="option"
+                              className={`vacancy-search__suggestion-item ${i === highlightedIndex ? "vacancy-search__suggestion-item--highlighted" : ""}`}
+                              aria-selected={i === highlightedIndex}
+                              onMouseEnter={() => setHighlightedIndex(i)}
+                              onClick={() => applySuggestion(item)}
+                            >
+                              {item.text || item.full_name}
+                              {item.public_id && item.full_name && item.text !== item.full_name && (
+                                <span className="vacancy-search__suggestion-meta"> — {item.full_name}</span>
+                              )}
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+                <div className="search-toolbar__actions">
+                  <button
+                    type="button"
+                    className={`search-toolbar__filter-btn ${filtersOpen ? "search-toolbar__filter-btn--active" : ""}`}
+                    onClick={() => setFiltersOpen((v) => !v)}
+                    aria-expanded={filtersOpen}
+                    aria-controls="applicant-filters-panel"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                    </svg>
+                    Фильтры
+                    {hasFilters && <span className="search-toolbar__filter-badge">{(searchDebounced ? 1 : 0) + (roleFilter ? 1 : 0) + (statusFilter ? 1 : 0)}</span>}
+                  </button>
+                  <select
+                    className="search-toolbar__sort"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    aria-label="Сортировка по дате"
+                  >
+                    <option value="date_desc">Сначала новые</option>
+                    <option value="date_asc">Сначала старые</option>
+                  </select>
+                </div>
+              </div>
+              <div
+                id="applicant-filters-panel"
+                className={`filters-panel ${filtersOpen ? "filters-panel--open" : ""}`}
+                role="region"
+                aria-label="Фильтры"
+              >
+                <div className="vacancy-filters">
+                  <div className="vacancy-filters__field">
+                    <label htmlFor="applicant-filter-role" className="vacancy-filters__label">Роль</label>
+                    <select
+                      id="applicant-filter-role"
+                      className="vacancy-filters__select"
+                      value={roleFilter}
+                      onChange={(e) => setRoleFilter(e.target.value)}
+                    >
+                      {ROLE_OPTIONS.map((opt) => (
+                        <option key={opt.value || "_"} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="vacancy-filters__field">
+                    <label htmlFor="applicant-filter-status" className="vacancy-filters__label">Статус</label>
+                    <select
+                      id="applicant-filter-status"
+                      className="vacancy-filters__select"
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                    >
+                      {STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value || "_"} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {hasFilters && (
+                    <button type="button" className="vacancy-filters__reset" onClick={resetFilters}>
+                      Сбросить фильтры
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+        {selectedId && (
+          <div className="section-header">
+            <h2>Соискатели</h2>
+          </div>
+        )}
         {error && (
           <div className="org-detail-error-banner" role="alert">
             {error}
@@ -602,9 +902,15 @@ export default function Applicants() {
             <div className="org-cards-grid applicant-cards-grid">
               {applicants.length === 0 ? (
                 <div className="lab-empty-block org-empty-block">
-                  <p className="lab-empty">Нет опубликованных соискателей</p>
+                  <p className="lab-empty">
+                    {hasFilters
+                      ? "По вашему запросу ничего не найдено."
+                      : "Нет опубликованных соискателей"}
+                  </p>
                   <p className="lab-empty-hint">
-                    Студенты и исследователи могут включить публикацию профиля в разделе «Профиль».
+                    {hasFilters
+                      ? "Попробуйте изменить поисковый запрос или сбросить фильтры."
+                      : "Студенты и исследователи могут включить публикацию профиля в разделе «Профиль»."}
                   </p>
                 </div>
               ) : (

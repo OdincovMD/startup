@@ -205,6 +205,69 @@ class Orm:
             return items, int(total)
 
     @staticmethod
+    async def list_all_published_applicant_users(
+        role_filter: Optional[str] = None,
+    ) -> List[models.User]:
+        """Все опубликованные соискатели (User с role, student_profile, researcher_profile) для reindex ES."""
+        async with async_session_factory() as session:
+            role_filter_cond = or_(
+                and_(
+                    models.Role.name == "student",
+                    models.Student.is_published == True,
+                ),
+                and_(
+                    models.Role.name == "researcher",
+                    models.Researcher.is_published == True,
+                ),
+            )
+            if role_filter == "student":
+                role_filter_cond = and_(
+                    models.Role.name == "student",
+                    models.Student.is_published == True,
+                )
+            elif role_filter == "researcher":
+                role_filter_cond = and_(
+                    models.Role.name == "researcher",
+                    models.Researcher.is_published == True,
+                )
+            stmt = (
+                select(models.User)
+                .options(
+                    selectinload(models.User.role),
+                    selectinload(models.User.student_profile),
+                    selectinload(models.User.researcher_profile),
+                )
+                .join(models.Role, models.User.role_id == models.Role.id)
+                .outerjoin(models.Student, models.User.id == models.Student.user_id)
+                .outerjoin(models.Researcher, models.User.id == models.Researcher.user_id)
+                .where(models.User.public_id.isnot(None), role_filter_cond)
+                .order_by(models.User.id.desc())
+            )
+            result = await session.execute(stmt)
+            return list(result.unique().scalars().all())
+
+    @staticmethod
+    async def get_applicant_user_for_index(user_id: int):
+        """Загрузить User с профилями для индексации в ES. Возвращает (user, student, researcher) или None."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.User)
+                .options(
+                    selectinload(models.User.role),
+                    selectinload(models.User.student_profile),
+                    selectinload(models.User.researcher_profile),
+                )
+                .where(models.User.id == user_id)
+            )
+            result = await session.execute(stmt)
+            user = result.scalars().first()
+            if not user or not user.role:
+                return None
+            if user.role.name not in ("student", "researcher"):
+                return None
+            return user
+
+    @staticmethod
     async def get_applicant_detail_by_public_id(public_id: str) -> Optional[Dict[str, Any]]:
         """Загружает соискателя и возвращает dict для ApplicantDetail (внутри сессии)."""
         async with async_session_factory() as session:

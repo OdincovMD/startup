@@ -131,6 +131,7 @@ class VacancyResponseRead(ORMModel):
     vacancy_public_id: Optional[str] = None
     applicant_name: Optional[str] = None
     applicant_preview: Optional[str] = None
+    applicant_public_id: Optional[str] = None
 
 
 # =========================

@@ -12,6 +12,7 @@ from app.services.elasticsearch import (
     reindex_vacancies_if_empty,
     reindex_queries_if_empty,
     reindex_organizations_if_empty,
+    reindex_applicants_if_empty,
 )
 
 import logging
@@ -46,6 +47,7 @@ async def ensure_elasticsearch_indexes() -> None:
         await reindex_vacancies_if_empty()
         await reindex_queries_if_empty()
         await reindex_organizations_if_empty()
+        await reindex_applicants_if_empty()
         logger.info("Elasticsearch indexes ready")
     except Exception as e:
         logger.warning("Elasticsearch initial indexing failed: %s", e, exc_info=True)
