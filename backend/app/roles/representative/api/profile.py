@@ -62,6 +62,22 @@ router.include_router(profile_analytics_router)
 #    ORGANIZATION PROFILE
 # =========================
 
+@router.get("/subscription")
+async def get_my_subscription(current_user=Depends(get_current_user)):
+    """
+    Текущая подписка пользователя. Для отображения статуса в дашборде и шапке.
+    """
+    sub = await Orm.get_active_subscription(current_user.id)
+    if not sub:
+        return {"active": False, "expires_at": None, "status": "none", "started_at": None}
+    return {
+        "active": True,
+        "expires_at": sub.expires_at.isoformat() if sub.expires_at else None,
+        "status": sub.status or "active",
+        "started_at": sub.started_at.isoformat() if sub.started_at else None,
+    }
+
+
 @router.get("/organization", response_model=OrganizationRead | None)
 async def get_org_profile(current_user=Depends(get_current_user)):
     org = await Orm.get_organization_for_user(current_user.id)

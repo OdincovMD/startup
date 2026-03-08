@@ -3982,6 +3982,302 @@ body.nav-open {
   margin-bottom: 1.25rem;
 }
 
+/* Subscription card */
+.dashboard-subscription-card {
+  margin-bottom: 1.25rem;
+}
+
+.dashboard-subscription-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--page-bg-alt);
+}
+
+.dashboard-subscription-active {
+  border-left: 4px solid var(--accent);
+  background: linear-gradient(to right, var(--accent-bg), var(--page-bg-alt));
+}
+
+.dashboard-subscription-inactive {
+  border-left: 4px solid var(--border);
+}
+
+.dashboard-subscription-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.dashboard-subscription-icon--inactive {
+  background: var(--border);
+  color: var(--text-muted);
+}
+
+.dashboard-subscription-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-subscription-text strong {
+  display: block;
+  color: var(--text-primary-alt);
+  font-size: 1rem;
+}
+
+.dashboard-subscription-expiry {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.dashboard-subscription-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  max-width: 42ch;
+}
+
+.dashboard-subscription-cta {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* Org ranking block */
+.dashboard-org-ranking {
+  margin-bottom: 1.25rem;
+}
+
+.dashboard-ranking-block {
+  padding: 1.25rem;
+  background: var(--page-bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.dashboard-ranking-score {
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary-alt);
+}
+
+.dashboard-ranking-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-ranking-max {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.dashboard-ranking-progress-wrap {
+  height: 8px;
+  background: var(--border-light);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.dashboard-ranking-progress {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+.dashboard-ranking-tips-details {
+  margin-top: 0.5rem;
+}
+
+.dashboard-ranking-tips-summary {
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--accent);
+  font-weight: 600;
+  list-style: none;
+}
+
+.dashboard-ranking-tips-summary::-webkit-details-marker {
+  display: none;
+}
+
+.dashboard-ranking-tips-summary::before {
+  content: "▶ ";
+  font-size: 0.65rem;
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.dashboard-ranking-tips-details[open] .dashboard-ranking-tips-summary::before {
+  transform: rotate(90deg);
+}
+
+.dashboard-ranking-tips-list {
+  margin: 0.5rem 0 0 1.25rem;
+  padding: 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.dashboard-ranking-tips-list li {
+  margin-bottom: 0.25rem;
+}
+
+/* Table: coefficient column and tips — one line */
+.dashboard-table .dashboard-table-cell-coef {
+  white-space: nowrap;
+  vertical-align: middle;
+  width: 1%;
+}
+
+.dashboard-table-cell-coef-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.dashboard-tips-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--border-light);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.dashboard-tips-trigger:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.dashboard-tips-trigger:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.dashboard-coef-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 2.5ch;
+}
+
+.dashboard-coef-value--high {
+  color: var(--accent);
+}
+
+.dashboard-coef-value--mid {
+  color: var(--warning, #b45309);
+}
+
+.dashboard-coef-value--low {
+  color: var(--text-muted);
+}
+
+/* Modal actions block (align with project buttons) */
+.dashboard-modal-actions {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-light);
+}
+
+/* Tips popover overlay (modal) — does not transform the row */
+.dashboard-tips-overlay .dashboard-tips-popover {
+  max-width: 420px;
+  width: 100%;
+}
+
+.dashboard-tips-popover-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.dashboard-tips-popover-list li {
+  margin-bottom: 0.35rem;
+}
+
+.dashboard-tips-popover-list li:last-child {
+  margin-bottom: 0;
+}
+
+/* Subscription info modal — uses .gallery-modal from project */
+.dashboard-subscription-modal {
+  position: relative;
+  max-width: 480px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dashboard-subscription-modal .gallery-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
+.dashboard-subscription-modal .profile-form-group-title {
+  margin-bottom: 0.5rem;
+  padding-right: 2rem;
+}
+
+.dashboard-subscription-modal-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.dashboard-subscription-modal-list li {
+  margin-bottom: 0.4rem;
+}
+
+@media (max-width: 480px) {
+  .dashboard-subscription-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .dashboard-subscription-cta {
+    margin-left: 0;
+    width: 100%;
+  }
+  .dashboard-ranking-score {
+    font-size: 1.25rem;
+  }
+}
+
 .dashboard-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

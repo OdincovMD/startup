@@ -228,7 +228,9 @@ export default function ProfileSummary({
             Роль определяет доступ к управлению аккаунтом.
           </p>
           <div className="profile-summary-role-grid">
-            {roles.map((role) => {
+            {roles
+              .filter((role) => role.name !== "platform_admin")
+              .map((role) => {
               const idStr = String(role.id);
               const isActive = String(selectedRoleId ?? profile.role_id) === idStr;
               const label = roleLabelByName?.(role.name) ?? role.name;

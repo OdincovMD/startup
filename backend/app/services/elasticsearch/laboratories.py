@@ -146,12 +146,25 @@ def _doc_to_laboratory_item(doc: dict) -> dict:
     }
 
 
-async def index_laboratory(lab: Any) -> None:
+async def _resolve_paid_active(doc: dict, paid_user_ids: set = None) -> None:
+    """Set paid_active on doc based on creator's subscription status."""
+    creator_id = doc.get("creator_user_id")
+    if creator_id is None:
+        return
+    if paid_user_ids is not None:
+        doc["paid_active"] = creator_id in paid_user_ids
+    else:
+        from app.core.queries.orm import Orm as CoreOrm
+        doc["paid_active"] = await CoreOrm.has_active_subscription(creator_id)
+
+
+async def index_laboratory(lab: Any, paid_user_ids: set = None) -> None:
     """Проиндексировать лабораторию в Elasticsearch."""
     if not getattr(lab, "is_published", False):
         return
     client = get_es_client()
     doc = _laboratory_to_doc(lab)
+    await _resolve_paid_active(doc, paid_user_ids)
     last_err = None
     for attempt in range(3):
         try:
@@ -417,9 +430,12 @@ async def reindex_laboratories_by_ids(lab_ids: List[int]) -> None:
     from app.roles.representative.queries.orm import Orm
 
     labs = await Orm.get_laboratories_by_ids(lab_ids)
+    creator_ids = [l.creator_user_id for l in labs if l.creator_user_id]
+    from app.core.queries.orm import Orm as CoreOrm
+    paid_ids = await CoreOrm.get_paid_user_ids(creator_ids)
     for lab in labs:
         try:
-            await index_laboratory(lab)
+            await index_laboratory(lab, paid_user_ids=paid_ids)
         except Exception as e:
             logger.warning("Failed to reindex laboratory id=%s: %s", lab.id, e)
 
@@ -451,11 +467,14 @@ async def reindex_laboratories(force: bool = False) -> int:
                 return count
         except Exception:
             pass
+    creator_ids = [l.creator_user_id for l in labs if l.creator_user_id]
+    from app.core.queries.orm import Orm as CoreOrm
+    paid_ids = await CoreOrm.get_paid_user_ids(creator_ids)
     logger.info("Laboratories reindex: %d published laboratories", len(labs))
     indexed = 0
     for lab in labs:
         try:
-            await index_laboratory(lab)
+            await index_laboratory(lab, paid_user_ids=paid_ids)
             indexed += 1
         except Exception as e:
             logger.warning("Failed to index laboratory id=%s: %s", lab.id, e)

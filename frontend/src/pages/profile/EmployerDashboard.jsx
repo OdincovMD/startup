@@ -45,6 +45,8 @@ function useChartHeight() {
 export default function EmployerDashboard({ onError }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
+  const [tipsPopover, setTipsPopover] = useState(null); // { tips: string[] }
   const chartHeight = useChartHeight();
   const chartHeightSmall = Math.round(chartHeight * 0.9);
 
@@ -87,7 +89,16 @@ export default function EmployerDashboard({ onError }) {
     );
   }
 
-  const { summary, by_vacancy = [], by_laboratory = [], by_query = [], views_over_time = [], responses_over_time = [] } = data;
+  const {
+    summary,
+    by_vacancy = [],
+    by_laboratory = [],
+    by_query = [],
+    views_over_time = [],
+    responses_over_time = [],
+    subscription = null,
+    org_ranking = null,
+  } = data;
   const hasAnyContent = by_vacancy.length > 0 || by_laboratory.length > 0 || by_query.length > 0;
   const hasCharts = views_over_time.length > 0 || responses_over_time.length > 0;
 
@@ -110,6 +121,119 @@ export default function EmployerDashboard({ onError }) {
       <div className="lab-tab-header">
         <p className="lab-tab-desc">Сводка по вакансиям, лабораториям и запросам: просмотры, отклики и графики за последние 30 дней.</p>
       </div>
+
+      {subscription && (
+        <div className="profile-form-group dashboard-subscription-card">
+          <div className="profile-form-group-title">Подписка</div>
+          <div className={`dashboard-subscription-inner ${subscription.active ? "dashboard-subscription-active" : "dashboard-subscription-inactive"}`}>
+            {subscription.active ? (
+              <>
+                <span className="dashboard-subscription-icon" aria-hidden="true">✓</span>
+                <div className="dashboard-subscription-text">
+                  <strong>Подписка активна</strong>
+                  {subscription.expires_at && (
+                    <span className="dashboard-subscription-expiry">
+                      Действует до {new Date(subscription.expires_at).toLocaleDateString("ru-RU")}
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="dashboard-subscription-icon dashboard-subscription-icon--inactive" aria-hidden="true">○</span>
+                <div className="dashboard-subscription-text">
+                  <strong>Без подписки</strong>
+                  <p className="dashboard-subscription-hint">
+                    Карточки показываются в общем каталоге. Подписка поднимает их выше в выдаче и на главной.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="secondary-btn dashboard-subscription-cta"
+                  onClick={() => setSubscriptionModalOpen(true)}
+                >
+                  Узнать о подписке
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {subscriptionModalOpen && (
+        <div
+          className="gallery-overlay"
+          onClick={() => setSubscriptionModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="subscription-modal-title"
+        >
+          <div className="gallery-modal dashboard-subscription-modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="gallery-close"
+              onClick={() => setSubscriptionModalOpen(false)}
+              aria-label="Закрыть"
+            >
+              ×
+            </button>
+            <h2 id="subscription-modal-title" className="profile-form-group-title">О подписке</h2>
+            <p className="profile-field-hint">
+              Подписка для представителей организаций и лабораторий повышает видимость ваших карточек в каталоге.
+            </p>
+            <ul className="dashboard-subscription-modal-list">
+              <li>Ваши организации, лаборатории, вакансии и запросы отображаются выше в результатах поиска.</li>
+              <li>Платные карточки участвуют в блоках на главной странице.</li>
+              <li>Ранжирование среди платных пользователей зависит от полноты и качества заполнения карточек.</li>
+            </ul>
+            <p className="profile-field-hint">
+              По вопросам подключения подписки обратитесь к администратору платформы.
+            </p>
+            <div className="dashboard-modal-actions">
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => setSubscriptionModalOpen(false)}
+              >
+                Понятно
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {org_ranking != null && (
+        <div className="profile-form-group dashboard-org-ranking">
+          <div className="profile-form-group-title">Позиция в выдаче (организация)</div>
+          <p className="profile-field-hint">Коэффициент ранжирования влияет на порядок показа в каталоге. Чем выше — тем выше в списке.</p>
+          <div className="dashboard-ranking-block">
+            <div className="dashboard-ranking-score">
+              <span className="dashboard-ranking-value" aria-label={`Коэффициент: ${org_ranking.score} из 100`}>
+                {Math.round(org_ranking.score)}
+              </span>
+              <span className="dashboard-ranking-max">/ 100</span>
+            </div>
+            <div className="dashboard-ranking-progress-wrap">
+              <div
+                className="dashboard-ranking-progress"
+                style={{ width: `${Math.min(100, Math.max(0, org_ranking.score))}%` }}
+                role="progressbar"
+                aria-valuenow={org_ranking.score}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              />
+            </div>
+            <details className="dashboard-ranking-tips-details">
+              <summary className="dashboard-ranking-tips-summary">Как повысить</summary>
+              <ul className="dashboard-ranking-tips-list">
+                {(org_ranking.tips || []).map((tip, i) => (
+                  <li key={i}>{tip}</li>
+                ))}
+              </ul>
+            </details>
+          </div>
+        </div>
+      )}
 
       {summary && (
         <div className="profile-form-group dashboard-summary">
@@ -258,6 +382,7 @@ export default function EmployerDashboard({ onError }) {
                   <thead>
                     <tr>
                       <th title="Название вакансии">Название</th>
+                      <th title="Коэффициент ранжирования (0–100)">Коэфф.</th>
                       <th title="Сколько раз открывали страницу этой вакансии (без учёта просмотров создателя)">Просмотры</th>
                       <th title="Число уникальных посетителей страницы (по пользователям и сессиям)">Уник. зрители</th>
                       <th title="Количество откликов на эту вакансию">Отклики</th>
@@ -270,6 +395,24 @@ export default function EmployerDashboard({ onError }) {
                     {by_vacancy.map((v) => (
                       <tr key={v.vacancy_id}>
                         <td>{v.name || "—"}</td>
+                        <td className="dashboard-table-cell-coef">
+                          <span className="dashboard-table-cell-coef-inner">
+                            <span className={`dashboard-coef-value dashboard-coef-value--${(v.rank_score ?? 0) >= 60 ? "high" : (v.rank_score ?? 0) >= 30 ? "mid" : "low"}`}>
+                              {v.rank_score != null ? Number(v.rank_score).toFixed(1) : "—"}
+                            </span>
+                            {(v.tips && v.tips.length > 0) && (
+                              <button
+                                type="button"
+                                className="dashboard-tips-trigger"
+                                onClick={() => setTipsPopover({ tips: v.tips })}
+                                aria-label="Как повысить коэффициент"
+                                title="Как повысить"
+                              >
+                                ?
+                              </button>
+                            )}
+                          </span>
+                        </td>
                         <td>{v.view_count ?? 0}</td>
                         <td>{v.unique_viewers ?? 0}</td>
                         <td>{v.response_count ?? 0}</td>
@@ -292,6 +435,7 @@ export default function EmployerDashboard({ onError }) {
                   <thead>
                     <tr>
                       <th title="Название лаборатории">Название</th>
+                      <th title="Коэффициент ранжирования (0–100)">Коэфф.</th>
                       <th title="Сколько раз открывали страницу этой лаборатории">Просмотры</th>
                       <th title="Число уникальных посетителей страницы лаборатории">Уник. зрители</th>
                       <th title="Среднее время на странице в секундах">Ср. время (с)</th>
@@ -301,6 +445,24 @@ export default function EmployerDashboard({ onError }) {
                     {by_laboratory.map((lab) => (
                       <tr key={lab.laboratory_id}>
                         <td>{lab.name || "—"}</td>
+                        <td className="dashboard-table-cell-coef">
+                          <span className="dashboard-table-cell-coef-inner">
+                            <span className={`dashboard-coef-value dashboard-coef-value--${(lab.rank_score ?? 0) >= 60 ? "high" : (lab.rank_score ?? 0) >= 30 ? "mid" : "low"}`}>
+                              {lab.rank_score != null ? Number(lab.rank_score).toFixed(1) : "—"}
+                            </span>
+                            {(lab.tips && lab.tips.length > 0) && (
+                              <button
+                                type="button"
+                                className="dashboard-tips-trigger"
+                                onClick={() => setTipsPopover({ tips: lab.tips })}
+                                aria-label="Как повысить коэффициент"
+                                title="Как повысить"
+                              >
+                                ?
+                              </button>
+                            )}
+                          </span>
+                        </td>
                         <td>{lab.view_count ?? 0}</td>
                         <td>{lab.unique_viewers ?? 0}</td>
                         <td>{lab.avg_time_on_page_sec != null ? lab.avg_time_on_page_sec : "—"}</td>
@@ -320,6 +482,7 @@ export default function EmployerDashboard({ onError }) {
                   <thead>
                     <tr>
                       <th title="Название запроса">Название</th>
+                      <th title="Коэффициент ранжирования (0–100)">Коэфф.</th>
                       <th title="Сколько раз открывали страницу этого запроса">Просмотры</th>
                       <th title="Число уникальных посетителей страницы запроса">Уник. зрители</th>
                       <th title="Среднее время на странице в секундах">Ср. время (с)</th>
@@ -329,6 +492,24 @@ export default function EmployerDashboard({ onError }) {
                     {by_query.map((q) => (
                       <tr key={q.query_id}>
                         <td>{q.title || "—"}</td>
+                        <td className="dashboard-table-cell-coef">
+                          <span className="dashboard-table-cell-coef-inner">
+                            <span className={`dashboard-coef-value dashboard-coef-value--${(q.rank_score ?? 0) >= 60 ? "high" : (q.rank_score ?? 0) >= 30 ? "mid" : "low"}`}>
+                              {q.rank_score != null ? Number(q.rank_score).toFixed(1) : "—"}
+                            </span>
+                            {(q.tips && q.tips.length > 0) && (
+                              <button
+                                type="button"
+                                className="dashboard-tips-trigger"
+                                onClick={() => setTipsPopover({ tips: q.tips })}
+                                aria-label="Как повысить коэффициент"
+                                title="Как повысить"
+                              >
+                                ?
+                              </button>
+                            )}
+                          </span>
+                        </td>
                         <td>{q.view_count ?? 0}</td>
                         <td>{q.unique_viewers ?? 0}</td>
                         <td>{q.avg_time_on_page_sec != null ? q.avg_time_on_page_sec : "—"}</td>
@@ -340,6 +521,38 @@ export default function EmployerDashboard({ onError }) {
             </div>
           )}
         </>
+      )}
+
+      {tipsPopover && (
+        <div
+          className="gallery-overlay dashboard-tips-overlay"
+          onClick={() => setTipsPopover(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Подсказки по повышению коэффициента"
+        >
+          <div className="gallery-modal dashboard-tips-popover" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="gallery-close"
+              onClick={() => setTipsPopover(null)}
+              aria-label="Закрыть"
+            >
+              ×
+            </button>
+            <h3 className="profile-form-group-title">Как повысить коэффициент</h3>
+            <ul className="dashboard-tips-popover-list">
+              {tipsPopover.tips.map((tip, i) => (
+                <li key={i}>{tip}</li>
+              ))}
+            </ul>
+            <div className="dashboard-modal-actions">
+              <button type="button" className="primary-btn" onClick={() => setTipsPopover(null)}>
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

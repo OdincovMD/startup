@@ -129,12 +129,25 @@ async def ensure_organizations_index() -> None:
         logger.warning("Could not ensure organizations index: %s", e)
 
 
-async def index_organization(org: Any) -> None:
+async def _resolve_paid_active(doc: dict, paid_user_ids: set = None) -> None:
+    """Set paid_active on doc based on creator's subscription status."""
+    creator_id = doc.get("creator_user_id")
+    if creator_id is None:
+        return
+    if paid_user_ids is not None:
+        doc["paid_active"] = creator_id in paid_user_ids
+    else:
+        from app.core.queries.orm import Orm as CoreOrm
+        doc["paid_active"] = await CoreOrm.has_active_subscription(creator_id)
+
+
+async def index_organization(org: Any, paid_user_ids: set = None) -> None:
     """Проиндексировать организацию в Elasticsearch."""
     if not getattr(org, "is_published", False):
         return
     client = get_es_client()
     doc = _organization_to_doc(org)
+    await _resolve_paid_active(doc, paid_user_ids)
     last_err = None
     for attempt in range(3):
         try:
@@ -433,9 +446,12 @@ async def reindex_organizations_by_ids(org_ids: List[int]) -> None:
     from app.roles.representative.queries.orm import Orm
 
     orgs = await Orm.get_organizations_by_ids(org_ids)
+    creator_ids = [o.creator_user_id for o in orgs if o.creator_user_id]
+    from app.core.queries.orm import Orm as CoreOrm
+    paid_ids = await CoreOrm.get_paid_user_ids(creator_ids)
     for org in orgs:
         try:
-            await index_organization(org)
+            await index_organization(org, paid_user_ids=paid_ids)
         except Exception as e:
             logger.warning("Failed to reindex organization id=%s: %s", org.id, e)
 
@@ -470,13 +486,16 @@ async def reindex_organizations(force: bool = False) -> int:
                 return count
         except Exception:
             pass
+    creator_ids = [o.creator_user_id for o in orgs if o.creator_user_id]
+    from app.core.queries.orm import Orm as CoreOrm
+    paid_ids = await CoreOrm.get_paid_user_ids(creator_ids)
     logger.info("Organizations reindex: %d published organizations", len(orgs))
     indexed = 0
     for org in orgs:
         try:
             org_with_relations = await Orm.get_organizations_by_ids([org.id])
             if org_with_relations:
-                await index_organization(org_with_relations[0])
+                await index_organization(org_with_relations[0], paid_user_ids=paid_ids)
                 indexed += 1
         except Exception as e:
             logger.warning("Failed to index organization id=%s: %s", org.id, e)

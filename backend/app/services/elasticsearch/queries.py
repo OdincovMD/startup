@@ -172,11 +172,24 @@ def _doc_to_query_item(doc: dict) -> dict:
     }
 
 
-async def index_query(query_id: int) -> None:
+async def _resolve_paid_active(doc: dict, paid_user_ids: set = None) -> None:
+    """Set paid_active on doc based on creator's subscription status."""
+    creator_id = doc.get("creator_user_id")
+    if creator_id is None:
+        return
+    if paid_user_ids is not None:
+        doc["paid_active"] = creator_id in paid_user_ids
+    else:
+        from app.core.queries.orm import Orm as CoreOrm
+        doc["paid_active"] = await CoreOrm.has_active_subscription(creator_id)
+
+
+async def index_query(query_id: int, paid_user_ids: set = None) -> None:
     """Проиндексировать запрос в Elasticsearch (загружает запрос с organization/laboratories в своей сессии)."""
     doc = await _load_query_doc_for_indexing(query_id)
     if doc is None:
         return
+    await _resolve_paid_active(doc, paid_user_ids)
     client = get_es_client()
     last_err = None
     for attempt in range(3):
@@ -428,11 +441,14 @@ async def reindex_queries(force: bool = False) -> int:
         return count
     from app.queries.orm import Orm
     queries = await Orm.list_published_queries()
+    creator_ids = [q.creator_user_id for q in queries if q.creator_user_id]
+    from app.core.queries.orm import Orm as CoreOrm
+    paid_ids = await CoreOrm.get_paid_user_ids(creator_ids)
     logger.info("Queries reindex: %d published queries", len(queries))
     indexed = 0
     for q in queries:
         try:
-            await index_query(q.id)
+            await index_query(q.id, paid_user_ids=paid_ids)
             indexed += 1
         except Exception as e:
             logger.warning("Failed to index query id=%s: %s", q.id, e)

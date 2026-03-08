@@ -14,7 +14,9 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app import models
 from app.database import async_session_factory
+from app.core.queries.orm import Orm as CoreOrm
 from app.roles.representative.queries import helpers
+from app.roles.representative import ranking
 
 
 class Orm:
@@ -2893,7 +2895,23 @@ class Orm:
         views_over_time: List[dict] = []
         responses_over_time: List[dict] = []
 
+        full_vacancies: dict = {}
+        full_queries: dict = {}
         async with async_session_factory() as session:
+            if vacancy_ids:
+                stmt_v = select(models.VacancyOrganization).where(
+                    models.VacancyOrganization.id.in_(vacancy_ids)
+                )
+                res_v = await session.execute(stmt_v)
+                full_vacancies = {v.id: v for v in res_v.scalars().all()}
+            if query_rows:
+                query_ids = [r[0] for r in query_rows]
+                stmt_q = select(models.OrganizationQuery).options(
+                    selectinload(models.OrganizationQuery.laboratories)
+                ).where(models.OrganizationQuery.id.in_(query_ids))
+                res_q = await session.execute(stmt_q)
+                full_queries = {q.id: q for q in res_q.scalars().all()}
+
             if vacancy_public_ids and hasattr(models, "AnalyticsEvent"):
                 ae = models.AnalyticsEvent
                 vo = models.VacancyOrganization
@@ -3193,6 +3211,40 @@ class Orm:
                 delta = (first_at - r[4]).total_seconds() / 86400
                 days_to_accept_list.append(delta)
         avg_days_to_first_acceptance = round(sum(days_to_accept_list) / len(days_to_accept_list), 1) if days_to_accept_list else None
+
+        subscription_row = await CoreOrm.get_active_subscription(user_id)
+        subscription = (
+            {
+                "active": True,
+                "expires_at": subscription_row.expires_at.isoformat() if subscription_row.expires_at else None,
+                "status": subscription_row.status or "active",
+                "started_at": subscription_row.started_at.isoformat() if subscription_row.started_at else None,
+            }
+            if subscription_row
+            else {"active": False, "expires_at": None, "status": "none", "started_at": None}
+        )
+
+        org_ranking = None
+        if org:
+            employees_count = len(
+                set(
+                    e.id
+                    for lab in laboratories
+                    for e in (getattr(lab, "employees", None) or [])
+                )
+            )
+            org_doc = ranking.build_doc_from_org(
+                org,
+                laboratories_count=len(laboratories),
+                employees_count=employees_count,
+                vacancies_count=len(vacancy_rows),
+                queries_count=len(query_rows),
+            )
+            org_ranking = {
+                "score": ranking.get_organization_score(org_doc),
+                "tips": ranking.get_organization_tips(org_doc),
+            }
+
         by_vacancy = []
         for r in vacancy_rows:
             vid, v_public_id, v_name, _v_pub, v_created_at = r[0], r[1], r[2], r[3], r[4]
@@ -3207,6 +3259,13 @@ class Orm:
             days_to_first = None
             if first_at and v_created_at:
                 days_to_first = round((first_at - v_created_at).total_seconds() / 86400, 1)
+            vac = full_vacancies.get(vid)
+            rank_score = 0.0
+            tips = []
+            if vac:
+                v_doc = ranking.build_doc_from_vacancy(vac)
+                rank_score = ranking.get_vacancy_score(v_doc)
+                tips = ranking.get_vacancy_tips(v_doc)
             by_vacancy.append({
                 "vacancy_id": vid,
                 "public_id": v_public_id,
@@ -3217,12 +3276,22 @@ class Orm:
                 "conversion_rate": conversion_rate,
                 "avg_time_on_page_sec": avg_sec,
                 "days_to_first_response": days_to_first,
+                "rank_score": round(rank_score, 1),
+                "tips": tips,
             })
         by_laboratory = []
         for lab in laboratories:
             view_count = lab_view_counts.get(lab.public_id, 0) if lab.public_id else 0
             uv = lab_unique_viewers.get(lab.public_id, 0) if lab.public_id else 0
             avg_sec = lab_avg_time.get(lab.public_id) if lab.public_id else None
+            lab_doc = ranking.build_doc_from_lab(
+                lab,
+                employees_count=len(getattr(lab, "employees", None) or []),
+                researchers_count=len(getattr(lab, "researchers", None) or []),
+                equipment_count=len(getattr(lab, "equipment", None) or []),
+            )
+            rank_score = ranking.get_laboratory_score(lab_doc)
+            tips = ranking.get_laboratory_tips(lab_doc)
             by_laboratory.append({
                 "laboratory_id": lab.id,
                 "public_id": lab.public_id,
@@ -3230,6 +3299,8 @@ class Orm:
                 "view_count": view_count,
                 "unique_viewers": uv,
                 "avg_time_on_page_sec": avg_sec,
+                "rank_score": round(rank_score, 1),
+                "tips": tips,
             })
         by_query = []
         for row in query_rows:
@@ -3237,6 +3308,13 @@ class Orm:
             view_count = query_view_counts.get(q_public_id, 0) if q_public_id else 0
             uv = query_unique_viewers.get(q_public_id, 0) if q_public_id else 0
             avg_sec = query_avg_time.get(q_public_id) if q_public_id else None
+            q = full_queries.get(qid)
+            rank_score = 0.0
+            tips = []
+            if q:
+                q_doc = ranking.build_doc_from_query(q)
+                rank_score = ranking.get_query_score(q_doc)
+                tips = ranking.get_query_tips(q_doc)
             by_query.append({
                 "query_id": qid,
                 "public_id": q_public_id,
@@ -3244,6 +3322,8 @@ class Orm:
                 "view_count": view_count,
                 "unique_viewers": uv,
                 "avg_time_on_page_sec": avg_sec,
+                "rank_score": round(rank_score, 1),
+                "tips": tips,
             })
         return {
             "summary": {
@@ -3268,6 +3348,8 @@ class Orm:
             "by_query": by_query,
             "views_over_time": views_over_time,
             "responses_over_time": responses_over_time,
+            "subscription": subscription,
+            "org_ranking": org_ranking,
         }
 
     @staticmethod

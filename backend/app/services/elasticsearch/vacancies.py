@@ -152,12 +152,25 @@ def _doc_to_vacancy_item(doc: dict) -> dict:
     }
 
 
-async def index_vacancy(vacancy: Any) -> None:
+async def _resolve_paid_active(doc: dict, paid_user_ids: set = None) -> None:
+    """Set paid_active on doc based on creator's subscription status."""
+    creator_id = doc.get("creator_user_id")
+    if creator_id is None:
+        return
+    if paid_user_ids is not None:
+        doc["paid_active"] = creator_id in paid_user_ids
+    else:
+        from app.core.queries.orm import Orm as CoreOrm
+        doc["paid_active"] = await CoreOrm.has_active_subscription(creator_id)
+
+
+async def index_vacancy(vacancy: Any, paid_user_ids: set = None) -> None:
     """Проиндексировать вакансию в Elasticsearch. Повтор при ConnectionTimeout."""
     if not getattr(vacancy, "is_published", False):
         return
     client = get_es_client()
     doc = _vacancy_to_doc(vacancy)
+    await _resolve_paid_active(doc, paid_user_ids)
     last_err = None
     for attempt in range(3):
         try:
@@ -429,11 +442,14 @@ async def reindex_vacancies(force: bool = False) -> int:
         return count
     from app.queries.orm import Orm
     vacancies = await Orm.list_published_vacancies()
+    creator_ids = [v.creator_user_id for v in vacancies if v.creator_user_id]
+    from app.core.queries.orm import Orm as CoreOrm
+    paid_ids = await CoreOrm.get_paid_user_ids(creator_ids)
     logger.info("Vacancies reindex: %d published vacancies", len(vacancies))
     indexed = 0
     for v in vacancies:
         try:
-            await index_vacancy(v)
+            await index_vacancy(v, paid_user_ids=paid_ids)
             indexed += 1
         except Exception as e:
             logger.warning("Failed to index vacancy id=%s: %s", v.id, e)
