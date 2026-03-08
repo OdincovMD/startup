@@ -158,3 +158,48 @@ class AnalyticsEvent(BaseModel):
         Index("idx_analytics_events_user_created", "user_id", "created_at"),
         Index("idx_analytics_events_type_created", "event_type", "created_at"),
     )
+
+
+# =========================
+#    USER SUBSCRIPTIONS
+# =========================
+
+class UserSubscription(BaseModel):
+    __tablename__ = "user_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    audience = Column(String(30), nullable=False, server_default="representative")
+    status = Column(String(20), nullable=False, server_default="active")
+    started_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    activated_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+    __table_args__ = (
+        Index("idx_user_subscriptions_user", "user_id"),
+        Index("idx_user_subscriptions_status", "status"),
+        Index("idx_user_subscriptions_audience", "audience"),
+    )
+
+
+class SubscriptionEvent(BaseModel):
+    __tablename__ = "subscription_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subscription_id = Column(Integer, ForeignKey("user_subscriptions.id", ondelete="CASCADE"), nullable=False)
+    event_type = Column(String(30), nullable=False)
+    performed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    details = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    subscription = relationship("UserSubscription")
+
+    __table_args__ = (
+        Index("idx_subscription_events_sub", "subscription_id"),
+        Index("idx_subscription_events_type", "event_type"),
+    )

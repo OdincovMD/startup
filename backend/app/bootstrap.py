@@ -29,7 +29,7 @@ async def create_tables() -> None:
 
 async def seed_roles() -> None:
     """Создание базовых ролей, если их нет."""
-    for name in ("student", "researcher", "lab_admin", "lab_representative"):
+    for name in ("student", "researcher", "lab_admin", "lab_representative", "platform_admin"):
         await Orm.get_or_create_role(name)
     logger.info("Roles seeded")
 

@@ -13,7 +13,7 @@ from app.config import settings
 
 from .client import get_es_client
 from .mappings import VACANCIES_INDEX_MAPPING
-from .utils import extract_skills, significant_words, sort_by_date
+from .utils import extract_skills, significant_words, sort_by_date, sort_with_ranking
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,12 @@ def _vacancy_to_doc(vacancy: Any) -> dict:
         "organization_avatar_url": getattr(org, "avatar_url", None) if org else None,
         "is_published": getattr(vacancy, "is_published", False),
         "created_at": created.isoformat() if created else None,
+        "paid_active": False,
+        "rank_score": 0.0,
+        "creator_user_id": getattr(vacancy, "creator_user_id", None),
     }
+    from .utils import calc_vacancy_score
+    doc["rank_score"] = calc_vacancy_score(doc)
     if name_inputs:
         doc["name_suggest"] = {"input": name_inputs, "weight": 2}
     if org and org.name:
@@ -344,7 +349,7 @@ async def search_vacancies(
             "laboratory_name",
             "public_id",
         ]
-        query = {
+        base_query = {
             "bool": {
                 "must": [
                     {"multi_match": {"query": q, "fields": search_fields, "type": "best_fields"}},
@@ -352,10 +357,20 @@ async def search_vacancies(
                 "filter": filters,
             }
         }
+        query = {
+            "function_score": {
+                "query": base_query,
+                "functions": [
+                    {"filter": {"term": {"paid_active": True}}, "weight": 2}
+                ],
+                "boost_mode": "multiply",
+                "score_mode": "sum",
+            }
+        }
     else:
         query = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
 
-    sort_clause = sort_by_date(sort_by)
+    sort_clause = sort_with_ranking(sort_by)
     try:
         resp = await client.search(
             index=index,

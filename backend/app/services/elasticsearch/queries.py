@@ -18,7 +18,7 @@ from app.database import async_session_factory
 
 from .client import get_es_client
 from .mappings import QUERIES_INDEX_MAPPING
-from .utils import escape_wildcard, significant_words, sort_by_date
+from .utils import escape_wildcard, significant_words, sort_by_date, sort_with_ranking
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,12 @@ def _query_to_doc(query: Any) -> dict:
         "deadline_year": deadline_year,
         "is_published": getattr(query, "is_published", False),
         "created_at": created.isoformat() if created else None,
+        "paid_active": False,
+        "rank_score": 0.0,
+        "creator_user_id": getattr(query, "creator_user_id", None),
     }
+    from .utils import calc_query_score
+    doc["rank_score"] = calc_query_score(doc)
     if title_inputs:
         doc["title_suggest"] = {"input": title_inputs, "weight": 2}
     if org and org.name:
@@ -351,7 +356,7 @@ async def search_queries(
             "organization_name",
             "public_id",
         ]
-        es_query = {
+        base_query = {
             "bool": {
                 "must": [
                     {"multi_match": {"query": q, "fields": search_fields, "type": "best_fields"}},
@@ -359,10 +364,20 @@ async def search_queries(
                 "filter": filters,
             }
         }
+        es_query = {
+            "function_score": {
+                "query": base_query,
+                "functions": [
+                    {"filter": {"term": {"paid_active": True}}, "weight": 2}
+                ],
+                "boost_mode": "multiply",
+                "score_mode": "sum",
+            }
+        }
     else:
         es_query = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
 
-    sort_clause = sort_by_date(sort_by)
+    sort_clause = sort_with_ranking(sort_by)
     try:
         resp = await client.search(
             index=index,

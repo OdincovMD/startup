@@ -757,3 +757,163 @@ class Orm:
             )
             result = await session.execute(stmt)
             return list(result.scalars().all())
+
+    # =============================
+    #       SUBSCRIPTIONS
+    # =============================
+
+    @staticmethod
+    async def has_active_subscription(user_id: int) -> bool:
+        """Check if user has at least one active, non-expired subscription."""
+        from datetime import datetime, timezone
+        async with async_session_factory() as session:
+            now = datetime.now(timezone.utc)
+            stmt = select(models.UserSubscription.id).where(
+                models.UserSubscription.user_id == user_id,
+                models.UserSubscription.status == "active",
+                (models.UserSubscription.expires_at.is_(None)) | (models.UserSubscription.expires_at > now),
+            ).limit(1)
+            result = await session.execute(stmt)
+            return result.scalars().first() is not None
+
+    @staticmethod
+    async def get_paid_user_ids(user_ids: list) -> set:
+        """Given a list of user_ids, return the subset that have active subscriptions."""
+        if not user_ids:
+            return set()
+        from datetime import datetime, timezone
+        async with async_session_factory() as session:
+            now = datetime.now(timezone.utc)
+            stmt = select(models.UserSubscription.user_id).where(
+                models.UserSubscription.user_id.in_(user_ids),
+                models.UserSubscription.status == "active",
+                (models.UserSubscription.expires_at.is_(None)) | (models.UserSubscription.expires_at > now),
+            ).distinct()
+            result = await session.execute(stmt)
+            return set(result.scalars().all())
+
+    @staticmethod
+    async def get_active_subscription(user_id: int):
+        """Return the active subscription for a user, or None."""
+        from datetime import datetime, timezone
+        async with async_session_factory() as session:
+            now = datetime.now(timezone.utc)
+            stmt = select(models.UserSubscription).where(
+                models.UserSubscription.user_id == user_id,
+                models.UserSubscription.status == "active",
+                (models.UserSubscription.expires_at.is_(None)) | (models.UserSubscription.expires_at > now),
+            ).order_by(models.UserSubscription.expires_at.desc().nulls_first()).limit(1)
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def create_subscription(
+        user_id: int,
+        audience: str = "representative",
+        expires_at=None,
+        activated_by: int = None,
+    ):
+        """Create a new active subscription for a user. Returns the subscription."""
+        from sqlalchemy.exc import SQLAlchemyError
+        async with async_session_factory() as session:
+            sub = models.UserSubscription(
+                user_id=user_id,
+                audience=audience,
+                status="active",
+                expires_at=expires_at,
+                activated_by=activated_by,
+            )
+            session.add(sub)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            await session.refresh(sub)
+            event = models.SubscriptionEvent(
+                subscription_id=sub.id,
+                event_type="activated",
+                performed_by=activated_by,
+                details={"audience": audience},
+            )
+            session.add(event)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+            return sub
+
+    @staticmethod
+    async def extend_subscription(subscription_id: int, new_expires_at, performed_by: int = None):
+        """Extend an existing subscription's expiration date."""
+        from sqlalchemy.exc import SQLAlchemyError
+        async with async_session_factory() as session:
+            sub = await session.get(models.UserSubscription, subscription_id)
+            if not sub:
+                return None
+            old_expires = sub.expires_at
+            sub.expires_at = new_expires_at
+            sub.status = "active"
+            event = models.SubscriptionEvent(
+                subscription_id=sub.id,
+                event_type="extended",
+                performed_by=performed_by,
+                details={"old_expires_at": old_expires.isoformat() if old_expires else None},
+            )
+            session.add(event)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            await session.refresh(sub)
+            return sub
+
+    @staticmethod
+    async def cancel_subscription(subscription_id: int, performed_by: int = None):
+        """Cancel an active subscription."""
+        from datetime import datetime, timezone
+        from sqlalchemy.exc import SQLAlchemyError
+        async with async_session_factory() as session:
+            sub = await session.get(models.UserSubscription, subscription_id)
+            if not sub:
+                return None
+            sub.status = "cancelled"
+            sub.cancelled_at = datetime.now(timezone.utc)
+            event = models.SubscriptionEvent(
+                subscription_id=sub.id,
+                event_type="cancelled",
+                performed_by=performed_by,
+            )
+            session.add(event)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            await session.refresh(sub)
+            return sub
+
+    @staticmethod
+    async def list_subscriptions_for_user(user_id: int) -> list:
+        """List all subscriptions for a user."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.UserSubscription)
+                .where(models.UserSubscription.user_id == user_id)
+                .order_by(models.UserSubscription.created_at.desc())
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
+    @staticmethod
+    async def list_subscription_events(subscription_id: int) -> list:
+        """List all events for a subscription."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.SubscriptionEvent)
+                .where(models.SubscriptionEvent.subscription_id == subscription_id)
+                .order_by(models.SubscriptionEvent.created_at.desc())
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all())

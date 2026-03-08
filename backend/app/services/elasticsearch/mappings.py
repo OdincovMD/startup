@@ -22,6 +22,9 @@ VACANCIES_INDEX_MAPPING = {
             "organization_avatar_url": {"type": "keyword", "index": False},
             "is_published": {"type": "boolean"},
             "created_at": {"type": "date"},
+            "paid_active": {"type": "boolean"},
+            "rank_score": {"type": "float"},
+            "creator_user_id": {"type": "integer"},
             "name_suggest": {
                 "type": "completion",
                 "analyzer": "simple",
@@ -56,6 +59,9 @@ LABORATORIES_INDEX_MAPPING = {
             "has_organization": {"type": "boolean"},
             "is_published": {"type": "boolean"},
             "created_at": {"type": "date"},
+            "paid_active": {"type": "boolean"},
+            "rank_score": {"type": "float"},
+            "creator_user_id": {"type": "integer"},
             "name_suggest": {
                 "type": "completion",
                 "analyzer": "simple",
@@ -91,6 +97,9 @@ QUERIES_INDEX_MAPPING = {
             "deadline_year": {"type": "integer"},
             "is_published": {"type": "boolean"},
             "created_at": {"type": "date"},
+            "paid_active": {"type": "boolean"},
+            "rank_score": {"type": "float"},
+            "creator_user_id": {"type": "integer"},
             "title_suggest": {
                 "type": "completion",
                 "analyzer": "simple",
@@ -155,6 +164,9 @@ ORGANIZATIONS_INDEX_MAPPING = {
             "avatar_url": {"type": "keyword", "index": False},
             "is_published": {"type": "boolean"},
             "created_at": {"type": "date"},
+            "paid_active": {"type": "boolean"},
+            "rank_score": {"type": "float"},
+            "creator_user_id": {"type": "integer"},
             "name_suggest": {
                 "type": "completion",
                 "analyzer": "simple",

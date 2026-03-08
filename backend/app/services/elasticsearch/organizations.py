@@ -13,7 +13,7 @@ from app.config import settings
 
 from .client import get_es_client
 from .mappings import ORGANIZATIONS_INDEX_MAPPING
-from .utils import significant_words, sort_by_date
+from .utils import significant_words, sort_by_date, sort_with_ranking
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,12 @@ def _organization_to_doc(org: Any) -> dict:
         "avatar_url": getattr(org, "avatar_url", None),
         "is_published": getattr(org, "is_published", False),
         "created_at": created.isoformat() if created else None,
+        "paid_active": False,
+        "rank_score": 0.0,
+        "creator_user_id": getattr(org, "creator_user_id", None),
     }
+    from .utils import calc_organization_score
+    doc["rank_score"] = calc_organization_score(doc)
     if name_inputs:
         doc["name_suggest"] = {"input": name_inputs, "weight": 2}
     if laboratory_names:
@@ -351,7 +356,7 @@ async def search_organizations(
             "equipment_names",
             "public_id",
         ]
-        es_query = {
+        base_query = {
             "bool": {
                 "must": [
                     {
@@ -366,10 +371,20 @@ async def search_organizations(
                 "filter": filters,
             }
         }
+        es_query = {
+            "function_score": {
+                "query": base_query,
+                "functions": [
+                    {"filter": {"term": {"paid_active": True}}, "weight": 2}
+                ],
+                "boost_mode": "multiply",
+                "score_mode": "sum",
+            }
+        }
     else:
         es_query = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
 
-    sort_clause = sort_by_date(sort_by)
+    sort_clause = sort_with_ranking(sort_by)
     try:
         resp = await client.search(
             index=index,
