@@ -82,13 +82,13 @@ async def list_labs(
                 items=orgs,
                 total=result.get("total", 0),
                 page=result.get("page", page),
-                size=result.get("size", size),
+                size=result.get("size", effective_size),
             )
         return OrganizationListResponse(
             items=[],
             total=result.get("total", 0),
             page=result.get("page", page),
-            size=result.get("size", size),
+            size=result.get("size", effective_size),
         )
     except Exception as e:
         raise HTTPException(

@@ -4,6 +4,7 @@ import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../ToastContext";
 import ProfileSummary from "./profile/ProfileSummary";
+import SubscriptionTab from "./profile/SubscriptionTab";
 import StudentProfileSection from "./profile/StudentProfileSection";
 import ResearcherProfileSection from "./profile/ResearcherProfileSection";
 import OrganizationProfileSection from "./profile/OrganizationProfileSection";
@@ -162,8 +163,8 @@ export default function Profile() {
   }, [profile, roles]);
 
   const ALLOWED_SECTIONS_BY_ROLE = {
-    lab_admin: ["summary", "personal", "organization"],
-    lab_representative: ["summary", "personal", "organization", "my-requests"],
+    lab_admin: ["summary", "subscription", "personal", "organization"],
+    lab_representative: ["summary", "subscription", "personal", "organization"],
     student: ["summary", "personal", "student", "my-vacancy-responses"],
     researcher: ["summary", "personal", "researcher", "my-requests", "my-vacancy-responses"],
   };
@@ -303,9 +304,14 @@ export default function Profile() {
       setOrgTab("vacancy-responses");
       setSearchParams({ section: "organization" }, { replace: true });
     } else if (tab === "my-requests") {
-      setSearchParams({ section: "my-requests" }, { replace: true });
+      if (roleKey === "lab_representative") {
+        setOrgTab("my-requests");
+        setSearchParams({ section: "organization" }, { replace: true });
+      } else {
+        setSearchParams({ section: "my-requests" }, { replace: true });
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, roleKey]);
 
   useEffect(() => {
     const handler = () => setRefreshKey((k) => k + 1);
@@ -2168,6 +2174,9 @@ export default function Profile() {
                 uploading={uploading}
               />
             )}
+            {profileSection === "subscription" && profile && isOrgRole && (
+              <SubscriptionTab onError={setError} />
+            )}
             {profileSection === "personal" && profile && (
               <PersonalProfileSection
                 hideTitle
@@ -2184,6 +2193,7 @@ export default function Profile() {
                 hideTitle
                 orgTab={orgTab}
                 setOrgTab={setOrgTab}
+                onNavigateToSubscription={() => setProfileSection("subscription")}
                 showProfileTab={roleKey === "lab_admin"}
                 roleKey={roleKey}
                 onError={setError}
@@ -2339,11 +2349,11 @@ export default function Profile() {
                 }}
               />
             )}
-            {profileSection === "my-requests" && profile && (roleKey === "researcher" || roleKey === "lab_representative") && (
+            {profileSection === "my-requests" && profile && roleKey === "researcher" && (
               <MyJoinRequestsSection
                 roleKey={roleKey}
                 onError={setError}
-                creatorLabs={orgLabs}
+                creatorLabs={[]}
               />
             )}
             {profileSection === "my-vacancy-responses" && profile && (roleKey === "student" || roleKey === "researcher") && (

@@ -69,10 +69,12 @@ async def get_my_subscription(current_user=Depends(get_current_user)):
     """
     sub = await Orm.get_active_subscription(current_user.id)
     if not sub:
-        return {"active": False, "expires_at": None, "status": "none", "started_at": None}
+        return {"active": False, "expires_at": None, "trial_ends_at": None, "tier": None, "status": "none", "started_at": None}
     return {
         "active": True,
         "expires_at": sub.expires_at.isoformat() if sub.expires_at else None,
+        "trial_ends_at": sub.trial_ends_at.isoformat() if sub.trial_ends_at else None,
+        "tier": sub.tier or "pro",
         "status": sub.status or "active",
         "started_at": sub.started_at.isoformat() if sub.started_at else None,
     }

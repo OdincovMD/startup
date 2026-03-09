@@ -1413,7 +1413,8 @@ body.nav-open {
 }
 
 .profile-sidebar__item {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
   text-align: left;
   padding: 0.65rem 1rem;
@@ -1436,6 +1437,46 @@ body.nav-open {
   background: var(--nav-active-bg);
   color: var(--text-primary-alt);
   font-weight: 600;
+}
+
+.profile-sidebar__step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  margin-right: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--border-light);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.profile-sidebar__item--active .profile-sidebar__step {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.profile-sidebar__substep {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1rem;
+  height: 1rem;
+  margin-right: 0.4rem;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--border-light);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.profile-sidebar__subitem--active .profile-sidebar__substep {
+  color: var(--accent);
+  background: var(--accent-bg);
 }
 
 .profile-sidebar__item-wrap {
@@ -1559,7 +1600,8 @@ body.nav-open {
 
 /* Пункты подменю — явно кликабельны: крупнее, жирнее, hover-эффект */
 .profile-sidebar__subitem {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
   text-align: left;
   padding: 0.5rem 0.6rem;
@@ -1864,6 +1906,18 @@ body.nav-open {
   .profile-sidebar__list-item--expanded .profile-sidebar__subitem {
     padding: 0.5rem 0.6rem;
     font-size: 0.85rem;
+  }
+  .profile-sidebar__step {
+    min-width: 1.1rem;
+    height: 1.1rem;
+    font-size: 0.65rem;
+    margin-right: 0.4rem;
+  }
+  .profile-sidebar__substep {
+    min-width: 0.9rem;
+    height: 0.9rem;
+    font-size: 0.55rem;
+    margin-right: 0.35rem;
   }
 }
 
@@ -4000,6 +4054,142 @@ body.nav-open {
   margin-bottom: 1.25rem;
 }
 
+/* Dashboard hero */
+.dashboard-hero {
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-hero-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary-alt);
+  letter-spacing: -0.02em;
+}
+
+.dashboard-hero-desc {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.dashboard-hero-subscription {
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-hero-subscription-status {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* Dashboard sections */
+.dashboard-section {
+  margin-bottom: 2rem;
+}
+
+.dashboard-section-title {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary-alt);
+}
+
+.dashboard-empty-state {
+  margin: 0;
+  padding: 1.25rem;
+  background: var(--page-bg-alt);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* General recommendations card */
+.dashboard-recommendations-card {
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-recommendations-details {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--page-bg-alt);
+  overflow: hidden;
+}
+
+.dashboard-recommendations-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary-alt);
+  list-style: none;
+  transition: background 0.2s ease;
+}
+
+.dashboard-recommendations-summary:hover {
+  background: var(--nav-active-bg);
+}
+
+.dashboard-recommendations-summary::-webkit-details-marker {
+  display: none;
+}
+
+.dashboard-recommendations-summary::before {
+  content: "▶";
+  font-size: 0.6rem;
+  color: var(--accent);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.dashboard-recommendations-details[open] .dashboard-recommendations-summary::before {
+  transform: rotate(90deg);
+}
+
+.dashboard-recommendations-icon {
+  color: var(--accent);
+  font-size: 0.75rem;
+}
+
+.dashboard-recommendations-body {
+  padding: 0 1rem 1rem 1rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.dashboard-recommendations-lead {
+  margin: 0.5rem 0 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.dashboard-recommendations-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.dashboard-recommendations-list li {
+  margin-bottom: 0.4rem;
+}
+
+.dashboard-recommendations-list li:last-child {
+  margin-bottom: 0;
+}
+
 /* Subscription card */
 .dashboard-subscription-card {
   margin-bottom: 1.25rem;
@@ -4074,7 +4264,116 @@ body.nav-open {
   margin-left: auto;
 }
 
-/* Org ranking block */
+/* Dashboard recommendations (tips only, no coefficient) */
+.dashboard-recommendations {
+  margin-bottom: 1.25rem;
+}
+
+.dashboard-tips-details {
+  margin-top: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: var(--page-bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.dashboard-tips-summary {
+  cursor: pointer;
+  font-size: 0.9375rem;
+  color: var(--accent);
+  font-weight: 600;
+  list-style: none;
+  padding: 0.25rem 0;
+  transition: color 0.2s ease;
+}
+
+.dashboard-tips-summary:hover {
+  color: var(--accent-soft);
+}
+
+.dashboard-tips-summary::-webkit-details-marker {
+  display: none;
+}
+
+.dashboard-tips-summary::before {
+  content: "▶ ";
+  font-size: 0.6rem;
+  display: inline-block;
+  margin-right: 0.35rem;
+  transition: transform 0.15s ease;
+}
+
+.dashboard-tips-details[open] .dashboard-tips-summary::before {
+  transform: rotate(90deg);
+}
+
+.dashboard-tips-list {
+  margin: 0.75rem 0 0 1.5rem;
+  padding: 0 0 0.25rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.dashboard-tips-list li {
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-tips-list li:last-child {
+  margin-bottom: 0;
+}
+
+/* Table: tips column */
+.dashboard-table-cell-tips {
+  vertical-align: middle;
+  max-width: 12rem;
+}
+
+.dashboard-row-tips {
+  margin: 0;
+}
+
+.dashboard-row-tips-summary {
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--accent);
+  font-weight: 600;
+  list-style: none;
+  padding: 0.15rem 0;
+}
+
+.dashboard-row-tips-summary::-webkit-details-marker {
+  display: none;
+}
+
+.dashboard-row-tips-summary::before {
+  content: "▶ ";
+  font-size: 0.55rem;
+  margin-right: 0.25rem;
+  transition: transform 0.15s ease;
+}
+
+.dashboard-row-tips[open] .dashboard-row-tips-summary::before {
+  transform: rotate(90deg);
+}
+
+.dashboard-row-tips-list {
+  margin: 0.5rem 0 0 1rem;
+  padding: 0 0 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.dashboard-row-tips-list li {
+  margin-bottom: 0.35rem;
+}
+
+.dashboard-row-tips-list li:last-child {
+  margin-bottom: 0;
+}
+
+/* Legacy org ranking block (kept for potential reuse) */
 .dashboard-org-ranking {
   margin-bottom: 1.25rem;
 }
@@ -4328,37 +4627,273 @@ body.nav-open {
 }
 
 /* Subscription tab */
-.subscription-tab .lab-tab-header {
-  margin-bottom: 1rem;
+.subscription-tab {
+  max-width: 52rem;
 }
 
-.subscription-benefits {
+.subscription-tab-hero {
+  margin-bottom: 2rem;
+}
+
+.subscription-tab-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary-alt);
+  letter-spacing: -0.02em;
+}
+
+.subscription-tab-lead {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.subscription-section-title {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary-alt);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.subscription-status-section,
+.subscription-tiers-section,
+.subscription-tips-section,
+.subscription-faq-section {
+  margin-bottom: 2.5rem;
+}
+
+.subscription-status-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--page-bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  border-left-width: 4px;
+}
+
+.subscription-status-card--active {
+  border-left-color: var(--accent);
+  background: linear-gradient(to right, var(--accent-bg), var(--page-bg-alt));
+}
+
+.subscription-status-card--inactive {
+  border-left-color: var(--border);
+}
+
+.subscription-status-badge {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.subscription-status-badge--inactive {
+  background: var(--border);
+  color: var(--text-muted);
+}
+
+.subscription-status-icon {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.subscription-status-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.subscription-status-title {
+  display: block;
+  font-size: 1rem;
+  color: var(--text-primary-alt);
+}
+
+.subscription-status-tier,
+.subscription-status-meta {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.subscription-status-desc {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.subscription-status-days {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.subscription-cta-btn {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+@media (max-width: 480px) {
+  .subscription-tab {
+    max-width: 100%;
+  }
+  .subscription-tab-hero {
+    margin-bottom: 1.5rem;
+  }
+  .subscription-tab-title {
+    font-size: 1.375rem;
+  }
+  .subscription-status-card {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1rem;
+  }
+  .subscription-cta-btn {
+    margin-left: 0;
+    width: 100%;
+    min-height: 44px;
+  }
+  .subscription-tiers-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .subscription-tier-card {
+    padding: 1.25rem;
+  }
+  .subscription-faq-question {
+    padding: 0.75rem 0.875rem;
+    font-size: 0.875rem;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+}
+
+.subscription-tiers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+.subscription-tier-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  background: var(--page-bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.subscription-tier-card:hover {
+  border-color: var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+.subscription-tier-card--accent {
+  border-color: var(--accent-soft);
+  background: linear-gradient(180deg, var(--accent-bg) 0%, var(--page-bg-alt) 100%);
+}
+
+.subscription-tier-card--accent:hover {
+  border-color: var(--accent);
+}
+
+.subscription-tier-card-header {
   margin-bottom: 1.25rem;
 }
 
-.subscription-benefits-list {
-  margin: 0.5rem 0 0 1.25rem;
-  padding: 0;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  line-height: 1.55;
-}
-
-.subscription-benefits-list li {
+.subscription-tier-tagline {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
   margin-bottom: 0.35rem;
 }
 
-.subscription-days-left {
-  color: var(--text-muted);
-  font-size: 0.8125rem;
+.subscription-tier-name {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary-alt);
+  letter-spacing: -0.02em;
 }
 
-.subscription-faq {
-  margin-bottom: 1.25rem;
+.subscription-tier-desc {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.subscription-tier-features {
+  flex: 1;
+  margin: 0 0 1.25rem;
+  padding-left: 1.25rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.subscription-tier-features li {
+  margin-bottom: 0.4rem;
+}
+
+.subscription-tier-features li:last-child {
+  margin-bottom: 0;
+}
+
+.subscription-tier-cta {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  cursor: not-allowed;
+  opacity: 0.7;
+  min-height: 44px;
+}
+
+.subscription-tips-lead {
+  margin: 0 0 0.75rem;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.subscription-tips-list {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.subscription-tips-list li {
+  margin-bottom: 0.4rem;
+}
+
+.subscription-tips-footnote {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }
 
 .subscription-faq-list {
-  margin-top: 0.5rem;
+  margin-top: 0;
 }
 
 .subscription-faq-item {
@@ -4370,12 +4905,19 @@ body.nav-open {
 
 .subscription-faq-question {
   cursor: pointer;
-  padding: 0.75rem 1rem;
-  font-size: 0.9rem;
+  padding: 0.875rem 1rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary-alt);
   list-style: none;
   background: var(--page-bg-alt);
+  transition: background 0.2s ease;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.subscription-faq-question:hover {
+  background: var(--nav-active-bg);
 }
 
 .subscription-faq-question::-webkit-details-marker {
@@ -4384,10 +4926,11 @@ body.nav-open {
 
 .subscription-faq-question::before {
   content: "▶ ";
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   display: inline-block;
-  margin-right: 0.35rem;
-  transition: transform 0.15s ease;
+  margin-right: 0.5rem;
+  transition: transform 0.2s ease;
+  color: var(--accent);
 }
 
 .subscription-faq-item[open] .subscription-faq-question::before {
@@ -4395,10 +4938,12 @@ body.nav-open {
 }
 
 .subscription-faq-answer {
-  padding: 0 1rem 0.75rem 1.5rem;
-  font-size: 0.875rem;
+  padding: 0 1rem 1rem 1.75rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: 1.55;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .dashboard-metrics {
@@ -4429,6 +4974,16 @@ body.nav-open {
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: 0.25rem;
+}
+
+.dashboard-metric--primary .dashboard-metric-value {
+  font-size: 1.5rem;
+  color: var(--accent);
+}
+
+.dashboard-metric--primary .dashboard-metric-label {
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .dashboard-page {
@@ -4496,6 +5051,11 @@ body.nav-open {
 
 .dashboard-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.dashboard-table-name {
+  font-weight: 500;
+  color: var(--text-primary-alt);
 }
 
 /* Дашборд: адаптация под телефон и узкие экраны */
@@ -4619,6 +5179,26 @@ body.nav-open {
 }
 
 @media (max-width: 480px) {
+  .dashboard-hero {
+    margin-bottom: 1.25rem;
+  }
+  .dashboard-hero-title {
+    font-size: 1.25rem;
+  }
+  .dashboard-hero-subscription {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .dashboard-recommendations-summary {
+    min-height: 44px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+  }
+  .dashboard-recommendations-body {
+    padding: 0 1rem 0.875rem;
+  }
   .dashboard-metrics {
     grid-template-columns: 1fr;
     gap: 0.4rem;

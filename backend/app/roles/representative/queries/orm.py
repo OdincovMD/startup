@@ -1291,6 +1291,17 @@ class Orm:
             return labs
 
     @staticmethod
+    async def count_standalone_labs_for_creator(creator_user_id: int) -> int:
+        """Count standalone labs (organization_id is None) for a creator."""
+        async with async_session_factory() as session:
+            stmt = select(func.count()).select_from(models.OrganizationLaboratory).where(
+                models.OrganizationLaboratory.creator_user_id == creator_user_id,
+                models.OrganizationLaboratory.organization_id.is_(None),
+            )
+            result = await session.execute(stmt)
+            return result.scalar() or 0
+
+    @staticmethod
     async def list_laboratories_for_creator(
         creator_user_id: int,
     ) -> List[models.OrganizationLaboratory]:
@@ -1422,6 +1433,16 @@ class Orm:
         equipment_ids: Optional[List[int]] = None,
         task_solution_ids: Optional[List[int]] = None,
     ) -> models.OrganizationLaboratory:
+        # Basic tier limit: up to 3 standalone labs (organization_id is None)
+        if organization_id is None and creator_user_id is not None:
+            tier = await CoreOrm.get_subscription_tier(creator_user_id)
+            if tier == "basic":
+                standalone_count = await Orm.count_standalone_labs_for_creator(creator_user_id)
+                if standalone_count >= 3:
+                    raise ValueError(
+                        "Тариф Basic ограничивает до 3 самостоятельных лабораторий. "
+                        "Перейдите на Pro для неограниченного количества."
+                    )
         async with async_session_factory() as session:
             lab = models.OrganizationLaboratory(
                 organization_id=organization_id,
@@ -3537,12 +3558,14 @@ class Orm:
         subscription = (
             {
                 "active": True,
+                "tier": getattr(subscription_row, "tier", None) or "pro",
                 "expires_at": subscription_row.expires_at.isoformat() if subscription_row.expires_at else None,
+                "trial_ends_at": subscription_row.trial_ends_at.isoformat() if getattr(subscription_row, "trial_ends_at", None) else None,
                 "status": subscription_row.status or "active",
                 "started_at": subscription_row.started_at.isoformat() if subscription_row.started_at else None,
             }
             if subscription_row
-            else {"active": False, "expires_at": None, "status": "none", "started_at": None}
+            else {"active": False, "tier": None, "expires_at": None, "trial_ends_at": None, "status": "none", "started_at": None}
         )
 
         org_ranking = None
@@ -3690,6 +3713,104 @@ class Orm:
             "responses_over_time": responses_over_time,
             "subscription": subscription,
             "org_ranking": org_ranking,
+        }
+
+    @staticmethod
+    async def get_extended_analytics_for_user(user_id: int) -> dict:
+        """Расширенная аналитика для Pro: просмотры 7/30 дн., конверсия, сравнительный контекст."""
+        dashboard = await Orm.get_employer_dashboard_data(user_id)
+        since_7d = datetime.now(timezone.utc) - timedelta(days=7)
+        views_7d_org = 0
+        views_7d_lab = 0
+        views_7d_vacancy = 0
+        views_7d_query = 0
+        org_public_id = None
+        org = await Orm.get_organization_for_user(user_id)
+        if org:
+            org_public_id = org.public_id
+        lab_public_ids = [lb.get("public_id") for lb in dashboard.get("by_laboratory", []) if lb.get("public_id")]
+        vacancy_public_ids = [v.get("public_id") for v in dashboard.get("by_vacancy", []) if v.get("public_id")]
+        query_public_ids = [q.get("public_id") for q in dashboard.get("by_query", []) if q.get("public_id")]
+        if hasattr(models, "AnalyticsEvent"):
+            ae = models.AnalyticsEvent
+            async with async_session_factory() as session:
+                if org_public_id:
+                    stmt = (
+                        select(func.count(ae.id))
+                        .where(
+                            ae.event_type == "page_view",
+                            ae.entity_type == "organization",
+                            ae.entity_id == org_public_id,
+                            ae.created_at >= since_7d,
+                        )
+                    )
+                    res = await session.execute(stmt)
+                    views_7d_org = res.scalar() or 0
+                if lab_public_ids:
+                    stmt = (
+                        select(func.count(ae.id))
+                        .where(
+                            ae.event_type == "page_view",
+                            ae.entity_type == "laboratory",
+                            ae.entity_id.in_(lab_public_ids),
+                            ae.created_at >= since_7d,
+                        )
+                    )
+                    res = await session.execute(stmt)
+                    views_7d_lab = res.scalar() or 0
+                if vacancy_public_ids:
+                    stmt = (
+                        select(func.count(ae.id))
+                        .where(
+                            ae.event_type == "page_view",
+                            ae.entity_type == "vacancy",
+                            ae.entity_id.in_(vacancy_public_ids),
+                            ae.created_at >= since_7d,
+                        )
+                    )
+                    res = await session.execute(stmt)
+                    views_7d_vacancy = res.scalar() or 0
+                if query_public_ids:
+                    stmt = (
+                        select(func.count(ae.id))
+                        .where(
+                            ae.event_type == "page_view",
+                            ae.entity_type == "query",
+                            ae.entity_id.in_(query_public_ids),
+                            ae.created_at >= since_7d,
+                        )
+                    )
+                    res = await session.execute(stmt)
+                    views_7d_query = res.scalar() or 0
+        total_views_30d = (
+            sum(v.get("view_count", 0) for v in dashboard.get("by_vacancy", []))
+            + sum(lab.get("view_count", 0) for lab in dashboard.get("by_laboratory", []))
+            + sum(q.get("view_count", 0) for q in dashboard.get("by_query", []))
+        )
+        org_views_30d = 0
+        if org_public_id and org:
+            org_analytics = await Orm.get_organization_analytics_30d([org_public_id])
+            org_views_30d = org_analytics.get(org_public_id, {}).get("unique_views_30d", 0) or 0
+        total_responses = dashboard.get("summary", {}).get("total_responses", 0)
+        total_uv = sum(
+            v.get("unique_viewers", 0) for v in dashboard.get("by_vacancy", [])
+        )
+        conversion_pct = round(100 * total_responses / total_uv, 1) if total_uv else 0
+        return {
+            **dashboard,
+            "extended": {
+                "views_7d": {
+                    "organization": views_7d_org,
+                    "laboratories": views_7d_lab,
+                    "vacancies": views_7d_vacancy,
+                    "queries": views_7d_query,
+                    "total": views_7d_org + views_7d_lab + views_7d_vacancy + views_7d_query,
+                },
+                "views_30d_total": total_views_30d + org_views_30d,
+                "org_views_30d": org_views_30d,
+                "conversion_rate_pct": conversion_pct,
+                "benchmark_note": "Сравните ваши показатели с средними по платформе. Чем выше полнота карточек и конверсия — тем лучше позиция в выдаче.",
+            },
         }
 
     @staticmethod

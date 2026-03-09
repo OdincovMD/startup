@@ -49,6 +49,7 @@ def _laboratory_to_doc(lab: Any, lab_analytics: Optional[dict] = None) -> dict:
     """Преобразовать ORM-лабораторию в документ для индекса."""
     org = getattr(lab, "organization", None)
     created = getattr(lab, "created_at", None)
+    first_created = getattr(lab, "first_created_at", None) or created
     name = getattr(lab, "name", None) or ""
     description = getattr(lab, "description", None) or ""
     activities = getattr(lab, "activities", None) or ""
@@ -109,9 +110,11 @@ def _laboratory_to_doc(lab: Any, lab_analytics: Optional[dict] = None) -> dict:
         "has_organization": org is not None,
         "is_published": getattr(lab, "is_published", False),
         "created_at": created.isoformat() if created else None,
+        "first_created_at": first_created.isoformat() if first_created else None,
         "paid_active": False,
         "rank_score": 0.0,
         "creator_user_id": getattr(lab, "creator_user_id", None),
+        "org_creator_user_id": getattr(org, "creator_user_id", None) if org else None,
         "unique_views_30d": analytics.get("unique_views_30d", 0),
         "avg_time_on_page_sec": analytics.get("avg_time_on_page_sec"),
         "cta_clicks_30d": analytics.get("cta_clicks_30d", 0),
@@ -161,21 +164,42 @@ def _doc_to_laboratory_item(doc: dict) -> dict:
     }
 
 
-async def _resolve_paid_active(doc: dict, paid_user_ids: set = None) -> None:
-    """Set paid_active on doc based on creator's subscription status."""
+async def _resolve_paid_active(
+    doc: dict,
+    paid_user_ids: set = None,
+    paid_pro_user_ids: set = None,
+) -> None:
+    """Set paid_active on doc based on creator's subscription or org-wide Pro (labs only)."""
     creator_id = doc.get("creator_user_id")
-    if creator_id is None:
-        return
+    org_creator_id = doc.get("org_creator_user_id")
+    paid = False
+    paid_via_org = False
     if paid_user_ids is not None:
-        doc["paid_active"] = creator_id in paid_user_ids
+        paid = creator_id in paid_user_ids if creator_id else False
+        # Org-wide: lab in org gets paid if org creator has Pro subscription
+        if not paid and org_creator_id and paid_pro_user_ids and org_creator_id in paid_pro_user_ids:
+            paid = True
+            paid_via_org = True
     else:
         from app.core.queries.orm import Orm as CoreOrm
-        doc["paid_active"] = await CoreOrm.has_active_subscription(creator_id)
+        paid = await CoreOrm.has_active_subscription(creator_id) if creator_id else False
+        # Org-wide (Pro): lab in org gets paid if org creator has Pro subscription
+        if not paid and org_creator_id and org_creator_id != creator_id:
+            org_creator_tier = await CoreOrm.get_subscription_tier(org_creator_id)
+            if org_creator_tier == "pro" and await CoreOrm.has_active_subscription(org_creator_id):
+                paid = True
+                paid_via_org = True
+        # Grace period: new creators get 7 days boost without subscription
+        if not paid and creator_id and await CoreOrm.is_creator_in_grace_period(creator_id):
+            paid = True
+    doc["paid_active"] = paid
+    doc["paid_via_org"] = paid_via_org
 
 
 async def index_laboratory(
     lab: Any,
     paid_user_ids: set = None,
+    paid_pro_user_ids: set = None,
     lab_analytics: Optional[dict] = None,
 ) -> None:
     """Проиндексировать лабораторию в Elasticsearch."""
@@ -183,7 +207,7 @@ async def index_laboratory(
         return
     client = get_es_client()
     doc = _laboratory_to_doc(lab, lab_analytics=lab_analytics)
-    await _resolve_paid_active(doc, paid_user_ids)
+    await _resolve_paid_active(doc, paid_user_ids, paid_pro_user_ids)
     last_err = None
     for attempt in range(3):
         try:
@@ -393,7 +417,14 @@ async def search_laboratories(
             "function_score": {
                 "query": base_query,
                 "functions": [
-                    {"filter": {"term": {"paid_active": True}}, "weight": 2}
+                    {
+                        "script_score": {
+                            "script": {
+                                "source": "if (doc['paid_active'].size() > 0 && doc['paid_active'].value) { double rs = doc['rank_score'].size() > 0 ? doc['rank_score'].value : 0.0; return 1.0 + (rs / 100.0) * 1.5; } return 1.0;",
+                                "lang": "painless",
+                            }
+                        }
+                    }
                 ],
                 "boost_mode": "multiply",
                 "score_mode": "sum",
@@ -498,14 +529,20 @@ async def reindex_laboratories_by_ids(lab_ids: List[int]) -> None:
 
     labs = await Orm.get_laboratories_by_ids(lab_ids)
     creator_ids = [l.creator_user_id for l in labs if l.creator_user_id]
+    org_creator_ids = []
+    for lab in labs:
+        org = getattr(lab, "organization", None)
+        if org and getattr(org, "creator_user_id", None):
+            org_creator_ids.append(org.creator_user_id)
     from app.core.queries.orm import Orm as CoreOrm
     paid_ids = await CoreOrm.get_paid_user_ids(creator_ids)
+    paid_pro_ids = await CoreOrm.get_paid_pro_user_ids(org_creator_ids) if org_creator_ids else set()
     public_ids = [l.public_id for l in labs if l.public_id]
     lab_analytics_map = await Orm.get_laboratory_analytics_30d(public_ids)
     for lab in labs:
         try:
             analytics = lab_analytics_map.get(lab.public_id, {}) if lab.public_id else {}
-            await index_laboratory(lab, paid_user_ids=paid_ids, lab_analytics=analytics)
+            await index_laboratory(lab, paid_user_ids=paid_ids, paid_pro_user_ids=paid_pro_ids, lab_analytics=analytics)
         except Exception as e:
             logger.warning("Failed to reindex laboratory id=%s: %s", lab.id, e)
 
@@ -538,8 +575,14 @@ async def reindex_laboratories(force: bool = False) -> int:
         except Exception:
             pass
     creator_ids = [l.creator_user_id for l in labs if l.creator_user_id]
+    org_creator_ids = []
+    for lab in labs:
+        org = getattr(lab, "organization", None)
+        if org and getattr(org, "creator_user_id", None):
+            org_creator_ids.append(org.creator_user_id)
     from app.core.queries.orm import Orm as CoreOrm
     paid_ids = await CoreOrm.get_paid_user_ids(creator_ids)
+    paid_pro_ids = await CoreOrm.get_paid_pro_user_ids(org_creator_ids) if org_creator_ids else set()
     public_ids = [l.public_id for l in labs if l.public_id]
     lab_analytics_map = await Orm.get_laboratory_analytics_30d(public_ids)
     logger.info("Laboratories reindex: %d published laboratories", len(labs))
@@ -547,7 +590,7 @@ async def reindex_laboratories(force: bool = False) -> int:
     for lab in labs:
         try:
             analytics = lab_analytics_map.get(lab.public_id, {}) if lab.public_id else {}
-            await index_laboratory(lab, paid_user_ids=paid_ids, lab_analytics=analytics)
+            await index_laboratory(lab, paid_user_ids=paid_ids, paid_pro_user_ids=paid_pro_ids, lab_analytics=analytics)
             indexed += 1
         except Exception as e:
             logger.warning("Failed to index laboratory id=%s: %s", lab.id, e)

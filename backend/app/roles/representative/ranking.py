@@ -23,6 +23,16 @@ def _created_at_iso(obj: Any) -> Optional[str]:
     return str(created)
 
 
+def _first_created_at_iso(obj: Any) -> Optional[str]:
+    """Получить first_created_at или created_at в ISO строке (для freshness anti-gaming)."""
+    first = getattr(obj, "first_created_at", None)
+    if first is not None:
+        if hasattr(first, "isoformat"):
+            return first.isoformat()
+        return str(first)
+    return _created_at_iso(obj)
+
+
 # ---------------------------------------------------------------------------
 # Build doc from ORM (same shape as ES index doc for score calculation)
 # ---------------------------------------------------------------------------
@@ -49,6 +59,7 @@ def build_doc_from_org(
         "vacancies_count": vacancies_count,
         "queries_count": queries_count,
         "created_at": _created_at_iso(org),
+        "first_created_at": _first_created_at_iso(org),
         "unique_views_30d": unique_views_30d,
         "avg_time_on_page_sec": avg_time_on_page_sec,
     }
@@ -79,6 +90,7 @@ def build_doc_from_lab(
         "researchers_count": researchers_count,
         "equipment_count": equipment_count,
         "created_at": _created_at_iso(lab),
+        "first_created_at": _first_created_at_iso(lab),
         "unique_views_30d": unique_views_30d,
         "avg_time_on_page_sec": avg_time_on_page_sec,
         "cta_clicks_30d": cta_clicks_30d,
@@ -101,6 +113,7 @@ def build_doc_from_vacancy(
         "organization_id": getattr(vacancy, "organization_id", None),
         "laboratory_id": getattr(vacancy, "laboratory_id", None),
         "created_at": _created_at_iso(vacancy),
+        "first_created_at": _first_created_at_iso(vacancy),
         "unique_viewers_30d": unique_viewers_30d,
         "response_count": response_count,
         "avg_time_on_page_sec": avg_time_on_page_sec,
@@ -125,6 +138,7 @@ def build_doc_from_query(
         "deadline": getattr(query, "deadline", None),
         "laboratory_ids": laboratory_ids or [],
         "created_at": _created_at_iso(query),
+        "first_created_at": _first_created_at_iso(query),
         "unique_views_30d": unique_views_30d,
         "avg_time_on_page_sec": avg_time_on_page_sec,
     }

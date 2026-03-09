@@ -56,8 +56,29 @@ def sort_with_ranking(
     ]
 
 
+def _longevity_bonus(first_created_at_iso: Optional[str]) -> float:
+    """Bonus for long-standing entities: +1 per 6 months, max 5."""
+    if not first_created_at_iso:
+        return 0.0
+    from datetime import datetime, timezone
+    try:
+        if isinstance(first_created_at_iso, str):
+            created = datetime.fromisoformat(first_created_at_iso.replace("Z", "+00:00"))
+        else:
+            created = first_created_at_iso
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        age_days = (datetime.now(timezone.utc) - created).days
+        age_months = age_days / 30.0
+        return min(5.0, max(0, age_months // 6))
+    except Exception:
+        return 0.0
+
+
 def _freshness_score(created_at_iso: Optional[str], fast_decay: bool = False) -> float:
-    """Calculate freshness score based on age of the entity."""
+    """Calculate freshness score based on age of the entity.
+    Anti-gaming: entities 0-2 days old get reduced score to discourage reposting.
+    """
     if not created_at_iso:
         return 2.0
     from datetime import datetime, timezone
@@ -71,6 +92,9 @@ def _freshness_score(created_at_iso: Optional[str], fast_decay: bool = False) ->
         age_days = (datetime.now(timezone.utc) - created).days
     except Exception:
         return 2.0
+    # Anti-gaming: reduce score for very new entities (0-2 days) to discourage reposting
+    if age_days <= 2:
+        return 6.0 if fast_decay else 4.0
     if fast_decay:
         if age_days <= 7:
             return 20.0
@@ -126,7 +150,7 @@ def calc_organization_score(doc: dict) -> float:
     if labs_count >= 1:
         quality += 8
 
-    freshness = _freshness_score(doc.get("created_at"))
+    freshness = _freshness_score(doc.get("first_created_at") or doc.get("created_at"))
 
     performance = _performance_score_organization(
         unique_views_30d=doc.get("unique_views_30d") or 0,
@@ -139,7 +163,8 @@ def calc_organization_score(doc: dict) -> float:
     structure += min(employees_count, 6)
     structure += min(doc.get("vacancies_count", 0) + doc.get("queries_count", 0), 6)
 
-    return round(quality + freshness + performance + structure, 2)
+    longevity = _longevity_bonus(doc.get("first_created_at") or doc.get("created_at"))
+    return round(min(100.0, quality + freshness + performance + structure + longevity), 2)
 
 
 def calc_organization_score_breakdown(doc: dict) -> dict:
@@ -160,7 +185,7 @@ def calc_organization_score_breakdown(doc: dict) -> dict:
     if labs_count >= 1:
         quality += 8
 
-    freshness = _freshness_score(doc.get("created_at"))
+    freshness = _freshness_score(doc.get("first_created_at") or doc.get("created_at"))
     performance = _performance_score_organization(
         unique_views_30d=doc.get("unique_views_30d") or 0,
         avg_time_on_page_sec=doc.get("avg_time_on_page_sec"),
@@ -170,13 +195,15 @@ def calc_organization_score_breakdown(doc: dict) -> dict:
     employees_count = doc.get("employees_count") or 0
     structure += min(employees_count, 6)
     structure += min(doc.get("vacancies_count", 0) + doc.get("queries_count", 0), 6)
+    longevity = _longevity_bonus(doc.get("first_created_at") or doc.get("created_at"))
 
-    total = round(quality + freshness + performance + structure, 2)
+    total = round(min(100.0, quality + freshness + performance + structure + longevity), 2)
     return {
         "quality_score": round(quality, 2),
         "freshness_score": round(freshness, 2),
         "performance_score": round(performance, 2),
         "structure_score": round(structure, 2),
+        "longevity_score": round(longevity, 2),
         "rank_score": total,
     }
 
@@ -219,15 +246,16 @@ def calc_laboratory_score(doc: dict) -> float:
     team += min(doc.get("researchers_count") or 0, 3) * 2
     team += min(doc.get("equipment_count") or 0, 3) * 2
 
-    freshness = _freshness_score(doc.get("created_at"))
+    freshness = _freshness_score(doc.get("first_created_at") or doc.get("created_at"))
 
     performance = _performance_score_laboratory(
         unique_views_30d=doc.get("unique_views_30d") or 0,
         avg_time_on_page_sec=doc.get("avg_time_on_page_sec"),
         cta_clicks_30d=doc.get("cta_clicks_30d") or 0,
     )
+    longevity = _longevity_bonus(doc.get("first_created_at") or doc.get("created_at"))
 
-    return round(quality + team + freshness + performance, 2)
+    return round(min(100.0, quality + team + freshness + performance + longevity), 2)
 
 
 def calc_laboratory_score_breakdown(doc: dict) -> dict:
@@ -251,18 +279,20 @@ def calc_laboratory_score_breakdown(doc: dict) -> dict:
     team += min(doc.get("researchers_count") or 0, 3) * 2
     team += min(doc.get("equipment_count") or 0, 3) * 2
 
-    freshness = _freshness_score(doc.get("created_at"))
+    freshness = _freshness_score(doc.get("first_created_at") or doc.get("created_at"))
     performance = _performance_score_laboratory(
         unique_views_30d=doc.get("unique_views_30d") or 0,
         avg_time_on_page_sec=doc.get("avg_time_on_page_sec"),
         cta_clicks_30d=doc.get("cta_clicks_30d") or 0,
     )
-    total = round(quality + team + freshness + performance, 2)
+    longevity = _longevity_bonus(doc.get("first_created_at") or doc.get("created_at"))
+    total = round(min(100.0, quality + team + freshness + performance + longevity), 2)
     return {
         "quality_score": round(quality, 2),
         "team_score": round(team, 2),
         "freshness_score": round(freshness, 2),
         "performance_score": round(performance, 2),
+        "longevity_score": round(longevity, 2),
         "rank_score": total,
     }
 
@@ -299,7 +329,7 @@ def calc_vacancy_score(doc: dict) -> float:
     if doc.get("organization_id") is not None or doc.get("laboratory_id") is not None:
         quality += 3
 
-    freshness = _freshness_score(doc.get("created_at"), fast_decay=True)
+    freshness = _freshness_score(doc.get("first_created_at") or doc.get("created_at"), fast_decay=True)
 
     performance = _performance_score_vacancy(
         unique_viewers_30d=doc.get("unique_viewers_30d") or 0,
@@ -324,7 +354,7 @@ def calc_vacancy_score_breakdown(doc: dict) -> dict:
     if doc.get("organization_id") is not None or doc.get("laboratory_id") is not None:
         quality += 3
 
-    freshness = _freshness_score(doc.get("created_at"), fast_decay=True)
+    freshness = _freshness_score(doc.get("first_created_at") or doc.get("created_at"), fast_decay=True)
     performance = _performance_score_vacancy(
         unique_viewers_30d=doc.get("unique_viewers_30d") or 0,
         response_count=doc.get("response_count") or 0,
@@ -371,7 +401,7 @@ def calc_query_score(doc: dict) -> float:
     if len(lab_ids) >= 1:
         quality += 4
 
-    freshness = _freshness_score(doc.get("created_at"))
+    freshness = _freshness_score(doc.get("first_created_at") or doc.get("created_at"))
 
     performance = _performance_score_query(
         unique_views_30d=doc.get("unique_views_30d") or 0,
@@ -398,7 +428,7 @@ def calc_query_score_breakdown(doc: dict) -> dict:
     if len(lab_ids) >= 1:
         quality += 4
 
-    freshness = _freshness_score(doc.get("created_at"))
+    freshness = _freshness_score(doc.get("first_created_at") or doc.get("created_at"))
     performance = _performance_score_query(
         unique_views_30d=doc.get("unique_views_30d") or 0,
         avg_time_on_page_sec=doc.get("avg_time_on_page_sec"),

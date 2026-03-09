@@ -1,29 +1,62 @@
 /**
- * Управление подпиской: статус, призыв к действию, FAQ о преимуществах.
+ * Управление подпиской: статус, тарифы, FAQ.
+ * Карточки тарифов — заглушки без действий.
  */
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
 
+const TIER_CARDS = [
+  {
+    id: "basic",
+    name: "Basic",
+    tagline: "Для начинающих",
+    description: "1 организация или до 3 самостоятельных лабораторий",
+    features: [
+      "Приоритетная выдача в поиске",
+      "Участие в блоках на главной",
+    ],
+    cta: "Подключить",
+    accent: false,
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    tagline: "Для крупных структур",
+    description: "Без лимитов",
+    features: [
+      "Всё из Basic",
+      "Лаборатории организации наследуют статус",
+      "Расширенная аналитика",
+    ],
+    cta: "Подключить",
+    accent: true,
+  },
+];
+
 const FAQ_ITEMS = [
   {
     q: "Что даёт подписка?",
-    a: "Ваши организации, лаборатории, вакансии и запросы отображаются выше в результатах поиска. Платные карточки участвуют в блоках на главной странице.",
+    a: "Ваши организации, лаборатории, вакансии и запросы показываются выше в результатах поиска и на главной странице. Подписчики получают больше просмотров и откликов.",
   },
   {
-    q: "Как считается порядок показа?",
-    a: "Сначала показываются платные сущности, внутри платного блока — по коэффициенту ранжирования (0–100) и дате. Ранжирование зависит от полноты и качества заполнения карточек.",
+    q: "Как устроена выдача?",
+    a: "Карточки подписчиков показываются первым блоком. Внутри блока порядок зависит от полноты профилей и качества контента — заполненные карточки занимают более выгодные позиции.",
   },
   {
-    q: "Как повысить позицию?",
-    a: "Полнота профиля, свежесть контента и качество описаний влияют на коэффициент. Заполняйте все поля, добавляйте описания, обновляйте информацию.",
+    q: "Как улучшить позицию?",
+    a: "Добавляйте описания (от 300 символов для организации и лаборатории), логотипы, сайты, контакты. Регулярно обновляйте информацию. Подробные советы — в разделе «Аналитика».",
   },
   {
     q: "Как оформить подписку?",
-    a: "Подключение подписки выполняется вручную администратором платформы. По вопросам подключения обратитесь в поддержку.",
+    a: "Подключение выполняет администратор платформы. Напишите на почту поддержки с темой «Подключение подписки» — мы ответим в течение рабочего дня.",
   },
   {
-    q: "Лаборатория в организации — тоже платная?",
-    a: "Нет. Платность определяется только по создателю сущности (creator_user_id), а не по организации. Лаборатория, вступившая в платную организацию, не наследует платный статус.",
+    q: "Лаборатория в организации — нужна отдельная подписка?",
+    a: "На тарифе Pro лаборатории, вступившие в вашу организацию, автоматически получают приоритет в выдаче. На Basic каждая лаборатория учитывается отдельно.",
+  },
+  {
+    q: "Есть пробный период?",
+    a: "Первые 7 дней после создания первой организации или лаборатории вы получаете повышенную видимость бесплатно — чтобы оценить результат перед оформлением подписки.",
   },
 ];
 
@@ -76,9 +109,9 @@ export default function SubscriptionTab({ onError }) {
 
   if (loading) {
     return (
-      <div className="profile-form">
+      <div className="profile-form subscription-tab">
         <div className="lab-tab-header">
-          <p className="lab-tab-desc">Статус подписки и информация о преимуществах.</p>
+          <p className="lab-tab-desc">Статус подписки и тарифы.</p>
         </div>
         <p className="muted">Загрузка…</p>
       </div>
@@ -86,50 +119,64 @@ export default function SubscriptionTab({ onError }) {
   }
 
   const active = subscription?.active === true;
+  const tier = subscription?.tier || "pro";
   const expiresAt = subscription?.expires_at;
+  const trialEndsAt = subscription?.trial_ends_at;
   const startedAt = subscription?.started_at;
   const daysLeft = daysUntil(expiresAt);
+  const trialDaysLeft = daysUntil(trialEndsAt);
   const expiresSoon = daysLeft != null && daysLeft >= 0 && daysLeft < 30;
+  const isTrial = trialEndsAt && trialDaysLeft != null && trialDaysLeft >= 0;
 
   return (
     <div className="profile-form subscription-tab">
-      <div className="lab-tab-header">
-        <p className="lab-tab-desc">
-          Статус подписки, преимущества платного статуса и ответы на частые вопросы.
+      <div className="subscription-tab-hero">
+        <h2 className="subscription-tab-title">Подписка</h2>
+        <p className="subscription-tab-lead">
+          Повысьте видимость ваших организаций, лабораторий и вакансий в каталоге Синтезум.
         </p>
       </div>
 
-      <div className="profile-form-group dashboard-subscription-card">
-        <div className="profile-form-group-title">Статус подписки</div>
+      <section className="subscription-status-section" aria-labelledby="subscription-status-heading">
+        <h3 id="subscription-status-heading" className="subscription-section-title">Ваш статус</h3>
         <div
-          className={`dashboard-subscription-inner ${active ? "dashboard-subscription-active" : "dashboard-subscription-inactive"}`}
+          className={`subscription-status-card ${active ? "subscription-status-card--active" : "subscription-status-card--inactive"}`}
         >
           {active ? (
             <>
-              <span className="dashboard-subscription-icon" aria-hidden="true">✓</span>
-              <div className="dashboard-subscription-text">
-                <strong>Подписка активна</strong>
-                {startedAt && (
-                  <span className="dashboard-subscription-expiry">
-                    Начало: {formatDate(startedAt)}
-                  </span>
+              <div className="subscription-status-badge" aria-hidden="true">
+                <span className="subscription-status-icon">✓</span>
+              </div>
+              <div className="subscription-status-body">
+                <strong className="subscription-status-title">Подписка активна</strong>
+                {tier && tier !== "pro" && (
+                  <span className="subscription-status-tier">Тариф: {tier === "basic" ? "Basic" : "Pro"}</span>
+                )}
+                {isTrial && (
+                  <p className="subscription-status-meta">
+                    Пробный период до {formatDate(trialEndsAt)}
+                    {trialDaysLeft != null && trialDaysLeft >= 0 && (
+                      <span className="subscription-status-days"> (осталось {trialDaysLeft} дн.)</span>
+                    )}
+                  </p>
+                )}
+                {startedAt && !isTrial && (
+                  <p className="subscription-status-meta">Подключена {formatDate(startedAt)}</p>
                 )}
                 {expiresAt && (
-                  <span className="dashboard-subscription-expiry">
+                  <p className="subscription-status-meta">
                     Действует до {formatDate(expiresAt)}
                     {daysLeft != null && daysLeft >= 0 && (
-                      <span className="subscription-days-left">
-                        {" "}(осталось {daysLeft} дн.)
-                      </span>
+                      <span className="subscription-status-days"> (осталось {daysLeft} дн.)</span>
                     )}
-                  </span>
+                  </p>
                 )}
               </div>
               {expiresSoon && (
                 <a
                   href="mailto:?subject=Продление подписки"
-                  className="secondary-btn dashboard-subscription-cta"
-                  aria-label="Обратиться о продлении подписки"
+                  className="subscription-cta-btn secondary-btn"
+                  aria-label="Обратиться о продлении"
                 >
                   Обратиться о продлении
                 </a>
@@ -137,16 +184,18 @@ export default function SubscriptionTab({ onError }) {
             </>
           ) : (
             <>
-              <span className="dashboard-subscription-icon dashboard-subscription-icon--inactive" aria-hidden="true">○</span>
-              <div className="dashboard-subscription-text">
-                <strong>Без подписки</strong>
-                <p className="dashboard-subscription-hint">
-                  Карточки показываются в общем каталоге. Подписка поднимает их выше в выдаче и на главной.
+              <div className="subscription-status-badge subscription-status-badge--inactive" aria-hidden="true">
+                <span className="subscription-status-icon">○</span>
+              </div>
+              <div className="subscription-status-body">
+                <strong className="subscription-status-title">Без подписки</strong>
+                <p className="subscription-status-desc">
+                  Ваши карточки участвуют в каталоге на общих условиях. Подписка поднимает их выше и увеличивает просмотры.
                 </p>
               </div>
               <a
                 href="mailto:?subject=Подключение подписки"
-                className="secondary-btn dashboard-subscription-cta"
+                className="subscription-cta-btn secondary-btn"
                 aria-label="Связаться с администратором"
               >
                 Связаться с администратором
@@ -154,22 +203,58 @@ export default function SubscriptionTab({ onError }) {
             </>
           )}
         </div>
-      </div>
+      </section>
 
-      <div className="profile-form-group subscription-benefits">
-        <div className="profile-form-group-title">Что даёт подписка</div>
-        <p className="profile-field-hint">
-          Подписка для представителей организаций и лабораторий повышает видимость ваших карточек в каталоге.
+      <section className="subscription-tiers-section" aria-labelledby="subscription-tiers-heading">
+        <h3 id="subscription-tiers-heading" className="subscription-section-title">Тарифы</h3>
+        <div className="subscription-tiers-grid">
+          {TIER_CARDS.map((card) => (
+            <article
+              key={card.id}
+              className={`subscription-tier-card ${card.accent ? "subscription-tier-card--accent" : ""}`}
+            >
+              <div className="subscription-tier-card-header">
+                <span className="subscription-tier-tagline">{card.tagline}</span>
+                <h4 className="subscription-tier-name">{card.name}</h4>
+                <p className="subscription-tier-desc">{card.description}</p>
+              </div>
+              <ul className="subscription-tier-features" aria-label={`Преимущества тарифа ${card.name}`}>
+                {card.features.map((f, i) => (
+                  <li key={i}>{f}</li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                className={`subscription-tier-cta ${card.accent ? "primary-btn" : "secondary-btn"}`}
+                disabled
+                aria-label={`Подключить тариф ${card.name} (пока недоступно)`}
+              >
+                {card.cta}
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="subscription-tips-section" aria-labelledby="subscription-tips-heading">
+        <h3 id="subscription-tips-heading" className="subscription-section-title">Как улучшить видимость</h3>
+        <p className="subscription-tips-lead">
+          Независимо от подписки, полнота профилей влияет на позицию в выдаче. Рекомендации:
         </p>
-        <ul className="subscription-benefits-list">
-          <li>Ваши организации, лаборатории, вакансии и запросы отображаются выше в результатах поиска.</li>
-          <li>Платные карточки участвуют в блоках на главной странице.</li>
-          <li>Ранжирование среди платных пользователей зависит от полноты и качества заполнения карточек.</li>
+        <ul className="subscription-tips-list">
+          <li>Описание от 300 символов — для организации и лаборатории</li>
+          <li>Логотип, сайт, ROR ID, адрес — заполненные поля повышают привлекательность</li>
+          <li>Минимум 2 фото лаборатории, направления деятельности, руководитель</li>
+          <li>Привязка лаборатории к организации</li>
+          <li>Регулярное обновление контента</li>
         </ul>
-      </div>
+        <p className="subscription-tips-footnote">
+          Персональные подсказки по каждой карточке — в разделе «Аналитика».
+        </p>
+      </section>
 
-      <div className="profile-form-group subscription-faq" role="region" aria-label="Частые вопросы о подписке">
-        <div className="profile-form-group-title">Частые вопросы</div>
+      <section className="subscription-faq-section" role="region" aria-labelledby="subscription-faq-heading">
+        <h3 id="subscription-faq-heading" className="subscription-section-title">Частые вопросы</h3>
         <div className="subscription-faq-list">
           {FAQ_ITEMS.map((item, i) => (
             <details key={i} className="subscription-faq-item" aria-label={item.q}>
@@ -178,7 +263,7 @@ export default function SubscriptionTab({ onError }) {
             </details>
           ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

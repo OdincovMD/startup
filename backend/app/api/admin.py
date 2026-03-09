@@ -30,7 +30,9 @@ def _require_admin(user):
 class SubscriptionCreate(BaseModel):
     user_id: int
     audience: str = "representative"
+    tier: str = "pro"  # basic | pro
     expires_at: Optional[datetime] = None
+    trial_ends_at: Optional[datetime] = None
 
 
 class SubscriptionExtend(BaseModel):
@@ -56,7 +58,9 @@ async def create_subscription(
     sub = await Orm.create_subscription(
         user_id=body.user_id,
         audience=body.audience,
+        tier=body.tier,
         expires_at=body.expires_at,
+        trial_ends_at=body.trial_ends_at,
         activated_by=current_user.id,
     )
     logger.info(
@@ -67,9 +71,11 @@ async def create_subscription(
         "id": sub.id,
         "user_id": sub.user_id,
         "audience": sub.audience,
+        "tier": sub.tier,
         "status": sub.status,
         "started_at": sub.started_at,
         "expires_at": sub.expires_at,
+        "trial_ends_at": sub.trial_ends_at,
         "activated_by": sub.activated_by,
     }
 
@@ -140,11 +146,15 @@ async def get_user_subscriptions(
                 "id": s.id,
                 "user_id": s.user_id,
                 "audience": s.audience,
+                "tier": s.tier,
                 "status": s.status,
                 "started_at": s.started_at,
                 "expires_at": s.expires_at,
+                "trial_ends_at": s.trial_ends_at,
                 "activated_by": s.activated_by,
                 "cancelled_at": s.cancelled_at,
+                "discount_percent": s.discount_percent,
+                "renewal_count": s.renewal_count,
                 "created_at": s.created_at,
             }
             for s in subs

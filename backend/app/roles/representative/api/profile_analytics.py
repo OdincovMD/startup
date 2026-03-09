@@ -2,12 +2,30 @@
 Эндпоинты аналитики в профиле представителя: статистика по вакансиям (просмотры, отклики).
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_current_user
 from app.queries.orm import Orm
 
 router = APIRouter(prefix="/analytics", tags=["profile-analytics"])
+
+
+@router.get("/extended")
+async def get_extended_analytics(current_user=Depends(get_current_user)):
+    """
+    Расширенная аналитика для Pro: просмотры 7/30 дн., конверсия, сравнение с платформой.
+    Доступно только пользователям с подпиской Pro.
+    """
+    from app.core.queries.orm import Orm as CoreOrm
+    sub = await CoreOrm.get_active_subscription(current_user.id)
+    tier = getattr(sub, "tier", None) or "pro" if sub else None
+    if not sub or tier != "pro":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Расширенная аналитика доступна только подписчикам тарифа Pro",
+        )
+    data = await Orm.get_extended_analytics_for_user(current_user.id)
+    return data
 
 
 @router.get("/vacancy-stats")

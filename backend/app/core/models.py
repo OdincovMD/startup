@@ -170,11 +170,15 @@ class UserSubscription(BaseModel):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     audience = Column(String(30), nullable=False, server_default="representative")
+    tier = Column(String(20), nullable=False, server_default="pro")  # basic | pro
     status = Column(String(20), nullable=False, server_default="active")
     started_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=True)
+    trial_ends_at = Column(DateTime(timezone=True), nullable=True)
     activated_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    discount_percent = Column(Integer, nullable=True)
+    renewal_count = Column(Integer, nullable=False, server_default="0")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 

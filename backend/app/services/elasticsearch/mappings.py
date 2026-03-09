@@ -63,6 +63,8 @@ LABORATORIES_INDEX_MAPPING = {
             "is_published": {"type": "boolean"},
             "created_at": {"type": "date"},
             "paid_active": {"type": "boolean"},
+            "paid_via_org": {"type": "boolean"},
+            "org_creator_user_id": {"type": "integer"},
             "rank_score": {"type": "float"},
             "quality_score": {"type": "float"},
             "team_score": {"type": "float"},

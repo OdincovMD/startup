@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-const RELEASE_VERSION = "D-01.004.00.0";
+const RELEASE_VERSION = "D-01.005.00.0";
 const STORAGE_KEY = `synthesium_release_banner_${RELEASE_VERSION}`;
 
 export default function ReleaseBanner() {
@@ -34,9 +34,10 @@ export default function ReleaseBanner() {
           <strong className="release-banner__title">Что нового</strong>
           <span className="release-banner__version">release/{RELEASE_VERSION}</span>
           <ul className="release-banner__list">
-            <li><strong>Глобальный поиск:</strong> единая строка на главной для поиска вакансий, организаций, лабораторий и запросов</li>
-            <li><strong>Подсказки при поиске:</strong> автодополнение на страницах вакансий, организаций, лабораторий и запросов</li>
-            <li><strong>Выпадающий список на мобильных:</strong> подсказки всегда отображаются под строкой поиска</li>
+            <li><strong>Подписка:</strong> карточки тарифов Basic и Pro, обновлённый FAQ без технических деталей</li>
+            <li><strong>Профиль:</strong> раздел «Подписка» вынесен в начало, нумерация шагов, «Мои запросы» в блоке профиля лаборатории</li>
+            <li><strong>Дашборд:</strong> упрощённая аналитика, общие рекомендации вместо коэффициентов, без персональных подсказок по карточкам</li>
+            <li><strong>Главная:</strong> карусели автоматически листаются каждые 5 секунд, в разное время</li>
           </ul>
         </div>
         <button type="button" className="release-banner__btn" onClick={handleDismiss}>

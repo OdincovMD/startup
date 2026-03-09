@@ -344,6 +344,7 @@ export default function Home() {
               items={featuredOrgs}
               renderCard={renderOrgCard}
               ariaLabel="Организации недели"
+              phaseIndex={0}
             />
           )}
         </section>
@@ -378,6 +379,7 @@ export default function Home() {
               items={featuredLabs}
               renderCard={renderLabCard}
               ariaLabel="Лаборатории недели"
+              phaseIndex={1}
             />
           )}
         </section>
@@ -410,6 +412,7 @@ export default function Home() {
               items={featuredVacancies}
               renderCard={renderVacancyCard}
               ariaLabel="Открытые вакансии"
+              phaseIndex={2}
             />
           )}
         </section>

@@ -83,6 +83,7 @@ def _query_to_doc(query: Any, query_analytics: Optional[dict] = None) -> dict:
     """Преобразовать ORM-запрос в документ для индекса."""
     org = getattr(query, "organization", None)
     created = getattr(query, "created_at", None)
+    first_created = getattr(query, "first_created_at", None) or created
     title = getattr(query, "title", None) or ""
     task_desc = getattr(query, "task_description", None) or ""
     completed = getattr(query, "completed_examples", None) or ""
@@ -123,6 +124,7 @@ def _query_to_doc(query: Any, query_analytics: Optional[dict] = None) -> dict:
         "deadline_year": deadline_year,
         "is_published": getattr(query, "is_published", False),
         "created_at": created.isoformat() if created else None,
+        "first_created_at": first_created.isoformat() if first_created else None,
         "paid_active": False,
         "rank_score": 0.0,
         "creator_user_id": getattr(query, "creator_user_id", None),
@@ -176,15 +178,18 @@ def _doc_to_query_item(doc: dict) -> dict:
 
 
 async def _resolve_paid_active(doc: dict, paid_user_ids: set = None) -> None:
-    """Set paid_active on doc based on creator's subscription status."""
+    """Set paid_active on doc based on creator's subscription or grace period."""
     creator_id = doc.get("creator_user_id")
     if creator_id is None:
         return
     if paid_user_ids is not None:
-        doc["paid_active"] = creator_id in paid_user_ids
+        paid = creator_id in paid_user_ids
     else:
         from app.core.queries.orm import Orm as CoreOrm
-        doc["paid_active"] = await CoreOrm.has_active_subscription(creator_id)
+        paid = await CoreOrm.has_active_subscription(creator_id)
+        if not paid and await CoreOrm.is_creator_in_grace_period(creator_id):
+            paid = True
+    doc["paid_active"] = paid
 
 
 async def index_query(
@@ -399,7 +404,14 @@ async def search_queries(
                             }
                         }
                     },
-                    {"filter": {"term": {"paid_active": True}}, "weight": 2},
+                    {
+                        "script_score": {
+                            "script": {
+                                "source": "if (doc['paid_active'].size() > 0 && doc['paid_active'].value) { double rs = doc['rank_score'].size() > 0 ? doc['rank_score'].value : 0.0; return 1.0 + (rs / 100.0) * 1.5; } return 1.0;",
+                                "lang": "painless",
+                            }
+                        }
+                    },
                 ],
                 "score_mode": "multiply",
                 "boost_mode": "replace",

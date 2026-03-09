@@ -766,22 +766,38 @@ class Orm:
     # =============================
 
     @staticmethod
+    def _subscription_paid_filter(now):
+        """Filter for paid (active or trial) subscription."""
+        return or_(
+            and_(
+                models.UserSubscription.status == "active",
+                or_(
+                    models.UserSubscription.expires_at.is_(None),
+                    models.UserSubscription.expires_at > now,
+                ),
+            ),
+            and_(
+                models.UserSubscription.trial_ends_at.isnot(None),
+                models.UserSubscription.trial_ends_at > now,
+            ),
+        )
+
+    @staticmethod
     async def has_active_subscription(user_id: int) -> bool:
-        """Check if user has at least one active, non-expired subscription."""
+        """Check if user has at least one active, non-expired subscription or active trial."""
         from datetime import datetime, timezone
         async with async_session_factory() as session:
             now = datetime.now(timezone.utc)
             stmt = select(models.UserSubscription.id).where(
                 models.UserSubscription.user_id == user_id,
-                models.UserSubscription.status == "active",
-                (models.UserSubscription.expires_at.is_(None)) | (models.UserSubscription.expires_at > now),
+                Orm._subscription_paid_filter(now),
             ).limit(1)
             result = await session.execute(stmt)
             return result.scalars().first() is not None
 
     @staticmethod
     async def get_paid_user_ids(user_ids: list) -> set:
-        """Given a list of user_ids, return the subset that have active subscriptions."""
+        """Given a list of user_ids, return the subset that have active subscriptions or trials."""
         if not user_ids:
             return set()
         from datetime import datetime, timezone
@@ -789,11 +805,82 @@ class Orm:
             now = datetime.now(timezone.utc)
             stmt = select(models.UserSubscription.user_id).where(
                 models.UserSubscription.user_id.in_(user_ids),
-                models.UserSubscription.status == "active",
-                (models.UserSubscription.expires_at.is_(None)) | (models.UserSubscription.expires_at > now),
+                Orm._subscription_paid_filter(now),
             ).distinct()
             result = await session.execute(stmt)
             return set(result.scalars().all())
+
+    @staticmethod
+    async def get_paid_pro_user_ids(user_ids: list) -> set:
+        """Users with active Pro subscription (for org-wide lab inheritance)."""
+        if not user_ids:
+            return set()
+        from datetime import datetime, timezone
+        async with async_session_factory() as session:
+            now = datetime.now(timezone.utc)
+            stmt = select(models.UserSubscription.user_id).where(
+                models.UserSubscription.user_id.in_(user_ids),
+                Orm._subscription_paid_filter(now),
+                models.UserSubscription.tier == "pro",
+            ).distinct()
+            result = await session.execute(stmt)
+            return set(result.scalars().all())
+
+    @staticmethod
+    async def get_creator_first_entity_date(user_id: int):
+        """Earliest first_created_at/created_at of org or lab by this creator. For grace period."""
+        async with async_session_factory() as session:
+            dates = []
+            # Orgs: use first_created_at or created_at
+            stmt = select(func.coalesce(
+                func.min(models.Organization.first_created_at),
+                func.min(models.Organization.created_at),
+            )).where(models.Organization.creator_user_id == user_id)
+            res = await session.execute(stmt)
+            d = res.scalar()
+            if d:
+                dates.append(d)
+            # Labs
+            stmt = select(func.coalesce(
+                func.min(models.OrganizationLaboratory.first_created_at),
+                func.min(models.OrganizationLaboratory.created_at),
+            )).where(models.OrganizationLaboratory.creator_user_id == user_id)
+            res = await session.execute(stmt)
+            d = res.scalar()
+            if d:
+                dates.append(d)
+            return min(dates) if dates else None
+
+    @staticmethod
+    async def is_creator_in_grace_period(user_id: int, grace_days: int = 7) -> bool:
+        """True if user created first org/lab within last grace_days and has no subscription."""
+        if await Orm.has_active_subscription(user_id):
+            return False
+        first = await Orm.get_creator_first_entity_date(user_id)
+        if not first:
+            return False
+        from datetime import datetime, timezone, timedelta
+        now = datetime.now(timezone.utc)
+        cutoff = first + timedelta(days=grace_days) if hasattr(first, "__add__") else None
+        if not cutoff:
+            return False
+        return now < cutoff
+
+    @staticmethod
+    async def get_subscription_tier(user_id: int) -> Optional[str]:
+        """Return subscription tier ('basic' or 'pro') if user has active subscription, else None."""
+        from datetime import datetime, timezone
+        async with async_session_factory() as session:
+            now = datetime.now(timezone.utc)
+            stmt = select(models.UserSubscription).where(
+                models.UserSubscription.user_id == user_id,
+                Orm._subscription_paid_filter(now),
+            ).limit(1)
+            result = await session.execute(stmt)
+            sub = result.scalars().first()
+            if not sub:
+                return None
+            return getattr(sub, "tier", None) or "pro"
 
     @staticmethod
     async def get_active_subscription(user_id: int):
@@ -803,8 +890,7 @@ class Orm:
             now = datetime.now(timezone.utc)
             stmt = select(models.UserSubscription).where(
                 models.UserSubscription.user_id == user_id,
-                models.UserSubscription.status == "active",
-                (models.UserSubscription.expires_at.is_(None)) | (models.UserSubscription.expires_at > now),
+                Orm._subscription_paid_filter(now),
             ).order_by(models.UserSubscription.expires_at.desc().nulls_first()).limit(1)
             result = await session.execute(stmt)
             return result.scalars().first()
@@ -813,7 +899,9 @@ class Orm:
     async def create_subscription(
         user_id: int,
         audience: str = "representative",
+        tier: str = "pro",
         expires_at=None,
+        trial_ends_at=None,
         activated_by: int = None,
     ):
         """Create a new active subscription for a user. Returns the subscription."""
@@ -822,8 +910,10 @@ class Orm:
             sub = models.UserSubscription(
                 user_id=user_id,
                 audience=audience,
+                tier=tier,
                 status="active",
                 expires_at=expires_at,
+                trial_ends_at=trial_ends_at,
                 activated_by=activated_by,
             )
             session.add(sub)
@@ -837,7 +927,7 @@ class Orm:
                 subscription_id=sub.id,
                 event_type="activated",
                 performed_by=activated_by,
-                details={"audience": audience},
+                details={"audience": audience, "tier": tier, "trial_ends_at": trial_ends_at.isoformat() if trial_ends_at else None},
             )
             session.add(event)
             try:
@@ -857,6 +947,7 @@ class Orm:
             old_expires = sub.expires_at
             sub.expires_at = new_expires_at
             sub.status = "active"
+            sub.renewal_count = (sub.renewal_count or 0) + 1
             event = models.SubscriptionEvent(
                 subscription_id=sub.id,
                 event_type="extended",

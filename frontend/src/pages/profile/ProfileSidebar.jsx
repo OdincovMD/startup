@@ -18,16 +18,18 @@ function setOrgHidden(hidden) {
 
 const SECTIONS = [
   { id: "summary", labelKey: "summary", roles: ["lab_admin", "lab_representative", "student", "researcher"] },
+  { id: "subscription", labelKey: "subscription", roles: ["lab_admin", "lab_representative"] },
   { id: "personal", labelKey: "personal", roles: ["lab_admin", "lab_representative", "student", "researcher"] },
   { id: "organization", labelKey: "organization", roles: ["lab_admin", "lab_representative"] },
   { id: "student", labelKey: "student", roles: ["student"] },
   { id: "researcher", labelKey: "researcher", roles: ["researcher"] },
-  { id: "my-requests", labelKey: "my-requests", roles: ["lab_representative", "researcher"] },
+  { id: "my-requests", labelKey: "my-requests", roles: ["researcher"] },
   { id: "my-vacancy-responses", labelKey: "my-vacancy-responses", roles: ["student", "researcher"] },
 ];
 
 const LABELS = {
   summary: "Обзор",
+  subscription: "Подписка",
   personal: "Личные данные",
   organization: "Профиль организации",
   student: "Профиль студента",
@@ -42,9 +44,10 @@ function getOrgLabel(roleKey) {
 
 function getItemsForRole(roleKey) {
   if (!roleKey) return [];
-  return SECTIONS.filter((s) => s.roles.includes(roleKey)).map((s) => ({
+  return SECTIONS.filter((s) => s.roles.includes(roleKey)).map((s, i) => ({
     id: s.id,
     label: s.id === "organization" ? getOrgLabel(roleKey) : LABELS[s.labelKey],
+    step: i + 1,
   }));
 }
 
@@ -55,7 +58,7 @@ const ORG_GROUP_RECRUIT = "Набор и отклики";
 
 function getOrgSubItems(showProfileTab, roleKey) {
   const dataGroup = roleKey === "lab_representative" ? ORG_GROUP_DATA_LAB : ORG_GROUP_DATA;
-  return [
+  const items = [
     ...(showProfileTab ? [{ id: "profile", label: "Профиль", group: dataGroup }] : []),
     { id: "labs", label: "Лаборатории", group: dataGroup },
     { id: "equipment", label: "Оборудование", group: dataGroup },
@@ -64,10 +67,11 @@ function getOrgSubItems(showProfileTab, roleKey) {
     { id: "queries", label: "Запросы", group: ORG_GROUP_CONTENT },
     { id: "vacancies", label: "Вакансии", group: ORG_GROUP_RECRUIT },
     { id: "dashboard", label: "Дашборд", group: ORG_GROUP_RECRUIT },
-    { id: "subscription", label: "Управление подпиской", group: ORG_GROUP_RECRUIT },
     { id: "join-requests", label: "Запросы на присоединение", group: ORG_GROUP_RECRUIT },
     { id: "vacancy-responses", label: "Отклики на вакансии", group: ORG_GROUP_RECRUIT },
+    ...(roleKey === "lab_representative" ? [{ id: "my-requests", label: "Мои запросы", group: ORG_GROUP_RECRUIT }] : []),
   ];
+  return items.map((it, i) => ({ ...it, step: i + 1 }));
 }
 
 const ALLOWED_WHEN_UNVERIFIED = ["summary", "personal"];
@@ -141,8 +145,10 @@ export default function ProfileSidebar({
                     onClick={() => !itemLocked && onSectionChange(item.id)}
                     aria-current={currentSection === item.id ? "page" : undefined}
                     disabled={itemLocked}
-                    aria-describedby={itemLocked ? undefined : undefined}
                   >
+                    {item.step != null && (
+                      <span className="profile-sidebar__step" aria-hidden>{item.step}</span>
+                    )}
                     {item.label}
                   </button>
                 </span>
@@ -213,6 +219,9 @@ export default function ProfileSidebar({
                               aria-current={orgTab === sub.id ? "page" : undefined}
                               disabled={locked}
                             >
+                              {sub.step != null && (
+                                <span className="profile-sidebar__substep" aria-hidden>{sub.step}</span>
+                              )}
                               {sub.label}
                             </button>
                           </li>

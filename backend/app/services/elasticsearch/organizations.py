@@ -24,6 +24,7 @@ def _organization_to_doc(org: Any, org_analytics: Optional[dict] = None) -> dict
     description = getattr(org, "description", None) or ""
     ror_id = getattr(org, "ror_id", None) or ""
     created = getattr(org, "created_at", None)
+    first_created = getattr(org, "first_created_at", None) or created
     website = getattr(org, "website", None)
     address = getattr(org, "address", None)
 
@@ -91,6 +92,7 @@ def _organization_to_doc(org: Any, org_analytics: Optional[dict] = None) -> dict
         "avatar_url": getattr(org, "avatar_url", None),
         "is_published": getattr(org, "is_published", False),
         "created_at": created.isoformat() if created else None,
+        "first_created_at": first_created.isoformat() if first_created else None,
         "paid_active": False,
         "rank_score": 0.0,
         "creator_user_id": getattr(org, "creator_user_id", None),
@@ -143,15 +145,19 @@ async def ensure_organizations_index() -> None:
 
 
 async def _resolve_paid_active(doc: dict, paid_user_ids: set = None) -> None:
-    """Set paid_active on doc based on creator's subscription status."""
+    """Set paid_active on doc based on creator's subscription or grace period."""
     creator_id = doc.get("creator_user_id")
     if creator_id is None:
         return
     if paid_user_ids is not None:
-        doc["paid_active"] = creator_id in paid_user_ids
+        paid = creator_id in paid_user_ids
+        # Note: grace period not applied in batch mode (would require extra DB calls)
     else:
         from app.core.queries.orm import Orm as CoreOrm
-        doc["paid_active"] = await CoreOrm.has_active_subscription(creator_id)
+        paid = await CoreOrm.has_active_subscription(creator_id)
+        if not paid and await CoreOrm.is_creator_in_grace_period(creator_id):
+            paid = True
+    doc["paid_active"] = paid
 
 
 async def index_organization(
@@ -405,7 +411,14 @@ async def search_organizations(
             "function_score": {
                 "query": base_query,
                 "functions": [
-                    {"filter": {"term": {"paid_active": True}}, "weight": 2}
+                    {
+                        "script_score": {
+                            "script": {
+                                "source": "if (doc['paid_active'].size() > 0 && doc['paid_active'].value) { double rs = doc['rank_score'].size() > 0 ? doc['rank_score'].value : 0.0; return 1.0 + (rs / 100.0) * 1.5; } return 1.0;",
+                                "lang": "painless",
+                            }
+                        }
+                    }
                 ],
                 "boost_mode": "multiply",
                 "score_mode": "sum",

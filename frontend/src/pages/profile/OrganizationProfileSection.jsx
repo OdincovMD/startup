@@ -10,7 +10,7 @@ import {
 } from "./org";
 import JoinRequestsIncomingTab from "./JoinRequestsIncomingTab";
 import VacancyResponsesIncomingTab from "./VacancyResponsesIncomingTab";
-import SubscriptionTab from "./SubscriptionTab";
+import MyJoinRequestsSection from "./MyJoinRequestsSection";
 import EmployerDashboard from "./EmployerDashboard";
 
 export default function OrganizationProfileSection({
@@ -139,6 +139,7 @@ export default function OrganizationProfileSection({
   toggleQueryPublish,
   toggleVacancyPublish,
   toggleEquipmentLab,
+  onNavigateToSubscription,
   showProfileTab = true,
   hideTitle = false,
   onOrgRorLinked,
@@ -150,11 +151,11 @@ export default function OrganizationProfileSection({
       {!hideTitle && <h3 className="profile-section-title">{title}</h3>}
       <div className="org-section-content">
       {orgTab === "dashboard" && (
-        <EmployerDashboard onError={onError} onNavigateToSubscription={setOrgTab ? () => setOrgTab("subscription") : undefined} />
+        <EmployerDashboard onError={onError} onNavigateToSubscription={onNavigateToSubscription} />
       )}
 
-      {orgTab === "subscription" && (
-        <SubscriptionTab onError={onError} />
+      {orgTab === "my-requests" && roleKey === "lab_representative" && (
+        <MyJoinRequestsSection roleKey="lab_representative" onError={onError} creatorLabs={orgLabs} />
       )}
 
       {showProfileTab && orgTab === "profile" && (

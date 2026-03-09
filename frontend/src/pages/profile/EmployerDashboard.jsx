@@ -1,10 +1,9 @@
 /**
- * Дашборд представителя: сводка (KPI), графики по дням и по типам контента, таблицы по вакансиям/лабораториям/запросам.
+ * Дашборд представителя: сводка (KPI), графики, детализация.
+ * User-friendly: общие рекомендации вынесены в отдельный блок.
  */
 import React, { useEffect, useState, useMemo } from "react";
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
   PieChart,
@@ -28,6 +27,14 @@ const PIE_COLORS = [COLORS.vacancy, COLORS.laboratory, COLORS.query];
 const CHART_HEIGHT_DEFAULT = 280;
 const CHART_HEIGHT_MOBILE = 200;
 const CHART_HEIGHT_SMALL = 220;
+
+const GENERAL_RECOMMENDATIONS = [
+  "Описание от 300 символов — для организации и лаборатории",
+  "Логотип, сайт, ROR ID, адрес — заполненные поля повышают привлекательность",
+  "Минимум 2 фото лаборатории, направления деятельности, руководитель",
+  "Привязка лаборатории к организации",
+  "Регулярное обновление контента",
+];
 
 function useChartHeight() {
   const [width, setWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1024);
@@ -68,22 +75,24 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
 
   if (loading) {
     return (
-      <div className="profile-form">
-        <div className="lab-tab-header">
-          <p className="lab-tab-desc">Сводка по вакансиям, лабораториям и запросам: просмотры, отклики и графики за 30 дней.</p>
+      <div className="profile-form dashboard-page">
+        <div className="dashboard-hero">
+          <h2 className="dashboard-hero-title">Аналитика</h2>
+          <p className="dashboard-hero-desc">Просмотры, отклики и динамика за 30 дней.</p>
         </div>
-        <p className="muted">Загрузка дашборда…</p>
+        <p className="muted">Загрузка…</p>
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="profile-form">
-        <div className="lab-tab-header">
-          <p className="lab-tab-desc">Сводка по вакансиям, лабораториям и запросам.</p>
+      <div className="profile-form dashboard-page">
+        <div className="dashboard-hero">
+          <h2 className="dashboard-hero-title">Аналитика</h2>
+          <p className="dashboard-hero-desc">Просмотры, отклики и динамика.</p>
         </div>
-        <p className="muted">Не удалось загрузить данные. Проверьте доступ к аналитике.</p>
+        <p className="muted">Не удалось загрузить данные.</p>
       </div>
     );
   }
@@ -96,7 +105,6 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
     views_over_time = [],
     responses_over_time = [],
     subscription = null,
-    org_ranking = null,
   } = data;
   const subscriptionActive = subscription?.active === true;
   const subscriptionExpiresAt = subscription?.expires_at;
@@ -123,125 +131,113 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
 
   return (
     <div className="profile-form dashboard-page">
-      <div className="lab-tab-header">
-        <p className="lab-tab-desc">Сводка по вакансиям, лабораториям и запросам: просмотры, отклики и графики за последние 30 дней.</p>
+      <header className="dashboard-hero">
+        <h2 className="dashboard-hero-title">Аналитика</h2>
+        <p className="dashboard-hero-desc">
+          Просмотры, отклики и динамика по вакансиям, лабораториям и запросам за последние 30 дней.
+        </p>
         {onNavigateToSubscription && (
-          <p className="dashboard-subscription-banner">
+          <div className="dashboard-hero-subscription">
             {subscriptionActive && subscriptionExpiresAt ? (
               <>
-                Подписка активна до {new Date(subscriptionExpiresAt).toLocaleDateString("ru-RU")}.
-                {" "}
+                <span className="dashboard-hero-subscription-status">Подписка до {new Date(subscriptionExpiresAt).toLocaleDateString("ru-RU")}</span>
                 <button type="button" className="profile-link-btn" onClick={onNavigateToSubscription}>
-                  Управление подпиской →
+                  Управление →
                 </button>
               </>
             ) : !subscriptionActive && subscription !== null ? (
               <>
-                Без подписки.{" "}
+                <span className="dashboard-hero-subscription-status">Без подписки</span>
                 <button type="button" className="profile-link-btn" onClick={onNavigateToSubscription}>
                   Узнать о подписке →
                 </button>
               </>
             ) : null}
-          </p>
+          </div>
         )}
+      </header>
+
+      <div className="dashboard-recommendations-card">
+        <details className="dashboard-recommendations-details">
+          <summary className="dashboard-recommendations-summary">
+            <span className="dashboard-recommendations-icon" aria-hidden>◉</span>
+            Общие рекомендации
+          </summary>
+          <div className="dashboard-recommendations-body">
+            <p className="dashboard-recommendations-lead">
+              Как улучшить видимость карточек в каталоге и поиске.
+            </p>
+            <ul className="dashboard-recommendations-list">
+              {GENERAL_RECOMMENDATIONS.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </details>
       </div>
 
-      {org_ranking != null && (
-        <div className="profile-form-group dashboard-org-ranking">
-          <div className="profile-form-group-title">Позиция в выдаче (организация)</div>
-          <p className="profile-field-hint">Коэффициент ранжирования влияет на порядок показа в каталоге. Чем выше — тем выше в списке.</p>
-          <div className="dashboard-ranking-block">
-            <div className="dashboard-ranking-score">
-              <span className="dashboard-ranking-value" aria-label={`Коэффициент: ${org_ranking.score} из 100`}>
-                {Math.round(org_ranking.score)}
-              </span>
-              <span className="dashboard-ranking-max">/ 100</span>
-            </div>
-            <div className="dashboard-ranking-progress-wrap">
-              <div
-                className="dashboard-ranking-progress"
-                style={{ width: `${Math.min(100, Math.max(0, org_ranking.score))}%` }}
-                role="progressbar"
-                aria-valuenow={org_ranking.score}
-                aria-valuemin={0}
-                aria-valuemax={100}
-              />
-            </div>
-            <details className="dashboard-ranking-tips-details">
-              <summary className="dashboard-ranking-tips-summary">Как повысить</summary>
-              <ul className="dashboard-ranking-tips-list">
-                {(org_ranking.tips || []).map((tip, i) => (
-                  <li key={i}>{tip}</li>
-                ))}
-              </ul>
-            </details>
-          </div>
-        </div>
-      )}
-
       {summary && (
-        <div className="profile-form-group dashboard-summary">
-          <div className="profile-form-group-title">Вакансии и отклики</div>
-          <p className="profile-field-hint">Ключевые показатели по опубликованным вакансиям. Наведите курсор на карточку — появится подсказка.</p>
+        <section className="dashboard-section dashboard-section--metrics">
+          <h3 className="dashboard-section-title">Вакансии и отклики</h3>
           <div className="dashboard-metrics">
-            <div className="dashboard-metric" title="Число вакансий, которые сейчас опубликованы и видны соискателям">
+            <div className="dashboard-metric dashboard-metric--primary">
               <span className="dashboard-metric-value">{summary.total_vacancies_published ?? 0}</span>
-              <span className="dashboard-metric-label">Опубликовано вакансий</span>
+              <span className="dashboard-metric-label">Опубликовано</span>
             </div>
-            <div className="dashboard-metric" title="Общее количество откликов соискателей на все ваши вакансии">
+            <div className="dashboard-metric dashboard-metric--primary">
               <span className="dashboard-metric-value">{summary.total_responses ?? 0}</span>
               <span className="dashboard-metric-label">Всего откликов</span>
             </div>
-            <div className="dashboard-metric" title="Отклики со статусом «Новый» — ещё не рассмотрены">
+            <div className="dashboard-metric">
               <span className="dashboard-metric-value">{summary.new_count ?? 0}</span>
               <span className="dashboard-metric-label">Новых</span>
             </div>
-            <div className="dashboard-metric" title="Отклики, которые вы приняли">
+            <div className="dashboard-metric">
               <span className="dashboard-metric-value">{summary.accepted_count ?? 0}</span>
               <span className="dashboard-metric-label">Принято</span>
             </div>
-            <div className="dashboard-metric" title="Отклики, которые вы отклонили">
+            <div className="dashboard-metric">
               <span className="dashboard-metric-value">{summary.rejected_count ?? 0}</span>
               <span className="dashboard-metric-label">Отклонено</span>
             </div>
-            <div className="dashboard-metric" title="Опубликованные вакансии, на которые пока не было ни одного отклика">
+            <div className="dashboard-metric">
               <span className="dashboard-metric-value">{summary.vacancies_with_zero_responses ?? 0}</span>
-              <span className="dashboard-metric-label">Вакансий без откликов</span>
+              <span className="dashboard-metric-label">Без откликов</span>
             </div>
-            <div className="dashboard-metric" title="Среднее число откликов на одну вакансию (всего откликов ÷ число вакансий)">
-              <span className="dashboard-metric-value">{summary.avg_responses_per_vacancy ?? 0}</span>
-              <span className="dashboard-metric-label">Ср. откликов на вакансию</span>
-            </div>
+            {summary.avg_responses_per_vacancy != null && (
+              <div className="dashboard-metric">
+                <span className="dashboard-metric-value">{summary.avg_responses_per_vacancy}</span>
+                <span className="dashboard-metric-label">Ср. откликов</span>
+              </div>
+            )}
             {summary.accepted_rate != null && (
-              <div className="dashboard-metric" title="Процент принятых среди всех рассмотренных откликов (принято ÷ принято + отклонено)">
+              <div className="dashboard-metric">
                 <span className="dashboard-metric-value">{summary.accepted_rate}%</span>
                 <span className="dashboard-metric-label">Доля принятых</span>
               </div>
             )}
             {summary.avg_days_to_first_response != null && (
-              <div className="dashboard-metric" title="В среднем сколько дней проходит от публикации вакансии до первого отклика">
+              <div className="dashboard-metric">
                 <span className="dashboard-metric-value">{summary.avg_days_to_first_response}</span>
-                <span className="dashboard-metric-label">Ср. дней до первого отклика</span>
+                <span className="dashboard-metric-label">Дней до 1-го отклика</span>
               </div>
             )}
             {summary.avg_days_to_first_acceptance != null && (
-              <div className="dashboard-metric" title="В среднем сколько дней от публикации вакансии до первого принятого отклика">
+              <div className="dashboard-metric">
                 <span className="dashboard-metric-value">{summary.avg_days_to_first_acceptance}</span>
-                <span className="dashboard-metric-label">Ср. дней до первого принятия</span>
+                <span className="dashboard-metric-label">Дней до 1-го принятия</span>
               </div>
             )}
           </div>
-        </div>
+        </section>
       )}
 
       {hasCharts && (
-        <div className="profile-form-group dashboard-charts">
-          <div className="profile-form-group-title">Графики за 30 дней</div>
-          <p className="profile-field-hint">Динамика просмотров и откликов по типам контента.</p>
+        <section className="dashboard-section dashboard-section--charts">
+          <h3 className="dashboard-section-title">Динамика за 30 дней</h3>
           {viewsChartData.length > 0 && (
             <div className="dashboard-chart-wrap">
-              <h4 className="dashboard-chart-title" title="Количество просмотров страниц вакансий, лабораторий и запросов по дням за последние 30 дней">Просмотры по дням</h4>
+              <h4 className="dashboard-chart-title">Просмотры по дням</h4>
               <ResponsiveContainer width="100%" height={chartHeight}>
                 <AreaChart data={viewsChartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -250,35 +246,18 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
                   <Tooltip labelFormatter={(v) => v} />
                   <Legend />
                   {showSubLineOnViews && (
-                    <ReferenceLine x={subscriptionStartDate} stroke="#b85c38" strokeDasharray="4 4" label={{ value: "Начало подписки", fill: "#b85c38", fontSize: 10 }} />
+                    <ReferenceLine x={subscriptionStartDate} stroke="#b85c38" strokeDasharray="4 4" label={{ value: "Подписка", fill: "#b85c38", fontSize: 10 }} />
                   )}
                   <Area type="monotone" dataKey="vacancy" name="Вакансии" stroke={COLORS.vacancy} fill={COLORS.vacancy} fillOpacity={0.4} stackId="1" />
                   <Area type="monotone" dataKey="laboratory" name="Лаборатории" stroke={COLORS.laboratory} fill={COLORS.laboratory} fillOpacity={0.4} stackId="1" />
                   <Area type="monotone" dataKey="query" name="Запросы" stroke={COLORS.query} fill={COLORS.query} fillOpacity={0.4} stackId="1" />
                 </AreaChart>
               </ResponsiveContainer>
-              <div className="dashboard-chart-wrap dashboard-chart-wrap--lines">
-                <ResponsiveContainer width="100%" height={chartHeightSmall}>
-                  <LineChart data={viewsChartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip labelFormatter={(v) => v} />
-                    <Legend />
-                    {showSubLineOnViews && (
-                      <ReferenceLine x={subscriptionStartDate} stroke="#b85c38" strokeDasharray="4 4" label={{ value: "Начало подписки", fill: "#b85c38", fontSize: 10 }} />
-                    )}
-                    <Line type="monotone" dataKey="vacancy" name="Вакансии" stroke={COLORS.vacancy} dot={false} />
-                    <Line type="monotone" dataKey="laboratory" name="Лаборатории" stroke={COLORS.laboratory} dot={false} />
-                    <Line type="monotone" dataKey="query" name="Запросы" stroke={COLORS.query} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
             </div>
           )}
           {responses_over_time.length > 0 && (
             <div className="dashboard-chart-wrap">
-              <h4 className="dashboard-chart-title" title="В какой день соискатели оставляли отклики на ваши вакансии (за 30 дней)">Отклики на вакансии по дням</h4>
+              <h4 className="dashboard-chart-title">Отклики по дням</h4>
               <ResponsiveContainer width="100%" height={chartHeightSmall}>
                 <BarChart data={responses_over_time} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -286,7 +265,7 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip labelFormatter={(v) => v} />
                   {showSubLineOnResponses && (
-                    <ReferenceLine x={subscriptionStartDate} stroke="#b85c38" strokeDasharray="4 4" label={{ value: "Начало подписки", fill: "#b85c38", fontSize: 10 }} />
+                    <ReferenceLine x={subscriptionStartDate} stroke="#b85c38" strokeDasharray="4 4" label={{ value: "Подписка", fill: "#b85c38", fontSize: 10 }} />
                   )}
                   <Bar dataKey="count" name="Откликов" fill="#8884d8" />
                 </BarChart>
@@ -295,7 +274,7 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
           )}
           {pieData.length > 0 && (
             <div className="dashboard-chart-wrap dashboard-chart-wrap--pie">
-              <h4 className="dashboard-chart-title" title="Как распределены просмотры между вакансиями, лабораториями и запросами за 30 дней">Просмотры по типу контента</h4>
+              <h4 className="dashboard-chart-title">Просмотры по типу</h4>
               <ResponsiveContainer width="100%" height={chartHeightSmall}>
                 <PieChart>
                   <Pie
@@ -316,137 +295,106 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
               </ResponsiveContainer>
             </div>
           )}
-        </div>
+        </section>
       )}
 
       {!hasAnyContent && (
-        <div className="profile-form-group">
-          <p className="muted">Добавьте вакансии, лаборатории или запросы и опубликуйте их — здесь появятся статистика и графики.</p>
-        </div>
+        <section className="dashboard-section">
+          <p className="dashboard-empty-state">
+            Добавьте вакансии, лаборатории или запросы и опубликуйте их — здесь появятся статистика и графики.
+          </p>
+        </section>
       )}
 
       {hasAnyContent && (
         <>
           {by_vacancy.length > 0 && (
-            <div className="profile-form-group dashboard-tables">
-              <div className="profile-form-group-title">Детализация по вакансиям</div>
-              <p className="profile-field-hint">Просмотры, уникальные посетители, отклики и конверсия.</p>
+            <section className="dashboard-section dashboard-section--table">
+              <h3 className="dashboard-section-title">Вакансии</h3>
               <div className="dashboard-table-wrap">
                 <table className="dashboard-table">
                   <thead>
                     <tr>
-                      <th title="Название вакансии">Название</th>
-                      <th title="Коэффициент ранжирования (0–100)">Коэфф.</th>
-                      <th title="Сколько раз открывали страницу этой вакансии (без учёта просмотров создателя)">Просмотры</th>
-                      <th title="Число уникальных посетителей страницы (по пользователям и сессиям)">Уник. зрители</th>
-                      <th title="Количество откликов на эту вакансию">Отклики</th>
-                      <th title="Доля откликов от уникальных зрителей: отклики ÷ зрители (в %)">Конверсия</th>
-                      <th title="Среднее время на странице вакансии в секундах (по событиям ухода со страницы)">Ср. время (с)</th>
-                      <th title="Сколько дней прошло от публикации вакансии до первого отклика">До 1-го отклика (дн.)</th>
+                      <th>Название</th>
+                      <th>Просмотры</th>
+                      <th>Зрители</th>
+                      <th>Отклики</th>
+                      <th>Конверсия</th>
+                      <th>Ср. время</th>
                     </tr>
                   </thead>
                   <tbody>
                     {by_vacancy.map((v) => (
                       <tr key={v.vacancy_id}>
-                        <td>{v.name || "—"}</td>
-                        <td className="dashboard-table-cell-coef">
-                          <span
-                            className={`dashboard-coef-value dashboard-coef-value--${(v.rank_score ?? 0) >= 60 ? "high" : (v.rank_score ?? 0) >= 30 ? "mid" : "low"}${v.tips?.length ? " dashboard-coef-value--has-tips" : ""}`}
-                            title={v.tips?.length ? v.tips.map((t, i) => `${i + 1}. ${t}`).join("\n") : undefined}
-                          >
-                            {v.rank_score != null ? Number(v.rank_score).toFixed(1) : "—"}
-                          </span>
-                        </td>
+                        <td className="dashboard-table-name">{v.name || "—"}</td>
                         <td>{v.view_count ?? 0}</td>
                         <td>{v.unique_viewers ?? 0}</td>
                         <td>{v.response_count ?? 0}</td>
                         <td>{v.conversion_rate != null ? `${(v.conversion_rate * 100).toFixed(1)}%` : "—"}</td>
-                        <td>{v.avg_time_on_page_sec != null ? v.avg_time_on_page_sec : "—"}</td>
-                        <td>{v.days_to_first_response != null ? v.days_to_first_response : "—"}</td>
+                        <td>{v.avg_time_on_page_sec != null ? `${v.avg_time_on_page_sec} с` : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </section>
           )}
           {by_laboratory.length > 0 && (
-            <div className="profile-form-group dashboard-tables">
-              <div className="profile-form-group-title">Детализация по лабораториям</div>
-              <p className="profile-field-hint">Просмотры страниц лабораторий и время на странице.</p>
+            <section className="dashboard-section dashboard-section--table">
+              <h3 className="dashboard-section-title">Лаборатории</h3>
               <div className="dashboard-table-wrap">
                 <table className="dashboard-table">
                   <thead>
                     <tr>
-                      <th title="Название лаборатории">Название</th>
-                      <th title="Коэффициент ранжирования (0–100)">Коэфф.</th>
-                      <th title="Сколько раз открывали страницу этой лаборатории">Просмотры</th>
-                      <th title="Число уникальных посетителей страницы лаборатории">Уник. зрители</th>
-                      <th title="Среднее время на странице в секундах">Ср. время (с)</th>
+                      <th>Название</th>
+                      <th>Просмотры</th>
+                      <th>Зрители</th>
+                      <th>Ср. время</th>
                     </tr>
                   </thead>
                   <tbody>
                     {by_laboratory.map((lab) => (
                       <tr key={lab.laboratory_id}>
-                        <td>{lab.name || "—"}</td>
-                        <td className="dashboard-table-cell-coef">
-                          <span
-                            className={`dashboard-coef-value dashboard-coef-value--${(lab.rank_score ?? 0) >= 60 ? "high" : (lab.rank_score ?? 0) >= 30 ? "mid" : "low"}${lab.tips?.length ? " dashboard-coef-value--has-tips" : ""}`}
-                            title={lab.tips?.length ? lab.tips.map((t, i) => `${i + 1}. ${t}`).join("\n") : undefined}
-                          >
-                            {lab.rank_score != null ? Number(lab.rank_score).toFixed(1) : "—"}
-                          </span>
-                        </td>
+                        <td className="dashboard-table-name">{lab.name || "—"}</td>
                         <td>{lab.view_count ?? 0}</td>
                         <td>{lab.unique_viewers ?? 0}</td>
-                        <td>{lab.avg_time_on_page_sec != null ? lab.avg_time_on_page_sec : "—"}</td>
+                        <td>{lab.avg_time_on_page_sec != null ? `${lab.avg_time_on_page_sec} с` : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </section>
           )}
           {by_query.length > 0 && (
-            <div className="profile-form-group dashboard-tables">
-              <div className="profile-form-group-title">Детализация по запросам</div>
-              <p className="profile-field-hint">Просмотры страниц запросов и время на странице.</p>
+            <section className="dashboard-section dashboard-section--table">
+              <h3 className="dashboard-section-title">Запросы</h3>
               <div className="dashboard-table-wrap">
                 <table className="dashboard-table">
                   <thead>
                     <tr>
-                      <th title="Название запроса">Название</th>
-                      <th title="Коэффициент ранжирования (0–100)">Коэфф.</th>
-                      <th title="Сколько раз открывали страницу этого запроса">Просмотры</th>
-                      <th title="Число уникальных посетителей страницы запроса">Уник. зрители</th>
-                      <th title="Среднее время на странице в секундах">Ср. время (с)</th>
+                      <th>Название</th>
+                      <th>Просмотры</th>
+                      <th>Зрители</th>
+                      <th>Ср. время</th>
                     </tr>
                   </thead>
                   <tbody>
                     {by_query.map((q) => (
                       <tr key={q.query_id}>
-                        <td>{q.title || "—"}</td>
-                        <td className="dashboard-table-cell-coef">
-                          <span
-                            className={`dashboard-coef-value dashboard-coef-value--${(q.rank_score ?? 0) >= 60 ? "high" : (q.rank_score ?? 0) >= 30 ? "mid" : "low"}${q.tips?.length ? " dashboard-coef-value--has-tips" : ""}`}
-                            title={q.tips?.length ? q.tips.map((t, i) => `${i + 1}. ${t}`).join("\n") : undefined}
-                          >
-                            {q.rank_score != null ? Number(q.rank_score).toFixed(1) : "—"}
-                          </span>
-                        </td>
+                        <td className="dashboard-table-name">{q.title || "—"}</td>
                         <td>{q.view_count ?? 0}</td>
                         <td>{q.unique_viewers ?? 0}</td>
-                        <td>{q.avg_time_on_page_sec != null ? q.avg_time_on_page_sec : "—"}</td>
+                        <td>{q.avg_time_on_page_sec != null ? `${q.avg_time_on_page_sec} с` : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </section>
           )}
         </>
       )}
-
     </div>
   );
 }

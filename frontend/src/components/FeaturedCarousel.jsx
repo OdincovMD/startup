@@ -1,11 +1,12 @@
 /**
  * Карусель с перелистыванием для главной страницы.
- * Бесконечный цикл, авто-сдвиг каждые 10 секунд.
- * Карточки точно заполняют viewport, кнопки наложены на края карточек.
+ * Бесконечный цикл, авто-сдвиг каждые 5 секунд.
+ * phaseIndex — сдвиг фазы (0,1,2…), чтобы карусели не листались синхронно.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
-const AUTO_ADVANCE_MS = 10000;
+const AUTO_ADVANCE_MS = 5000;
+const PHASE_STEP_MS = 1600;
 const TRANSITION_MS = 400;
 const GAP_REM = 1.5;
 const GAP_REM_SM = 1;
@@ -31,7 +32,7 @@ function getGapPx() {
   return window.innerWidth <= 768 ? GAP_REM_SM * rem : GAP_REM * rem;
 }
 
-export default function FeaturedCarousel({ items, renderCard, ariaLabel }) {
+export default function FeaturedCarousel({ items, renderCard, ariaLabel, phaseIndex = 0 }) {
   const itemsPerView = useItemsPerView();
   const list = items || [];
   const timerRef = useRef(null);
@@ -115,11 +116,15 @@ export default function FeaturedCarousel({ items, renderCard, ariaLabel }) {
 
   useEffect(() => {
     if (list.length <= itemsPerView) return;
-    timerRef.current = setInterval(goNext, AUTO_ADVANCE_MS);
+    const delayMs = (phaseIndex || 0) * PHASE_STEP_MS;
+    const startId = setTimeout(() => {
+      timerRef.current = setInterval(goNext, AUTO_ADVANCE_MS);
+    }, delayMs);
     return () => {
+      clearTimeout(startId);
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [list.length, itemsPerView, goNext, autoAdvanceKey]);
+  }, [list.length, itemsPerView, goNext, autoAdvanceKey, phaseIndex]);
 
   const canGoPrev = list.length > itemsPerView;
   const canGoNext = list.length > itemsPerView;
