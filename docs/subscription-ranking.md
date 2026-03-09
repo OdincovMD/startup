@@ -377,3 +377,14 @@ ES-релевантность остаётся основным фактором
   ]
 }
 ```
+
+---
+
+## 9. Проверка реализации (аудит)
+
+- **Маппинги ES:** Во всех 4 индексах есть `paid_active`, `rank_score`, `creator_user_id` — соответствует п.8.
+- **Формулы скора:** Organization, Laboratory — как выше; Vacancy, Query — при **текстовом поиске** итоговый скор = `rank_score` (quality + freshness + performance) + релевантность (ES `_score` нормализуется в 0..35 по формуле `min(35, 35 * _score / ES_RELEVANCE_REF_SCORE)`).
+- **Сортировка:** Без текста — `paid_active DESC, rank_score DESC, created_at DESC`. При текстовом поиске вакансий и запросов — `paid_active DESC, _score DESC, created_at DESC` (итоговый `_score` = combined rank + relevance).
+- **Текстовый поиск (вакансии, запросы):** `function_score` с `script_score` (rank_score + нормализованная релевантность), `filter paid_active weight 2`, `boost_mode: replace`, `score_mode: multiply`. Сортировка по `_score`.
+- **Платный статус:** Определяется по `creator_user_id` и активной подписке, без наследования через OrgJoinRequest — соответствует п.2.
+- **Аналитика:** Для `avg_time_on_page_sec` учитываются оба ключа payload: `duration_sec` и `time_spent_sec` (COALESCE в ORM), чтобы совместимость с seed и фронтом сохранялась.

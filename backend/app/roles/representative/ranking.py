@@ -34,8 +34,10 @@ def build_doc_from_org(
     employees_count: int = 0,
     vacancies_count: int = 0,
     queries_count: int = 0,
+    unique_views_30d: int = 0,
+    avg_time_on_page_sec: Optional[float] = None,
 ) -> Dict:
-    """Собрать плоский doc для расчёта organization score."""
+    """Собрать плоский doc для расчёта organization score (включая performance)."""
     return {
         "avatar_url": getattr(org, "avatar_url", None),
         "description": getattr(org, "description", None) or "",
@@ -47,6 +49,8 @@ def build_doc_from_org(
         "vacancies_count": vacancies_count,
         "queries_count": queries_count,
         "created_at": _created_at_iso(org),
+        "unique_views_30d": unique_views_30d,
+        "avg_time_on_page_sec": avg_time_on_page_sec,
     }
 
 
@@ -55,8 +59,11 @@ def build_doc_from_lab(
     employees_count: int = 0,
     researchers_count: int = 0,
     equipment_count: int = 0,
+    unique_views_30d: int = 0,
+    avg_time_on_page_sec: Optional[float] = None,
+    cta_clicks_30d: int = 0,
 ) -> Dict:
-    """Собрать плоский doc для расчёта laboratory score."""
+    """Собрать плоский doc для расчёта laboratory score (включая performance)."""
     image_urls = getattr(lab, "image_urls", None)
     if image_urls is None:
         image_urls = []
@@ -72,11 +79,19 @@ def build_doc_from_lab(
         "researchers_count": researchers_count,
         "equipment_count": equipment_count,
         "created_at": _created_at_iso(lab),
+        "unique_views_30d": unique_views_30d,
+        "avg_time_on_page_sec": avg_time_on_page_sec,
+        "cta_clicks_30d": cta_clicks_30d,
     }
 
 
-def build_doc_from_vacancy(vacancy: Any) -> Dict:
-    """Собрать плоский doc для расчёта vacancy score."""
+def build_doc_from_vacancy(
+    vacancy: Any,
+    unique_viewers_30d: int = 0,
+    response_count: int = 0,
+    avg_time_on_page_sec: Optional[float] = None,
+) -> Dict:
+    """Собрать плоский doc для расчёта vacancy score (включая performance)."""
     return {
         "requirements": getattr(vacancy, "requirements", None),
         "description": getattr(vacancy, "description", None),
@@ -86,11 +101,19 @@ def build_doc_from_vacancy(vacancy: Any) -> Dict:
         "organization_id": getattr(vacancy, "organization_id", None),
         "laboratory_id": getattr(vacancy, "laboratory_id", None),
         "created_at": _created_at_iso(vacancy),
+        "unique_viewers_30d": unique_viewers_30d,
+        "response_count": response_count,
+        "avg_time_on_page_sec": avg_time_on_page_sec,
     }
 
 
-def build_doc_from_query(query: Any, laboratory_ids: Optional[List[int]] = None) -> Dict:
-    """Собрать плоский doc для расчёта query score."""
+def build_doc_from_query(
+    query: Any,
+    laboratory_ids: Optional[List[int]] = None,
+    unique_views_30d: int = 0,
+    avg_time_on_page_sec: Optional[float] = None,
+) -> Dict:
+    """Собрать плоский doc для расчёта query score (включая performance)."""
     if laboratory_ids is None:
         laboratories = getattr(query, "laboratories", None) or []
         laboratory_ids = [getattr(l, "id", None) for l in laboratories if getattr(l, "id", None) is not None]
@@ -102,6 +125,8 @@ def build_doc_from_query(query: Any, laboratory_ids: Optional[List[int]] = None)
         "deadline": getattr(query, "deadline", None),
         "laboratory_ids": laboratory_ids or [],
         "created_at": _created_at_iso(query),
+        "unique_views_30d": unique_views_30d,
+        "avg_time_on_page_sec": avg_time_on_page_sec,
     }
 
 
@@ -147,6 +172,8 @@ def get_organization_tips(doc: Dict) -> List[str]:
         tips.append("Укажите адрес")
     if (doc.get("laboratories_count") or 0) < 1:
         tips.append("Добавьте хотя бы одну опубликованную лабораторию")
+    if (doc.get("unique_views_30d") or 0) == 0 and doc.get("avg_time_on_page_sec") in (None, 0):
+        tips.append("Популярность страницы (просмотры и время на странице за 30 дней) добавляет до 20 баллов")
     tips.append("Чем новее обновления — тем выше балл за свежесть")
     return tips
 
@@ -210,5 +237,7 @@ def get_query_tips(doc: Dict) -> List[str]:
     lab_ids = doc.get("laboratory_ids") or []
     if len(lab_ids) < 1:
         tips.append("Привяжите хотя бы одну лабораторию")
+    if (doc.get("unique_views_30d") or 0) == 0 and doc.get("avg_time_on_page_sec") in (None, 0):
+        tips.append("Популярность страницы запроса (просмотры и время за 30 дней) добавляет до 20 баллов")
     tips.append("Обновите запрос — свежесть даёт баллы")
     return tips

@@ -13,7 +13,7 @@ from app.config import settings
 
 from .client import get_es_client
 from .mappings import LABORATORIES_INDEX_MAPPING
-from .utils import significant_words, sort_by_date, sort_with_ranking
+from .utils import significant_words, sort_with_ranking
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +45,16 @@ async def ensure_laboratories_index() -> None:
         logger.warning("Could not ensure laboratories index: %s", e)
 
 
-def _laboratory_to_doc(lab: Any) -> dict:
+def _laboratory_to_doc(lab: Any, lab_analytics: Optional[dict] = None) -> dict:
     """Преобразовать ORM-лабораторию в документ для индекса."""
     org = getattr(lab, "organization", None)
     created = getattr(lab, "created_at", None)
     name = getattr(lab, "name", None) or ""
     description = getattr(lab, "description", None) or ""
     activities = getattr(lab, "activities", None) or ""
+    image_urls = getattr(lab, "image_urls", None)
+    if image_urls is None or not isinstance(image_urls, list):
+        image_urls = []
 
     employee_names = []
     head = getattr(lab, "head_employee", None)
@@ -63,9 +66,11 @@ def _laboratory_to_doc(lab: Any) -> dict:
             employee_names.append(fn)
     employee_names_str = " ".join(employee_names)
 
+    equipment_list = getattr(lab, "equipment", None) or []
+    researchers_list = getattr(lab, "researchers", None) or []
     equipment_names = []
     equipment_descriptions = []
-    for eq in getattr(lab, "equipment", None) or []:
+    for eq in equipment_list:
         en = getattr(eq, "name", None)
         if en:
             equipment_names.append(en)
@@ -76,16 +81,21 @@ def _laboratory_to_doc(lab: Any) -> dict:
     equipment_descriptions_str = " ".join(equipment_descriptions)
 
     employees_count = len(getattr(lab, "employees", None) or [])
+    researchers_count = len(researchers_list)
+    equipment_count = len(equipment_list)
 
     name_inputs = [name] + significant_words(name) + significant_words(description) + significant_words(activities)
     name_inputs = list(dict.fromkeys(s for s in name_inputs if s and len(s) <= 50))
 
+    analytics = lab_analytics or {}
     doc = {
         "id": lab.id,
         "public_id": getattr(lab, "public_id", None) or "",
         "name": name,
         "description": description,
         "activities": activities,
+        "image_urls": image_urls,
+        "head_employee_id": getattr(lab, "head_employee_id", None),
         "organization_name": org.name if org else "",
         "organization_id": getattr(lab, "organization_id", None),
         "organization_public_id": getattr(org, "public_id", None) if org else None,
@@ -94,12 +104,17 @@ def _laboratory_to_doc(lab: Any) -> dict:
         "equipment_names": equipment_names_str,
         "equipment_descriptions": equipment_descriptions_str,
         "employees_count": employees_count,
+        "researchers_count": researchers_count,
+        "equipment_count": equipment_count,
         "has_organization": org is not None,
         "is_published": getattr(lab, "is_published", False),
         "created_at": created.isoformat() if created else None,
         "paid_active": False,
         "rank_score": 0.0,
         "creator_user_id": getattr(lab, "creator_user_id", None),
+        "unique_views_30d": analytics.get("unique_views_30d", 0),
+        "avg_time_on_page_sec": analytics.get("avg_time_on_page_sec"),
+        "cta_clicks_30d": analytics.get("cta_clicks_30d", 0),
     }
     from .utils import calc_laboratory_score
     doc["rank_score"] = calc_laboratory_score(doc)
@@ -158,12 +173,16 @@ async def _resolve_paid_active(doc: dict, paid_user_ids: set = None) -> None:
         doc["paid_active"] = await CoreOrm.has_active_subscription(creator_id)
 
 
-async def index_laboratory(lab: Any, paid_user_ids: set = None) -> None:
+async def index_laboratory(
+    lab: Any,
+    paid_user_ids: set = None,
+    lab_analytics: Optional[dict] = None,
+) -> None:
     """Проиндексировать лабораторию в Elasticsearch."""
     if not getattr(lab, "is_published", False):
         return
     client = get_es_client()
-    doc = _laboratory_to_doc(lab)
+    doc = _laboratory_to_doc(lab, lab_analytics=lab_analytics)
     await _resolve_paid_active(doc, paid_user_ids)
     last_err = None
     for attempt in range(3):
@@ -420,6 +439,54 @@ async def search_laboratories(
     return {"items": items, "total": total, "page": page, "size": size}
 
 
+async def get_laboratories_ranking_for_featured(size: int = 30) -> list[dict]:
+    """
+    Возвращает список {id, rank_score, paid_active} для главной страницы.
+    Сортировка: paid_active DESC, rank_score DESC.
+    """
+    client = get_es_client()
+    index = settings.LABORATORIES_INDEX
+    filters = [{"term": {"is_published": True}}]
+    es_query = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
+    sort_clause = sort_with_ranking(None)
+    try:
+        resp = await client.search(
+            index=index,
+            query=es_query,
+            from_=0,
+            size=size,
+            sort=sort_clause,
+        )
+    except NotFoundError:
+        await ensure_laboratories_index()
+        try:
+            resp = await client.search(
+                index=index,
+                query=es_query,
+                from_=0,
+                size=size,
+                sort=sort_clause,
+            )
+        except Exception as e:
+            logger.exception("get_laboratories_ranking_for_featured failed: %s", e)
+            return []
+    except Exception as e:
+        logger.exception("get_laboratories_ranking_for_featured failed: %s", e)
+        return []
+
+    result = []
+    for h in resp.get("hits", {}).get("hits", []):
+        source = h.get("_source", h)
+        lid = source.get("id")
+        if lid is not None:
+            result.append({
+                "id": lid,
+                "rank_score": float(source.get("rank_score") or 0),
+                "paid_active": bool(source.get("paid_active", False)),
+            })
+    return result
+
+
 async def reindex_laboratories_by_ids(lab_ids: List[int]) -> None:
     """
     Переиндексировать указанные лаборатории (при изменении оборудования/сотрудников).
@@ -433,9 +500,12 @@ async def reindex_laboratories_by_ids(lab_ids: List[int]) -> None:
     creator_ids = [l.creator_user_id for l in labs if l.creator_user_id]
     from app.core.queries.orm import Orm as CoreOrm
     paid_ids = await CoreOrm.get_paid_user_ids(creator_ids)
+    public_ids = [l.public_id for l in labs if l.public_id]
+    lab_analytics_map = await Orm.get_laboratory_analytics_30d(public_ids)
     for lab in labs:
         try:
-            await index_laboratory(lab, paid_user_ids=paid_ids)
+            analytics = lab_analytics_map.get(lab.public_id, {}) if lab.public_id else {}
+            await index_laboratory(lab, paid_user_ids=paid_ids, lab_analytics=analytics)
         except Exception as e:
             logger.warning("Failed to reindex laboratory id=%s: %s", lab.id, e)
 
@@ -470,11 +540,14 @@ async def reindex_laboratories(force: bool = False) -> int:
     creator_ids = [l.creator_user_id for l in labs if l.creator_user_id]
     from app.core.queries.orm import Orm as CoreOrm
     paid_ids = await CoreOrm.get_paid_user_ids(creator_ids)
+    public_ids = [l.public_id for l in labs if l.public_id]
+    lab_analytics_map = await Orm.get_laboratory_analytics_30d(public_ids)
     logger.info("Laboratories reindex: %d published laboratories", len(labs))
     indexed = 0
     for lab in labs:
         try:
-            await index_laboratory(lab, paid_user_ids=paid_ids)
+            analytics = lab_analytics_map.get(lab.public_id, {}) if lab.public_id else {}
+            await index_laboratory(lab, paid_user_ids=paid_ids, lab_analytics=analytics)
             indexed += 1
         except Exception as e:
             logger.warning("Failed to index laboratory id=%s: %s", lab.id, e)

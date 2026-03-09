@@ -175,6 +175,8 @@ class Orm:
                     ),
                     selectinload(models.Organization.employees),
                     selectinload(models.Organization.equipment),
+                    selectinload(models.Organization.vacancies),
+                    selectinload(models.Organization.queries),
                 )
                 .where(
                     models.Organization.id.in_(org_ids),
@@ -186,6 +188,291 @@ class Orm:
             id_order = {oid: i for i, oid in enumerate(org_ids)}
             orgs.sort(key=lambda o: id_order.get(o.id, 999))
             return orgs
+
+    @staticmethod
+    async def get_organization_analytics_30d(
+        public_ids: List[str],
+    ) -> dict:
+        """
+        Для каждой организации (public_id) вернуть unique_views_30d и avg_time_on_page_sec
+        за последние 30 дней (page_view / page_leave, без учёта просмотров создателя).
+        Возвращает: { public_id: {"unique_views_30d": int, "avg_time_on_page_sec": float|None} }
+        """
+        if not public_ids:
+            return {}
+        out = {pid: {"unique_views_30d": 0, "avg_time_on_page_sec": None} for pid in public_ids}
+        if not hasattr(models, "AnalyticsEvent"):
+            return out
+        since = datetime.now(timezone.utc) - timedelta(days=30)
+        async with async_session_factory() as session:
+            ae = models.AnalyticsEvent
+            org = models.Organization
+            join_cond = (ae.entity_id == org.public_id) & (ae.entity_type == "organization")
+            creator_filter = (ae.user_id.is_(None)) | (ae.user_id != org.creator_user_id)
+            # Unique viewers (distinct user_id/session_id) for page_view in last 30 days
+            viewer_key = func.coalesce(cast(ae.user_id, String), ae.session_id)
+            stmt_uv = (
+                select(ae.entity_id, func.count(distinct(viewer_key)).label("uv"))
+                .select_from(ae)
+                .join(org, join_cond)
+                .where(
+                    ae.event_type == "page_view",
+                    ae.entity_type == "organization",
+                    ae.entity_id.in_(public_ids),
+                    ae.created_at >= since,
+                    creator_filter,
+                )
+                .group_by(ae.entity_id)
+            )
+            res = await session.execute(stmt_uv)
+            for row in res.all():
+                if row.entity_id:
+                    out[row.entity_id]["unique_views_30d"] = row.uv
+            # Avg time on page from page_leave (duration_sec or time_spent_sec in payload)
+            time_sql = text("""
+                SELECT ae.entity_id, AVG((COALESCE(ae.payload->>'duration_sec', ae.payload->>'time_spent_sec'))::float) AS avg_sec
+                FROM analytics_events ae
+                JOIN organizations o ON ae.entity_id = o.public_id AND ae.entity_type = 'organization'
+                WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'organization'
+                  AND ae.entity_id = ANY(:public_ids)
+                  AND ae.created_at >= :since
+                  AND (ae.user_id IS NULL OR ae.user_id != o.creator_user_id)
+                  AND (ae.payload->>'duration_sec' IS NOT NULL OR ae.payload->>'time_spent_sec' IS NOT NULL)
+                GROUP BY ae.entity_id
+            """)
+            try:
+                res = await session.execute(
+                    time_sql,
+                    {"public_ids": public_ids, "since": since},
+                )
+                for row in res.all():
+                    if row.entity_id and row.avg_sec is not None:
+                        out[row.entity_id]["avg_time_on_page_sec"] = round(float(row.avg_sec), 1)
+            except Exception:
+                pass
+        return out
+
+    @staticmethod
+    async def get_laboratory_analytics_30d(
+        public_ids: List[str],
+    ) -> dict:
+        """
+        За последние 30 дней по лабораториям: unique_views_30d, avg_time_on_page_sec, cta_clicks_30d.
+        Возвращает: { public_id: {"unique_views_30d": int, "avg_time_on_page_sec": float|None, "cta_clicks_30d": int} }
+        """
+        if not public_ids:
+            return {}
+        out = {
+            pid: {"unique_views_30d": 0, "avg_time_on_page_sec": None, "cta_clicks_30d": 0}
+            for pid in public_ids
+        }
+        if not hasattr(models, "AnalyticsEvent"):
+            return out
+        since = datetime.now(timezone.utc) - timedelta(days=30)
+        async with async_session_factory() as session:
+            ae = models.AnalyticsEvent
+            lo = models.OrganizationLaboratory
+            join_cond = (ae.entity_id == lo.public_id) & (ae.entity_type == "laboratory")
+            creator_filter = (ae.user_id.is_(None)) | (ae.user_id != lo.creator_user_id)
+            viewer_key = func.coalesce(cast(ae.user_id, String), ae.session_id)
+            stmt_uv = (
+                select(ae.entity_id, func.count(distinct(viewer_key)).label("uv"))
+                .select_from(ae)
+                .join(lo, join_cond)
+                .where(
+                    ae.event_type == "page_view",
+                    ae.entity_type == "laboratory",
+                    ae.entity_id.in_(public_ids),
+                    ae.created_at >= since,
+                    creator_filter,
+                )
+                .group_by(ae.entity_id)
+            )
+            res = await session.execute(stmt_uv)
+            for row in res.all():
+                if row.entity_id:
+                    out[row.entity_id]["unique_views_30d"] = row.uv
+            time_sql_lab = text("""
+                SELECT ae.entity_id, AVG((COALESCE(ae.payload->>'duration_sec', ae.payload->>'time_spent_sec'))::float) AS avg_sec
+                FROM analytics_events ae
+                JOIN laboratories_organizations lo ON ae.entity_id = lo.public_id AND ae.entity_type = 'laboratory'
+                WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'laboratory'
+                  AND ae.entity_id = ANY(:public_ids)
+                  AND ae.created_at >= :since
+                  AND (ae.user_id IS NULL OR ae.user_id != lo.creator_user_id)
+                  AND (ae.payload->>'duration_sec' IS NOT NULL OR ae.payload->>'time_spent_sec' IS NOT NULL)
+                GROUP BY ae.entity_id
+            """)
+            try:
+                res = await session.execute(
+                    time_sql_lab,
+                    {"public_ids": public_ids, "since": since},
+                )
+                for row in res.all():
+                    if row.entity_id and row.avg_sec is not None:
+                        out[row.entity_id]["avg_time_on_page_sec"] = round(float(row.avg_sec), 1)
+            except Exception:
+                pass
+            stmt_cta = (
+                select(ae.entity_id, func.count(ae.id).label("cta"))
+                .where(
+                    ae.event_type == "button_click",
+                    ae.entity_type == "laboratory",
+                    ae.entity_id.in_(public_ids),
+                    ae.created_at >= since,
+                )
+                .group_by(ae.entity_id)
+            )
+            res = await session.execute(stmt_cta)
+            for row in res.all():
+                if row.entity_id:
+                    out[row.entity_id]["cta_clicks_30d"] = row.cta
+        return out
+
+    @staticmethod
+    async def get_vacancy_analytics_30d(
+        public_ids: List[str],
+        vacancy_ids: Optional[List[int]] = None,
+    ) -> dict:
+        """
+        За последние 30 дней по вакансиям: unique_viewers_30d, avg_time_on_page_sec.
+        response_count — все отклики по вакансии (all-time).
+        Возвращает: { public_id: {"unique_viewers_30d": int, "response_count": int, "avg_time_on_page_sec": float|None} }
+        """
+        if not public_ids:
+            return {}
+        out = {
+            pid: {"unique_viewers_30d": 0, "response_count": 0, "avg_time_on_page_sec": None}
+            for pid in public_ids
+        }
+        since = datetime.now(timezone.utc) - timedelta(days=30)
+        async with async_session_factory() as session:
+            if vacancy_ids is None:
+                stmt_pid = (
+                    select(models.VacancyOrganization.id)
+                    .where(models.VacancyOrganization.public_id.in_(public_ids))
+                )
+                res = await session.execute(stmt_pid)
+                vacancy_ids = [row.id for row in res.all()]
+            if vacancy_ids and hasattr(models, "AnalyticsEvent"):
+                ae = models.AnalyticsEvent
+                vo = models.VacancyOrganization
+                join_cond = (ae.entity_id == vo.public_id) & (ae.entity_type == "vacancy")
+                creator_filter = (ae.user_id.is_(None)) | (ae.user_id != vo.creator_user_id)
+                viewer_key = func.coalesce(cast(ae.user_id, String), ae.session_id)
+                stmt_uv = (
+                    select(ae.entity_id, func.count(distinct(viewer_key)).label("uv"))
+                    .select_from(ae)
+                    .join(vo, join_cond)
+                    .where(
+                        ae.event_type == "page_view",
+                        ae.entity_type == "vacancy",
+                        ae.entity_id.in_(public_ids),
+                        ae.created_at >= since,
+                        creator_filter,
+                    )
+                    .group_by(ae.entity_id)
+                )
+                res = await session.execute(stmt_uv)
+                for row in res.all():
+                    if row.entity_id:
+                        out[row.entity_id]["unique_viewers_30d"] = row.uv
+                time_sql = text("""
+                    SELECT ae.entity_id, AVG((COALESCE(ae.payload->>'duration_sec', ae.payload->>'time_spent_sec'))::float) AS avg_sec
+                    FROM analytics_events ae
+                    JOIN vacancies_organizations vo ON ae.entity_id = vo.public_id AND ae.entity_type = 'vacancy'
+                    WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'vacancy'
+                      AND ae.entity_id = ANY(:public_ids)
+                      AND ae.created_at >= :since
+                      AND (ae.user_id IS NULL OR ae.user_id != vo.creator_user_id)
+                      AND (ae.payload->>'duration_sec' IS NOT NULL OR ae.payload->>'time_spent_sec' IS NOT NULL)
+                    GROUP BY ae.entity_id
+                """)
+                try:
+                    res = await session.execute(
+                        time_sql,
+                        {"public_ids": public_ids, "since": since},
+                    )
+                    for row in res.all():
+                        if row.entity_id and row.avg_sec is not None:
+                            out[row.entity_id]["avg_time_on_page_sec"] = round(float(row.avg_sec), 1)
+                except Exception:
+                    pass
+            if vacancy_ids:
+                stmt_resp = (
+                    select(models.VacancyResponse.vacancy_id, func.count(models.VacancyResponse.id).label("cnt"))
+                    .where(models.VacancyResponse.vacancy_id.in_(vacancy_ids))
+                    .group_by(models.VacancyResponse.vacancy_id)
+                )
+                res = await session.execute(stmt_resp)
+                vid_to_cnt = {row.vacancy_id: row.cnt for row in res.all()}
+                stmt_pid = (
+                    select(models.VacancyOrganization.id, models.VacancyOrganization.public_id)
+                    .where(models.VacancyOrganization.id.in_(vacancy_ids))
+                )
+                res = await session.execute(stmt_pid)
+                for row in res.all():
+                    if row.public_id and row.id in vid_to_cnt:
+                        out[row.public_id]["response_count"] = vid_to_cnt[row.id]
+        return out
+
+    @staticmethod
+    async def get_query_analytics_30d(public_ids: List[str]) -> dict:
+        """
+        За последние 30 дней по запросам: unique_views_30d, avg_time_on_page_sec.
+        Возвращает: { public_id: {"unique_views_30d": int, "avg_time_on_page_sec": float|None} }
+        """
+        if not public_ids:
+            return {}
+        out = {pid: {"unique_views_30d": 0, "avg_time_on_page_sec": None} for pid in public_ids}
+        if not hasattr(models, "AnalyticsEvent"):
+            return out
+        since = datetime.now(timezone.utc) - timedelta(days=30)
+        async with async_session_factory() as session:
+            ae = models.AnalyticsEvent
+            oq = models.OrganizationQuery
+            join_cond = (ae.entity_id == oq.public_id) & (ae.entity_type == "query")
+            creator_filter = (ae.user_id.is_(None)) | (ae.user_id != oq.creator_user_id)
+            viewer_key = func.coalesce(cast(ae.user_id, String), ae.session_id)
+            stmt_uv = (
+                select(ae.entity_id, func.count(distinct(viewer_key)).label("uv"))
+                .select_from(ae)
+                .join(oq, join_cond)
+                .where(
+                    ae.event_type == "page_view",
+                    ae.entity_type == "query",
+                    ae.entity_id.in_(public_ids),
+                    ae.created_at >= since,
+                    creator_filter,
+                )
+                .group_by(ae.entity_id)
+            )
+            res = await session.execute(stmt_uv)
+            for row in res.all():
+                if row.entity_id:
+                    out[row.entity_id]["unique_views_30d"] = row.uv
+            time_sql_q = text("""
+                SELECT ae.entity_id, AVG((COALESCE(ae.payload->>'duration_sec', ae.payload->>'time_spent_sec'))::float) AS avg_sec
+                FROM analytics_events ae
+                JOIN organization_queries oq ON ae.entity_id = oq.public_id AND ae.entity_type = 'query'
+                WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'query'
+                  AND ae.entity_id = ANY(:public_ids)
+                  AND ae.created_at >= :since
+                  AND (ae.user_id IS NULL OR ae.user_id != oq.creator_user_id)
+                  AND (ae.payload->>'duration_sec' IS NOT NULL OR ae.payload->>'time_spent_sec' IS NOT NULL)
+                GROUP BY ae.entity_id
+            """)
+            try:
+                res = await session.execute(
+                    time_sql_q,
+                    {"public_ids": public_ids, "since": since},
+                )
+                for row in res.all():
+                    if row.entity_id and row.avg_sec is not None:
+                        out[row.entity_id]["avg_time_on_page_sec"] = round(float(row.avg_sec), 1)
+            except Exception:
+                pass
+        return out
 
     @staticmethod
     async def upsert_organization_for_user(
@@ -2885,6 +3172,7 @@ class Orm:
         lab_view_counts: dict = {}
         lab_unique_viewers: dict = {}
         lab_avg_time: dict = {}
+        lab_cta_clicks_30d: dict = {}
         query_view_counts: dict = {}
         query_unique_viewers: dict = {}
         query_avg_time: dict = {}
@@ -2897,6 +3185,7 @@ class Orm:
 
         full_vacancies: dict = {}
         full_queries: dict = {}
+        since_30d = datetime.now(timezone.utc) - timedelta(days=30)
         async with async_session_factory() as session:
             if vacancy_ids:
                 stmt_v = select(models.VacancyOrganization).where(
@@ -2924,6 +3213,7 @@ class Orm:
                     .where(
                         ae.event_type == "page_view",
                         ae.entity_id.in_(vacancy_public_ids),
+                        ae.created_at >= since_30d,
                         creator_filter,
                     )
                     .group_by(ae.entity_id)
@@ -2939,6 +3229,7 @@ class Orm:
                     .where(
                         ae.event_type == "page_view",
                         ae.entity_id.in_(vacancy_public_ids),
+                        ae.created_at >= since_30d,
                         creator_filter,
                     )
                     .group_by(ae.entity_id)
@@ -2947,16 +3238,20 @@ class Orm:
                 for row in res.all():
                     unique_viewers[row.entity_id] = row.uv
                 time_sql = text("""
-                    SELECT ae.entity_id, AVG((ae.payload->>'duration_sec')::float) AS avg_sec
+                    SELECT ae.entity_id, AVG((COALESCE(ae.payload->>'duration_sec', ae.payload->>'time_spent_sec'))::float) AS avg_sec
                     FROM analytics_events ae
                     JOIN vacancies_organizations vo ON ae.entity_id = vo.public_id AND ae.entity_type = 'vacancy'
                     WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'vacancy'
                       AND ae.entity_id = ANY(:public_ids)
-                      AND ae.payload->>'duration_sec' IS NOT NULL
+                      AND ae.created_at >= :since
+                      AND (ae.payload->>'duration_sec' IS NOT NULL OR ae.payload->>'time_spent_sec' IS NOT NULL)
                     GROUP BY ae.entity_id
                 """)
                 try:
-                    res = await session.execute(time_sql, {"public_ids": vacancy_public_ids})
+                    res = await session.execute(
+                        time_sql,
+                        {"public_ids": vacancy_public_ids, "since": since_30d},
+                    )
                     for row in res.all():
                         if row.avg_sec is not None:
                             avg_time_on_page[row.entity_id] = round(float(row.avg_sec), 1)
@@ -2975,6 +3270,7 @@ class Orm:
                     .where(
                         ae.event_type == "page_view",
                         ae.entity_id.in_(lab_public_ids),
+                        ae.created_at >= since_30d,
                         creator_filter,
                     )
                     .group_by(ae.entity_id)
@@ -2990,6 +3286,7 @@ class Orm:
                     .where(
                         ae.event_type == "page_view",
                         ae.entity_id.in_(lab_public_ids),
+                        ae.created_at >= since_30d,
                         creator_filter,
                     )
                     .group_by(ae.entity_id)
@@ -2998,21 +3295,39 @@ class Orm:
                 for row in res.all():
                     lab_unique_viewers[row.entity_id] = row.uv
                 time_sql_lab = text("""
-                    SELECT ae.entity_id, AVG((ae.payload->>'duration_sec')::float) AS avg_sec
+                    SELECT ae.entity_id, AVG((COALESCE(ae.payload->>'duration_sec', ae.payload->>'time_spent_sec'))::float) AS avg_sec
                     FROM analytics_events ae
                     JOIN laboratories_organizations lo ON ae.entity_id = lo.public_id AND ae.entity_type = 'laboratory'
                     WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'laboratory'
                       AND ae.entity_id = ANY(:public_ids)
-                      AND ae.payload->>'duration_sec' IS NOT NULL
+                      AND ae.created_at >= :since
+                      AND (ae.payload->>'duration_sec' IS NOT NULL OR ae.payload->>'time_spent_sec' IS NOT NULL)
                     GROUP BY ae.entity_id
                 """)
                 try:
-                    res = await session.execute(time_sql_lab, {"public_ids": lab_public_ids})
+                    res = await session.execute(
+                        time_sql_lab,
+                        {"public_ids": lab_public_ids, "since": since_30d},
+                    )
                     for row in res.all():
                         if row.avg_sec is not None:
                             lab_avg_time[row.entity_id] = round(float(row.avg_sec), 1)
                 except Exception:
                     pass
+                stmt_cta = (
+                    select(ae.entity_id, func.count(ae.id).label("cta"))
+                    .where(
+                        ae.event_type == "button_click",
+                        ae.entity_type == "laboratory",
+                        ae.entity_id.in_(lab_public_ids),
+                        ae.created_at >= since_30d,
+                    )
+                    .group_by(ae.entity_id)
+                )
+                res = await session.execute(stmt_cta)
+                for row in res.all():
+                    if row.entity_id:
+                        lab_cta_clicks_30d[row.entity_id] = row.cta
 
             if query_public_ids and hasattr(models, "AnalyticsEvent"):
                 ae = models.AnalyticsEvent
@@ -3026,6 +3341,7 @@ class Orm:
                     .where(
                         ae.event_type == "page_view",
                         ae.entity_id.in_(query_public_ids),
+                        ae.created_at >= since_30d,
                         creator_filter,
                     )
                     .group_by(ae.entity_id)
@@ -3041,6 +3357,7 @@ class Orm:
                     .where(
                         ae.event_type == "page_view",
                         ae.entity_id.in_(query_public_ids),
+                        ae.created_at >= since_30d,
                         creator_filter,
                     )
                     .group_by(ae.entity_id)
@@ -3049,16 +3366,20 @@ class Orm:
                 for row in res.all():
                     query_unique_viewers[row.entity_id] = row.uv
                 time_sql_q = text("""
-                    SELECT ae.entity_id, AVG((ae.payload->>'duration_sec')::float) AS avg_sec
+                    SELECT ae.entity_id, AVG((COALESCE(ae.payload->>'duration_sec', ae.payload->>'time_spent_sec'))::float) AS avg_sec
                     FROM analytics_events ae
                     JOIN organization_queries oq ON ae.entity_id = oq.public_id AND ae.entity_type = 'query'
                     WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'query'
                       AND ae.entity_id = ANY(:public_ids)
-                      AND ae.payload->>'duration_sec' IS NOT NULL
+                      AND ae.created_at >= :since
+                      AND (ae.payload->>'duration_sec' IS NOT NULL OR ae.payload->>'time_spent_sec' IS NOT NULL)
                     GROUP BY ae.entity_id
                 """)
                 try:
-                    res = await session.execute(time_sql_q, {"public_ids": query_public_ids})
+                    res = await session.execute(
+                        time_sql_q,
+                        {"public_ids": query_public_ids, "since": since_30d},
+                    )
                     for row in res.all():
                         if row.avg_sec is not None:
                             query_avg_time[row.entity_id] = round(float(row.avg_sec), 1)
@@ -3233,12 +3554,19 @@ class Orm:
                     for e in (getattr(lab, "employees", None) or [])
                 )
             )
+            org_analytics = {}
+            if org.public_id:
+                org_analytics_map = await Orm.get_organization_analytics_30d([org.public_id])
+                org_analytics = org_analytics_map.get(org.public_id, {})
+            published_vacancies = sum(1 for r in vacancy_rows if r[3])
             org_doc = ranking.build_doc_from_org(
                 org,
                 laboratories_count=len(laboratories),
                 employees_count=employees_count,
-                vacancies_count=len(vacancy_rows),
+                vacancies_count=published_vacancies,
                 queries_count=len(query_rows),
+                unique_views_30d=org_analytics.get("unique_views_30d", 0),
+                avg_time_on_page_sec=org_analytics.get("avg_time_on_page_sec"),
             )
             org_ranking = {
                 "score": ranking.get_organization_score(org_doc),
@@ -3263,7 +3591,12 @@ class Orm:
             rank_score = 0.0
             tips = []
             if vac:
-                v_doc = ranking.build_doc_from_vacancy(vac)
+                v_doc = ranking.build_doc_from_vacancy(
+                    vac,
+                    unique_viewers_30d=uv,
+                    response_count=response_count,
+                    avg_time_on_page_sec=avg_sec,
+                )
                 rank_score = ranking.get_vacancy_score(v_doc)
                 tips = ranking.get_vacancy_tips(v_doc)
             by_vacancy.append({
@@ -3289,6 +3622,9 @@ class Orm:
                 employees_count=len(getattr(lab, "employees", None) or []),
                 researchers_count=len(getattr(lab, "researchers", None) or []),
                 equipment_count=len(getattr(lab, "equipment", None) or []),
+                unique_views_30d=uv,
+                avg_time_on_page_sec=avg_sec,
+                cta_clicks_30d=lab_cta_clicks_30d.get(lab.public_id, 0) if lab.public_id else 0,
             )
             rank_score = ranking.get_laboratory_score(lab_doc)
             tips = ranking.get_laboratory_tips(lab_doc)
@@ -3312,7 +3648,11 @@ class Orm:
             rank_score = 0.0
             tips = []
             if q:
-                q_doc = ranking.build_doc_from_query(q)
+                q_doc = ranking.build_doc_from_query(
+                    q,
+                    unique_views_30d=uv,
+                    avg_time_on_page_sec=avg_sec,
+                )
                 rank_score = ranking.get_query_score(q_doc)
                 tips = ranking.get_query_tips(q_doc)
             by_query.append({

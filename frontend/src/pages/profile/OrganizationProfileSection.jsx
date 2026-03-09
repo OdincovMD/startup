@@ -10,6 +10,7 @@ import {
 } from "./org";
 import JoinRequestsIncomingTab from "./JoinRequestsIncomingTab";
 import VacancyResponsesIncomingTab from "./VacancyResponsesIncomingTab";
+import SubscriptionTab from "./SubscriptionTab";
 import EmployerDashboard from "./EmployerDashboard";
 
 export default function OrganizationProfileSection({
@@ -149,7 +150,11 @@ export default function OrganizationProfileSection({
       {!hideTitle && <h3 className="profile-section-title">{title}</h3>}
       <div className="org-section-content">
       {orgTab === "dashboard" && (
-        <EmployerDashboard onError={onError} />
+        <EmployerDashboard onError={onError} onNavigateToSubscription={setOrgTab ? () => setOrgTab("subscription") : undefined} />
+      )}
+
+      {orgTab === "subscription" && (
+        <SubscriptionTab onError={onError} />
       )}
 
       {showProfileTab && orgTab === "profile" && (

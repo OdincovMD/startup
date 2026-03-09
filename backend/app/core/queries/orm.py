@@ -136,8 +136,11 @@ class Orm:
         page: int = 1,
         page_size: int = 20,
         role_filter: Optional[str] = None,
+        sort_by: Optional[str] = None,
     ) -> Tuple[List[Dict[str, Any]], int]:
         """Список опубликованных соискателей. Возвращает список dict (данные внутри сессии)."""
+        order_desc = sort_by != "date_asc"
+        order_clause = models.User.created_at.desc() if order_desc else models.User.created_at.asc()
         async with async_session_factory() as session:
             role_filter_cond = or_(
                 and_(
@@ -179,7 +182,7 @@ class Orm:
                 .outerjoin(models.Student, models.User.id == models.Student.user_id)
                 .outerjoin(models.Researcher, models.User.id == models.Researcher.user_id)
                 .where(models.User.public_id.isnot(None), role_filter_cond)
-                .order_by(models.User.id.desc())
+                .order_by(order_clause)
                 .offset((page - 1) * page_size)
                 .limit(page_size)
             )

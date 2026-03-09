@@ -18,6 +18,7 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  ReferenceLine,
 } from "recharts";
 import { apiRequest } from "../../api/client";
 
@@ -42,11 +43,9 @@ function useChartHeight() {
   }, [width]);
 }
 
-export default function EmployerDashboard({ onError }) {
+export default function EmployerDashboard({ onError, onNavigateToSubscription }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
-  const [tipsPopover, setTipsPopover] = useState(null); // { tips: string[] }
   const chartHeight = useChartHeight();
   const chartHeightSmall = Math.round(chartHeight * 0.9);
 
@@ -99,6 +98,8 @@ export default function EmployerDashboard({ onError }) {
     subscription = null,
     org_ranking = null,
   } = data;
+  const subscriptionActive = subscription?.active === true;
+  const subscriptionExpiresAt = subscription?.expires_at;
   const hasAnyContent = by_vacancy.length > 0 || by_laboratory.length > 0 || by_query.length > 0;
   const hasCharts = views_over_time.length > 0 || responses_over_time.length > 0;
 
@@ -116,91 +117,35 @@ export default function EmployerDashboard({ onError }) {
     { name: "Запросы", value: (views_over_time.reduce((s, d) => s + (d.by_entity_type?.query ?? 0), 0)) || 0 },
   ].filter((d) => d.value > 0);
 
+  const subscriptionStartDate = subscription?.started_at ? subscription.started_at.slice(0, 10) : null;
+  const showSubLineOnViews = subscriptionStartDate && viewsChartData.some((d) => d.date === subscriptionStartDate);
+  const showSubLineOnResponses = subscriptionStartDate && responses_over_time.some((d) => d.date === subscriptionStartDate);
+
   return (
     <div className="profile-form dashboard-page">
       <div className="lab-tab-header">
         <p className="lab-tab-desc">Сводка по вакансиям, лабораториям и запросам: просмотры, отклики и графики за последние 30 дней.</p>
-      </div>
-
-      {subscription && (
-        <div className="profile-form-group dashboard-subscription-card">
-          <div className="profile-form-group-title">Подписка</div>
-          <div className={`dashboard-subscription-inner ${subscription.active ? "dashboard-subscription-active" : "dashboard-subscription-inactive"}`}>
-            {subscription.active ? (
+        {onNavigateToSubscription && (
+          <p className="dashboard-subscription-banner">
+            {subscriptionActive && subscriptionExpiresAt ? (
               <>
-                <span className="dashboard-subscription-icon" aria-hidden="true">✓</span>
-                <div className="dashboard-subscription-text">
-                  <strong>Подписка активна</strong>
-                  {subscription.expires_at && (
-                    <span className="dashboard-subscription-expiry">
-                      Действует до {new Date(subscription.expires_at).toLocaleDateString("ru-RU")}
-                    </span>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <span className="dashboard-subscription-icon dashboard-subscription-icon--inactive" aria-hidden="true">○</span>
-                <div className="dashboard-subscription-text">
-                  <strong>Без подписки</strong>
-                  <p className="dashboard-subscription-hint">
-                    Карточки показываются в общем каталоге. Подписка поднимает их выше в выдаче и на главной.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="secondary-btn dashboard-subscription-cta"
-                  onClick={() => setSubscriptionModalOpen(true)}
-                >
-                  Узнать о подписке
+                Подписка активна до {new Date(subscriptionExpiresAt).toLocaleDateString("ru-RU")}.
+                {" "}
+                <button type="button" className="profile-link-btn" onClick={onNavigateToSubscription}>
+                  Управление подпиской →
                 </button>
               </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {subscriptionModalOpen && (
-        <div
-          className="gallery-overlay"
-          onClick={() => setSubscriptionModalOpen(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="subscription-modal-title"
-        >
-          <div className="gallery-modal dashboard-subscription-modal" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="gallery-close"
-              onClick={() => setSubscriptionModalOpen(false)}
-              aria-label="Закрыть"
-            >
-              ×
-            </button>
-            <h2 id="subscription-modal-title" className="profile-form-group-title">О подписке</h2>
-            <p className="profile-field-hint">
-              Подписка для представителей организаций и лабораторий повышает видимость ваших карточек в каталоге.
-            </p>
-            <ul className="dashboard-subscription-modal-list">
-              <li>Ваши организации, лаборатории, вакансии и запросы отображаются выше в результатах поиска.</li>
-              <li>Платные карточки участвуют в блоках на главной странице.</li>
-              <li>Ранжирование среди платных пользователей зависит от полноты и качества заполнения карточек.</li>
-            </ul>
-            <p className="profile-field-hint">
-              По вопросам подключения подписки обратитесь к администратору платформы.
-            </p>
-            <div className="dashboard-modal-actions">
-              <button
-                type="button"
-                className="primary-btn"
-                onClick={() => setSubscriptionModalOpen(false)}
-              >
-                Понятно
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            ) : !subscriptionActive && subscription !== null ? (
+              <>
+                Без подписки.{" "}
+                <button type="button" className="profile-link-btn" onClick={onNavigateToSubscription}>
+                  Узнать о подписке →
+                </button>
+              </>
+            ) : null}
+          </p>
+        )}
+      </div>
 
       {org_ranking != null && (
         <div className="profile-form-group dashboard-org-ranking">
@@ -304,6 +249,9 @@ export default function EmployerDashboard({ onError }) {
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip labelFormatter={(v) => v} />
                   <Legend />
+                  {showSubLineOnViews && (
+                    <ReferenceLine x={subscriptionStartDate} stroke="#b85c38" strokeDasharray="4 4" label={{ value: "Начало подписки", fill: "#b85c38", fontSize: 10 }} />
+                  )}
                   <Area type="monotone" dataKey="vacancy" name="Вакансии" stroke={COLORS.vacancy} fill={COLORS.vacancy} fillOpacity={0.4} stackId="1" />
                   <Area type="monotone" dataKey="laboratory" name="Лаборатории" stroke={COLORS.laboratory} fill={COLORS.laboratory} fillOpacity={0.4} stackId="1" />
                   <Area type="monotone" dataKey="query" name="Запросы" stroke={COLORS.query} fill={COLORS.query} fillOpacity={0.4} stackId="1" />
@@ -317,6 +265,9 @@ export default function EmployerDashboard({ onError }) {
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip labelFormatter={(v) => v} />
                     <Legend />
+                    {showSubLineOnViews && (
+                      <ReferenceLine x={subscriptionStartDate} stroke="#b85c38" strokeDasharray="4 4" label={{ value: "Начало подписки", fill: "#b85c38", fontSize: 10 }} />
+                    )}
                     <Line type="monotone" dataKey="vacancy" name="Вакансии" stroke={COLORS.vacancy} dot={false} />
                     <Line type="monotone" dataKey="laboratory" name="Лаборатории" stroke={COLORS.laboratory} dot={false} />
                     <Line type="monotone" dataKey="query" name="Запросы" stroke={COLORS.query} dot={false} />
@@ -334,6 +285,9 @@ export default function EmployerDashboard({ onError }) {
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip labelFormatter={(v) => v} />
+                  {showSubLineOnResponses && (
+                    <ReferenceLine x={subscriptionStartDate} stroke="#b85c38" strokeDasharray="4 4" label={{ value: "Начало подписки", fill: "#b85c38", fontSize: 10 }} />
+                  )}
                   <Bar dataKey="count" name="Откликов" fill="#8884d8" />
                 </BarChart>
               </ResponsiveContainer>
@@ -396,21 +350,11 @@ export default function EmployerDashboard({ onError }) {
                       <tr key={v.vacancy_id}>
                         <td>{v.name || "—"}</td>
                         <td className="dashboard-table-cell-coef">
-                          <span className="dashboard-table-cell-coef-inner">
-                            <span className={`dashboard-coef-value dashboard-coef-value--${(v.rank_score ?? 0) >= 60 ? "high" : (v.rank_score ?? 0) >= 30 ? "mid" : "low"}`}>
-                              {v.rank_score != null ? Number(v.rank_score).toFixed(1) : "—"}
-                            </span>
-                            {(v.tips && v.tips.length > 0) && (
-                              <button
-                                type="button"
-                                className="dashboard-tips-trigger"
-                                onClick={() => setTipsPopover({ tips: v.tips })}
-                                aria-label="Как повысить коэффициент"
-                                title="Как повысить"
-                              >
-                                ?
-                              </button>
-                            )}
+                          <span
+                            className={`dashboard-coef-value dashboard-coef-value--${(v.rank_score ?? 0) >= 60 ? "high" : (v.rank_score ?? 0) >= 30 ? "mid" : "low"}${v.tips?.length ? " dashboard-coef-value--has-tips" : ""}`}
+                            title={v.tips?.length ? v.tips.map((t, i) => `${i + 1}. ${t}`).join("\n") : undefined}
+                          >
+                            {v.rank_score != null ? Number(v.rank_score).toFixed(1) : "—"}
                           </span>
                         </td>
                         <td>{v.view_count ?? 0}</td>
@@ -446,21 +390,11 @@ export default function EmployerDashboard({ onError }) {
                       <tr key={lab.laboratory_id}>
                         <td>{lab.name || "—"}</td>
                         <td className="dashboard-table-cell-coef">
-                          <span className="dashboard-table-cell-coef-inner">
-                            <span className={`dashboard-coef-value dashboard-coef-value--${(lab.rank_score ?? 0) >= 60 ? "high" : (lab.rank_score ?? 0) >= 30 ? "mid" : "low"}`}>
-                              {lab.rank_score != null ? Number(lab.rank_score).toFixed(1) : "—"}
-                            </span>
-                            {(lab.tips && lab.tips.length > 0) && (
-                              <button
-                                type="button"
-                                className="dashboard-tips-trigger"
-                                onClick={() => setTipsPopover({ tips: lab.tips })}
-                                aria-label="Как повысить коэффициент"
-                                title="Как повысить"
-                              >
-                                ?
-                              </button>
-                            )}
+                          <span
+                            className={`dashboard-coef-value dashboard-coef-value--${(lab.rank_score ?? 0) >= 60 ? "high" : (lab.rank_score ?? 0) >= 30 ? "mid" : "low"}${lab.tips?.length ? " dashboard-coef-value--has-tips" : ""}`}
+                            title={lab.tips?.length ? lab.tips.map((t, i) => `${i + 1}. ${t}`).join("\n") : undefined}
+                          >
+                            {lab.rank_score != null ? Number(lab.rank_score).toFixed(1) : "—"}
                           </span>
                         </td>
                         <td>{lab.view_count ?? 0}</td>
@@ -493,21 +427,11 @@ export default function EmployerDashboard({ onError }) {
                       <tr key={q.query_id}>
                         <td>{q.title || "—"}</td>
                         <td className="dashboard-table-cell-coef">
-                          <span className="dashboard-table-cell-coef-inner">
-                            <span className={`dashboard-coef-value dashboard-coef-value--${(q.rank_score ?? 0) >= 60 ? "high" : (q.rank_score ?? 0) >= 30 ? "mid" : "low"}`}>
-                              {q.rank_score != null ? Number(q.rank_score).toFixed(1) : "—"}
-                            </span>
-                            {(q.tips && q.tips.length > 0) && (
-                              <button
-                                type="button"
-                                className="dashboard-tips-trigger"
-                                onClick={() => setTipsPopover({ tips: q.tips })}
-                                aria-label="Как повысить коэффициент"
-                                title="Как повысить"
-                              >
-                                ?
-                              </button>
-                            )}
+                          <span
+                            className={`dashboard-coef-value dashboard-coef-value--${(q.rank_score ?? 0) >= 60 ? "high" : (q.rank_score ?? 0) >= 30 ? "mid" : "low"}${q.tips?.length ? " dashboard-coef-value--has-tips" : ""}`}
+                            title={q.tips?.length ? q.tips.map((t, i) => `${i + 1}. ${t}`).join("\n") : undefined}
+                          >
+                            {q.rank_score != null ? Number(q.rank_score).toFixed(1) : "—"}
                           </span>
                         </td>
                         <td>{q.view_count ?? 0}</td>
@@ -523,37 +447,6 @@ export default function EmployerDashboard({ onError }) {
         </>
       )}
 
-      {tipsPopover && (
-        <div
-          className="gallery-overlay dashboard-tips-overlay"
-          onClick={() => setTipsPopover(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Подсказки по повышению коэффициента"
-        >
-          <div className="gallery-modal dashboard-tips-popover" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="gallery-close"
-              onClick={() => setTipsPopover(null)}
-              aria-label="Закрыть"
-            >
-              ×
-            </button>
-            <h3 className="profile-form-group-title">Как повысить коэффициент</h3>
-            <ul className="dashboard-tips-popover-list">
-              {tipsPopover.tips.map((tip, i) => (
-                <li key={i}>{tip}</li>
-              ))}
-            </ul>
-            <div className="dashboard-modal-actions">
-              <button type="button" className="primary-btn" onClick={() => setTipsPopover(null)}>
-                Закрыть
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

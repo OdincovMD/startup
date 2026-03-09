@@ -46,60 +46,43 @@ async def list_laboratories(
 ):
     """
     Список опубликованных лабораторий.
-    При q или любом фильтре — поиск через Elasticsearch.
-    Иначе — полный список из БД.
+    Всегда через Elasticsearch для корректной сортировки: paid_active, rank_score, created_at.
     """
-    use_search = bool((q or "").strip()) or organization_id is not None or without_org or (
+    has_filters = bool((q or "").strip()) or organization_id is not None or without_org or (
         min_employees is not None and min_employees > 0
     )
-    if use_search:
-        try:
-            result = await search_laboratories(
-                q=(q or "").strip(),
-                page=page,
-                size=size,
-                organization_id=organization_id,
-                without_org=without_org,
-                min_employees=min_employees,
-                sort_by=sort_by,
-            )
-            items = result.get("items", [])
-            lab_ids = [it["id"] for it in items if it.get("id") is not None]
-            if lab_ids:
-                labs = await Orm.get_laboratories_by_ids(lab_ids)
-                labs = _prepare_labs_for_response(labs)
-                return LaboratoryListResponse(
-                    items=labs,
-                    total=result.get("total", 0),
-                    page=result.get("page", page),
-                    size=result.get("size", size),
-                )
+    effective_size = size if has_filters else 100
+    try:
+        result = await search_laboratories(
+            q=(q or "").strip(),
+            page=page,
+            size=effective_size,
+            organization_id=organization_id,
+            without_org=without_org,
+            min_employees=min_employees,
+            sort_by=sort_by,
+        )
+        items = result.get("items", [])
+        lab_ids = [it["id"] for it in items if it.get("id") is not None]
+        if lab_ids:
+            labs = await Orm.get_laboratories_by_ids(lab_ids)
+            labs = _prepare_labs_for_response(labs)
             return LaboratoryListResponse(
-                items=[],
+                items=labs,
                 total=result.get("total", 0),
                 page=result.get("page", page),
-                size=result.get("size", size),
+                size=result.get("size", effective_size),
             )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"error": "LABORATORY_SEARCH_FAILURE", "message": str(e)},
-            )
-    try:
-        labs = await Orm.list_published_laboratories()
-        labs = _prepare_labs_for_response(labs)
-        total = len(labs)
-        # Без фильтров возвращаем все лаборатории (пагинация не применяется)
         return LaboratoryListResponse(
-            items=labs,
-            total=total,
-            page=1,
-            size=total,
+            items=[],
+            total=result.get("total", 0),
+            page=result.get("page", page),
+            size=result.get("size", effective_size),
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "LABORATORY_LIST_FAILURE", "message": str(e)},
+            detail={"error": "LABORATORY_SEARCH_FAILURE", "message": str(e)},
         )
 
 

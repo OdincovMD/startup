@@ -168,37 +168,22 @@ async def list_vacancies(
 ):
     """
     Список опубликованных вакансий.
-    При q или фильтрах — поиск через Elasticsearch.
-    Иначе — все из PostgreSQL.
+    Всегда через Elasticsearch для корректной сортировки: paid_active, rank_score, created_at.
     """
     q_stripped = (q or "").strip()
-    use_es = bool(q_stripped) or employment_type or organization_id is not None or laboratory_id is not None
-
-    if use_es:
-        try:
-            result = await search_vacancies(
-                q=q_stripped,
-                page=page,
-                size=size,
-                employment_type=employment_type,
-                organization_id=organization_id,
-                laboratory_id=laboratory_id,
-                sort_by=sort_by,
-            )
-            return result
-        except Exception:
-            return {"items": [], "total": 0, "page": page, "size": size}
-
+    has_filters = bool(q_stripped) or employment_type or organization_id is not None or laboratory_id is not None
+    effective_size = size if has_filters else 100
     try:
-        vacancies = await Orm.list_published_vacancies()
-        if sort_by == "date_asc":
-            vacancies = sorted(vacancies, key=lambda v: getattr(v, "created_at") or "", reverse=False)
-        else:
-            vacancies = sorted(vacancies, key=lambda v: getattr(v, "created_at") or "", reverse=True)
-        total = len(vacancies)
-        start = (page - 1) * size
-        items = vacancies[start : start + size]
-        return {"items": items, "total": total, "page": page, "size": size}
+        result = await search_vacancies(
+            q=q_stripped,
+            page=page,
+            size=effective_size,
+            employment_type=employment_type,
+            organization_id=organization_id,
+            laboratory_id=laboratory_id,
+            sort_by=sort_by,
+        )
+        return result
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

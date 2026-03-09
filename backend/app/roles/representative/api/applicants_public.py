@@ -76,6 +76,7 @@ async def list_applicants(
             page=page,
             page_size=size,
             role_filter=role_filter,
+            sort_by=sort_by,
         )
         items = [ApplicantListItem(**r) for r in rows]
         return ApplicantListResponse(items=items, total=total, page=page, size=size)

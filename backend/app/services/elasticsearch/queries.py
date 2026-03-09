@@ -18,13 +18,13 @@ from app.database import async_session_factory
 
 from .client import get_es_client
 from .mappings import QUERIES_INDEX_MAPPING
-from .utils import escape_wildcard, significant_words, sort_by_date, sort_with_ranking
+from .utils import escape_wildcard, significant_words, sort_with_ranking
 
 logger = logging.getLogger(__name__)
 
 
-async def _load_query_doc_for_indexing(query_id: int) -> Optional[dict]:
-    """Загрузить запрос с organization и laboratories в своей сессии и вернуть документ для ES."""
+async def _load_query_for_indexing(query_id: int):
+    """Загрузить запрос с organization и laboratories. Возвращает query или None."""
     async with async_session_factory() as session:
         stmt = (
             select(models.OrganizationQuery)
@@ -38,7 +38,7 @@ async def _load_query_doc_for_indexing(query_id: int) -> Optional[dict]:
         query = result.scalars().first()
         if not query or not getattr(query, "is_published", False):
             return None
-        return _query_to_doc(query)
+        return query
 
 
 async def ensure_queries_index() -> None:
@@ -79,7 +79,7 @@ async def _queries_index_count() -> int:
         return 0
 
 
-def _query_to_doc(query: Any) -> dict:
+def _query_to_doc(query: Any, query_analytics: Optional[dict] = None) -> dict:
     """Преобразовать ORM-запрос в документ для индекса."""
     org = getattr(query, "organization", None)
     created = getattr(query, "created_at", None)
@@ -104,6 +104,7 @@ def _query_to_doc(query: Any) -> dict:
         if year_match:
             deadline_year = int(year_match.group(0))
 
+    analytics = query_analytics or {}
     doc = {
         "id": query.id,
         "public_id": getattr(query, "public_id", None) or "",
@@ -125,6 +126,8 @@ def _query_to_doc(query: Any) -> dict:
         "paid_active": False,
         "rank_score": 0.0,
         "creator_user_id": getattr(query, "creator_user_id", None),
+        "unique_views_30d": analytics.get("unique_views_30d", 0),
+        "avg_time_on_page_sec": analytics.get("avg_time_on_page_sec"),
     }
     from .utils import calc_query_score
     doc["rank_score"] = calc_query_score(doc)
@@ -184,11 +187,16 @@ async def _resolve_paid_active(doc: dict, paid_user_ids: set = None) -> None:
         doc["paid_active"] = await CoreOrm.has_active_subscription(creator_id)
 
 
-async def index_query(query_id: int, paid_user_ids: set = None) -> None:
+async def index_query(
+    query_id: int,
+    paid_user_ids: set = None,
+    query_analytics: Optional[dict] = None,
+) -> None:
     """Проиндексировать запрос в Elasticsearch (загружает запрос с organization/laboratories в своей сессии)."""
-    doc = await _load_query_doc_for_indexing(query_id)
-    if doc is None:
+    query = await _load_query_for_indexing(query_id)
+    if query is None:
         return
+    doc = _query_to_doc(query, query_analytics=query_analytics)
     await _resolve_paid_active(doc, paid_user_ids)
     client = get_es_client()
     last_err = None
@@ -377,20 +385,30 @@ async def search_queries(
                 "filter": filters,
             }
         }
+        ref_score = settings.ES_RELEVANCE_REF_SCORE
         es_query = {
             "function_score": {
                 "query": base_query,
                 "functions": [
-                    {"filter": {"term": {"paid_active": True}}, "weight": 2}
+                    {
+                        "script_score": {
+                            "script": {
+                                "source": "double r = doc['rank_score'].size() > 0 ? doc['rank_score'].value : 0.0; return r + Math.min(35.0, 35.0 * _score / params.ref);",
+                                "params": {"ref": ref_score},
+                                "lang": "painless",
+                            }
+                        }
+                    },
+                    {"filter": {"term": {"paid_active": True}}, "weight": 2},
                 ],
-                "boost_mode": "multiply",
-                "score_mode": "sum",
+                "score_mode": "multiply",
+                "boost_mode": "replace",
             }
         }
+        sort_clause = sort_with_ranking(sort_by, use_query_score=True)
     else:
         es_query = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
-
-    sort_clause = sort_with_ranking(sort_by)
+        sort_clause = sort_with_ranking(sort_by)
     try:
         resp = await client.search(
             index=index,
@@ -444,11 +462,14 @@ async def reindex_queries(force: bool = False) -> int:
     creator_ids = [q.creator_user_id for q in queries if q.creator_user_id]
     from app.core.queries.orm import Orm as CoreOrm
     paid_ids = await CoreOrm.get_paid_user_ids(creator_ids)
+    public_ids = [q.public_id for q in queries if q.public_id]
+    query_analytics_map = await Orm.get_query_analytics_30d(public_ids)
     logger.info("Queries reindex: %d published queries", len(queries))
     indexed = 0
     for q in queries:
         try:
-            await index_query(q.id, paid_user_ids=paid_ids)
+            analytics = query_analytics_map.get(q.public_id, {}) if q.public_id else {}
+            await index_query(q.id, paid_user_ids=paid_ids, query_analytics=analytics)
             indexed += 1
         except Exception as e:
             logger.warning("Failed to index query id=%s: %s", q.id, e)

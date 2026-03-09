@@ -24,6 +24,9 @@ VACANCIES_INDEX_MAPPING = {
             "created_at": {"type": "date"},
             "paid_active": {"type": "boolean"},
             "rank_score": {"type": "float"},
+            "quality_score": {"type": "float"},
+            "freshness_score": {"type": "float"},
+            "performance_score": {"type": "float"},
             "creator_user_id": {"type": "integer"},
             "name_suggest": {
                 "type": "completion",
@@ -61,6 +64,10 @@ LABORATORIES_INDEX_MAPPING = {
             "created_at": {"type": "date"},
             "paid_active": {"type": "boolean"},
             "rank_score": {"type": "float"},
+            "quality_score": {"type": "float"},
+            "team_score": {"type": "float"},
+            "freshness_score": {"type": "float"},
+            "performance_score": {"type": "float"},
             "creator_user_id": {"type": "integer"},
             "name_suggest": {
                 "type": "completion",
@@ -99,6 +106,9 @@ QUERIES_INDEX_MAPPING = {
             "created_at": {"type": "date"},
             "paid_active": {"type": "boolean"},
             "rank_score": {"type": "float"},
+            "quality_score": {"type": "float"},
+            "freshness_score": {"type": "float"},
+            "performance_score": {"type": "float"},
             "creator_user_id": {"type": "integer"},
             "title_suggest": {
                 "type": "completion",

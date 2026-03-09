@@ -13,7 +13,7 @@ from app.config import settings
 
 from .client import get_es_client
 from .mappings import VACANCIES_INDEX_MAPPING
-from .utils import extract_skills, significant_words, sort_by_date, sort_with_ranking
+from .utils import extract_skills, significant_words, sort_with_ranking
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ async def _vacancies_index_count() -> int:
         return 0
 
 
-def _vacancy_to_doc(vacancy: Any) -> dict:
+def _vacancy_to_doc(vacancy: Any, vacancy_analytics: Optional[dict] = None) -> dict:
     """Преобразовать ORM-вакансию в документ для индекса."""
     org = getattr(vacancy, "organization", None)
     lab = getattr(vacancy, "laboratory", None)
@@ -74,6 +74,7 @@ def _vacancy_to_doc(vacancy: Any) -> dict:
     lab_inputs = [lab_name] + significant_words(lab_name) if lab_name else []
     lab_inputs = list(dict.fromkeys(s for s in lab_inputs if s))
 
+    analytics = vacancy_analytics or {}
     doc = {
         "id": vacancy.id,
         "public_id": getattr(vacancy, "public_id", None) or "",
@@ -81,6 +82,8 @@ def _vacancy_to_doc(vacancy: Any) -> dict:
         "requirements": requirements,
         "description": description,
         "employment_type": employment_type,
+        "contact_email": getattr(vacancy, "contact_email", None),
+        "contact_phone": getattr(vacancy, "contact_phone", None),
         "organization_name": org.name if org else "",
         "laboratory_name": lab_name,
         "organization_id": getattr(vacancy, "organization_id", None),
@@ -96,6 +99,9 @@ def _vacancy_to_doc(vacancy: Any) -> dict:
         "paid_active": False,
         "rank_score": 0.0,
         "creator_user_id": getattr(vacancy, "creator_user_id", None),
+        "unique_viewers_30d": analytics.get("unique_viewers_30d", 0),
+        "response_count": analytics.get("response_count", 0),
+        "avg_time_on_page_sec": analytics.get("avg_time_on_page_sec"),
     }
     from .utils import calc_vacancy_score
     doc["rank_score"] = calc_vacancy_score(doc)
@@ -164,12 +170,16 @@ async def _resolve_paid_active(doc: dict, paid_user_ids: set = None) -> None:
         doc["paid_active"] = await CoreOrm.has_active_subscription(creator_id)
 
 
-async def index_vacancy(vacancy: Any, paid_user_ids: set = None) -> None:
+async def index_vacancy(
+    vacancy: Any,
+    paid_user_ids: set = None,
+    vacancy_analytics: Optional[dict] = None,
+) -> None:
     """Проиндексировать вакансию в Elasticsearch. Повтор при ConnectionTimeout."""
     if not getattr(vacancy, "is_published", False):
         return
     client = get_es_client()
-    doc = _vacancy_to_doc(vacancy)
+    doc = _vacancy_to_doc(vacancy, vacancy_analytics=vacancy_analytics)
     await _resolve_paid_active(doc, paid_user_ids)
     last_err = None
     for attempt in range(3):
@@ -370,20 +380,30 @@ async def search_vacancies(
                 "filter": filters,
             }
         }
+        ref_score = settings.ES_RELEVANCE_REF_SCORE
         query = {
             "function_score": {
                 "query": base_query,
                 "functions": [
-                    {"filter": {"term": {"paid_active": True}}, "weight": 2}
+                    {
+                        "script_score": {
+                            "script": {
+                                "source": "double r = doc['rank_score'].size() > 0 ? doc['rank_score'].value : 0.0; return r + Math.min(35.0, 35.0 * _score / params.ref);",
+                                "params": {"ref": ref_score},
+                                "lang": "painless",
+                            }
+                        }
+                    },
+                    {"filter": {"term": {"paid_active": True}}, "weight": 2},
                 ],
-                "boost_mode": "multiply",
-                "score_mode": "sum",
+                "score_mode": "multiply",
+                "boost_mode": "replace",
             }
         }
+        sort_clause = sort_with_ranking(sort_by, use_query_score=True)
     else:
         query = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
-
-    sort_clause = sort_with_ranking(sort_by)
+        sort_clause = sort_with_ranking(sort_by)
     try:
         resp = await client.search(
             index=index,
@@ -420,6 +440,54 @@ async def search_vacancies(
     return {"items": items, "total": total, "page": page, "size": size}
 
 
+async def get_vacancies_ranking_for_featured(size: int = 30) -> list[dict]:
+    """
+    Возвращает список {id, rank_score, paid_active} для главной страницы.
+    Сортировка: paid_active DESC, rank_score DESC.
+    """
+    client = get_es_client()
+    index = settings.VACANCIES_INDEX
+    filters = [{"term": {"is_published": True}}]
+    query = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
+    sort_clause = sort_with_ranking(None)
+    try:
+        resp = await client.search(
+            index=index,
+            query=query,
+            from_=0,
+            size=size,
+            sort=sort_clause,
+        )
+    except NotFoundError:
+        await reindex_vacancies_if_empty()
+        try:
+            resp = await client.search(
+                index=index,
+                query=query,
+                from_=0,
+                size=size,
+                sort=sort_clause,
+            )
+        except Exception as e:
+            logger.exception("get_vacancies_ranking_for_featured failed: %s", e)
+            return []
+    except Exception as e:
+        logger.exception("get_vacancies_ranking_for_featured failed: %s", e)
+        return []
+
+    result = []
+    for h in resp.get("hits", {}).get("hits", []):
+        source = h.get("_source", h)
+        vid = source.get("id")
+        if vid is not None:
+            result.append({
+                "id": vid,
+                "rank_score": float(source.get("rank_score") or 0),
+                "paid_active": bool(source.get("paid_active", False)),
+            })
+    return result
+
+
 async def reindex_vacancies_if_empty() -> None:
     """
     Первичная индексация: если индекс вакансий пуст — загрузить все
@@ -445,11 +513,15 @@ async def reindex_vacancies(force: bool = False) -> int:
     creator_ids = [v.creator_user_id for v in vacancies if v.creator_user_id]
     from app.core.queries.orm import Orm as CoreOrm
     paid_ids = await CoreOrm.get_paid_user_ids(creator_ids)
+    public_ids = [v.public_id for v in vacancies if v.public_id]
+    vacancy_ids = [v.id for v in vacancies]
+    vacancy_analytics_map = await Orm.get_vacancy_analytics_30d(public_ids, vacancy_ids=vacancy_ids)
     logger.info("Vacancies reindex: %d published vacancies", len(vacancies))
     indexed = 0
     for v in vacancies:
         try:
-            await index_vacancy(v, paid_user_ids=paid_ids)
+            analytics = vacancy_analytics_map.get(v.public_id, {}) if v.public_id else {}
+            await index_vacancy(v, paid_user_ids=paid_ids, vacancy_analytics=analytics)
             indexed += 1
         except Exception as e:
             logger.warning("Failed to index vacancy id=%s: %s", v.id, e)

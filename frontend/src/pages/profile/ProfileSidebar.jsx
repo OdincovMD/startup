@@ -64,6 +64,7 @@ function getOrgSubItems(showProfileTab, roleKey) {
     { id: "queries", label: "Запросы", group: ORG_GROUP_CONTENT },
     { id: "vacancies", label: "Вакансии", group: ORG_GROUP_RECRUIT },
     { id: "dashboard", label: "Дашборд", group: ORG_GROUP_RECRUIT },
+    { id: "subscription", label: "Управление подпиской", group: ORG_GROUP_RECRUIT },
     { id: "join-requests", label: "Запросы на присоединение", group: ORG_GROUP_RECRUIT },
     { id: "vacancy-responses", label: "Отклики на вакансии", group: ORG_GROUP_RECRUIT },
   ];

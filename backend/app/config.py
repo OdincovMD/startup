@@ -63,6 +63,8 @@ class Settings(BaseSettings):
 
     ELASTICSEARCH_URL: str = "http://localhost:9200"
     ELASTICSEARCH_REQUEST_TIMEOUT: int = 60  # индекс может инициализироваться до 1 мин
+    # Эталонный ES _score для нормализации релевантности до 0..35 при текстовом поиске вакансий/запросов
+    ES_RELEVANCE_REF_SCORE: float = 10.0
     VACANCIES_INDEX: str = "vacancies"
     QUERIES_INDEX: str = "queries"
     LABORATORIES_INDEX: str = "laboratories"

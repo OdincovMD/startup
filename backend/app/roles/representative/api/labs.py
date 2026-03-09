@@ -59,51 +59,41 @@ async def list_labs(
 ):
     """
     Список опубликованных организаций для публичного каталога.
-    При q или любом фильтре — поиск через Elasticsearch.
-    Иначе — полный список из БД.
+    Всегда через Elasticsearch для корректной сортировки: paid_active, rank_score, created_at.
     """
-    use_search = bool((q or "").strip()) or (
+    has_filters = bool((q or "").strip()) or (
         min_laboratories is not None and min_laboratories > 0
     ) or (min_employees is not None and min_employees > 0)
-    if use_search:
-        try:
-            result = await search_organizations(
-                q=(q or "").strip(),
-                page=page,
-                size=size,
-                min_laboratories=min_laboratories,
-                min_employees=min_employees,
-                sort_by=sort_by,
-            )
-            items = result.get("items", [])
-            org_ids = [it["id"] for it in items if it.get("id") is not None]
-            if org_ids:
-                orgs = await Orm.get_organizations_by_ids(org_ids)
-                return OrganizationListResponse(
-                    items=orgs,
-                    total=result.get("total", 0),
-                    page=result.get("page", page),
-                    size=result.get("size", size),
-                )
+    effective_size = size if has_filters else 100
+    try:
+        result = await search_organizations(
+            q=(q or "").strip(),
+            page=page,
+            size=effective_size,
+            min_laboratories=min_laboratories,
+            min_employees=min_employees,
+            sort_by=sort_by,
+        )
+        items = result.get("items", [])
+        org_ids = [it["id"] for it in items if it.get("id") is not None]
+        if org_ids:
+            orgs = await Orm.get_organizations_by_ids(org_ids)
             return OrganizationListResponse(
-                items=[],
+                items=orgs,
                 total=result.get("total", 0),
                 page=result.get("page", page),
                 size=result.get("size", size),
             )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"error": "ORGANIZATION_SEARCH_FAILURE", "message": str(e)},
-            )
-    try:
-        orgs = await Orm.list_published_organizations()
-        total = len(orgs)
-        return OrganizationListResponse(items=orgs, total=total, page=1, size=total)
+        return OrganizationListResponse(
+            items=[],
+            total=result.get("total", 0),
+            page=result.get("page", page),
+            size=result.get("size", size),
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "LAB_LIST_FAILURE", "message": str(e)},
+            detail={"error": "ORGANIZATION_SEARCH_FAILURE", "message": str(e)},
         )
 
 

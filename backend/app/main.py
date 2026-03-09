@@ -20,7 +20,7 @@ from app.bootstrap import (
     ensure_elasticsearch_indexes,
 )
 from app.middleware import StorageUrlRewriteMiddleware
-from app.api import admin, profile, storage, analytics, search
+from app.api import admin, home, profile, storage, analytics, search
 from app.core.api import auth, users, roles
 from app.jobs.openalex_sync import sync_openalex_data
 from app.roles.representative.api import (
@@ -71,6 +71,7 @@ def health_check():
     return {"status": "ok"}
 
 
+app.include_router(home.router, prefix="/api")
 app.include_router(labs.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(laboratories_public.router, prefix="/api")
