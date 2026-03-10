@@ -280,9 +280,7 @@ async def respond_to_vacancy(public_id: str, current_user=Depends(get_current_us
             if getattr(vacancy, "public_id", None)
             else f"{settings.FRONTEND_URL.rstrip('/')}/vacancies"
         )
-        profile_url = ""
         profile_block = ""
-        profile_block_txt = ""
         applicant_public_id = getattr(current_user, "public_id", None)
         if applicant_public_id:
             profile_url = f"{settings.FRONTEND_URL.rstrip('/')}/applicants/{applicant_public_id}"
@@ -292,21 +290,16 @@ async def respond_to_vacancy(public_id: str, current_user=Depends(get_current_us
                 f'<strong>Профиль кандидата:</strong> '
                 f'<a href="{profile_url}" target="_blank" rel="noopener" style="color: #2563eb; font-weight: 600;">открыть ссылку</a></p>'
             )
-            profile_block_txt = f"Профиль кандидата: {profile_url}"
-        else:
-            profile_block_txt = ""
         resume_url = _get_resume_url(student, researcher, role_name=role_name)
         if resume_url:
             resume_block = (
                 f'<strong>Скачать резюме:</strong> '
                 f'<a href="{resume_url}" target="_blank" rel="noopener" style="color: #2563eb; font-weight: 600;">открыть ссылку</a>'
             )
-            resume_block_txt = f"Скачать резюме: {resume_url}"
         else:
             resume_block = "Резюме не указано в профиле кандидата."
-            resume_block_txt = "Резюме не указано в профиле кандидата."
         subject = f"Отклик на вакансию «{vacancy.name}» — Синтезум"
-        body_html, body_text = render_vacancy_response(
+        body_html = render_vacancy_response(
             applicant_type=applicant_type,
             applicant_name=applicant_name,
             applicant_email=applicant_email,
@@ -316,17 +309,9 @@ async def respond_to_vacancy(public_id: str, current_user=Depends(get_current_us
             vacancy_url=vacancy_url,
             candidate_info=candidate_info,
             profile_block=profile_block,
-            profile_block_txt=profile_block_txt,
             resume_block=resume_block,
-            resume_block_txt=resume_block_txt,
         )
-        await asyncio.to_thread(
-            send_vacancy_response_email,
-            contact_email,
-            subject,
-            body_html,
-            body_text,
-        )
+        await asyncio.to_thread(send_vacancy_response_email, contact_email, subject, body_html)
 
     return {"id": resp.id, "status": resp.status}
 

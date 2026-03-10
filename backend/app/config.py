@@ -87,20 +87,18 @@ class Settings(BaseSettings):
             return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
         origins = [self.FRONTEND_URL.rstrip("/")]
         if self.ENV == "development":
-            origins.extend(["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"])
+            origins.extend(["http://localhost:5173", "http://127.0.0.1:5173"])
         return origins
 
     @property
     def DATABASE_URL_async(self) -> str:
         """
         Строка подключения для asyncpg (SQLAlchemy async).
-        DATABASE_URL с postgresql:// или postgresql+psycopg2:// преобразуется в postgresql+asyncpg://.
+        DATABASE_URL с postgresql:// преобразуется в postgresql+asyncpg://.
         """
         if self.DATABASE_URL:
             url = self.DATABASE_URL
-            if url.startswith("postgresql+psycopg2://"):
-                return url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
-            if url.startswith("postgresql://"):
+            if url.startswith("postgresql://") and "asyncpg" not in url:
                 return url.replace("postgresql://", "postgresql+asyncpg://", 1)
             return url
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
