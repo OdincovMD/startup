@@ -8,6 +8,7 @@ import {
   OrganizationSection,
   OrganizationDetailCard,
 } from "../components/organization";
+import EmptySearchFallback from "../components/EmptySearchFallback";
 
 const SEARCH_DEBOUNCE_MS = 350;
 const SUGGEST_DEBOUNCE_MS = 180;
@@ -38,6 +39,8 @@ export default function Organizations() {
   const [employeePreview, setEmployeePreview] = useState(null);
   const [showEmployeePublications, setShowEmployeePublications] = useState(false);
   const [showEmployeeEducation, setShowEmployeeEducation] = useState(false);
+  const [emptySuggestions, setEmptySuggestions] = useState([]);
+  const [emptySuggestionsLoading, setEmptySuggestionsLoading] = useState(false);
   const { publicId } = useParams();
   const navigate = useNavigate();
   const selectedId = useMemo(() => (publicId ? String(publicId) : null), [publicId]);
@@ -130,6 +133,33 @@ export default function Organizations() {
     setPage(1);
     hideSuggestions();
   };
+
+  useEffect(() => {
+    if (!hasFilters || organizations.length > 0 || loading) {
+      setEmptySuggestions([]);
+      setEmptySuggestionsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setEmptySuggestionsLoading(true);
+    (async () => {
+      try {
+        const data = await apiRequest(
+          `/home/empty-suggestions?type=organizations&limit=12`
+        );
+        if (!cancelled) {
+          setEmptySuggestions(data?.items ?? []);
+        }
+      } catch {
+        if (!cancelled) setEmptySuggestions([]);
+      } finally {
+        if (!cancelled) setEmptySuggestionsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hasFilters, organizations.length, loading]);
 
   useEffect(() => {
     async function loadOrganizations() {
@@ -501,16 +531,30 @@ export default function Organizations() {
           <>
             <div className="org-cards-grid">
               {organizations.length === 0 ? (
-                <div className="lab-empty-block org-empty-block">
-                  <p className="lab-empty">
-                    {hasFilters ? "По вашему запросу ничего не найдено." : "Публичные организации пока не добавлены."}
-                  </p>
-                  <p className="lab-empty-hint">
-                    {hasFilters
-                      ? "Попробуйте изменить поисковый запрос или сбросить фильтры."
-                      : "Организации могут создавать профиль и публиковать его в разделе «Профиль»."}
-                  </p>
-                </div>
+                hasFilters ? (
+                  <EmptySearchFallback
+                    entityLabel="организации"
+                    items={emptySuggestions}
+                    loading={emptySuggestionsLoading}
+                    onResetFilters={resetFilters}
+                    renderCard={(org) => (
+                      <OrganizationCard
+                        key={org.id}
+                        org={org}
+                        onOpen={openOrganization}
+                      />
+                    )}
+                  />
+                ) : (
+                  <div className="lab-empty-block org-empty-block">
+                    <p className="lab-empty">
+                      Публичные организации пока не добавлены.
+                    </p>
+                    <p className="lab-empty-hint">
+                      Организации могут создавать профиль и публиковать его в разделе «Профиль».
+                    </p>
+                  </div>
+                )
               ) : organizations.map((org) => (
                 <OrganizationCard
                   key={org.id}

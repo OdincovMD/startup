@@ -18,8 +18,8 @@ function setOrgHidden(hidden) {
 
 const SECTIONS = [
   { id: "summary", labelKey: "summary", roles: ["lab_admin", "lab_representative", "student", "researcher"] },
-  { id: "subscription", labelKey: "subscription", roles: ["lab_admin", "lab_representative"] },
   { id: "personal", labelKey: "personal", roles: ["lab_admin", "lab_representative", "student", "researcher"] },
+  { id: "subscription", labelKey: "subscription", roles: ["lab_admin", "lab_representative"] },
   { id: "organization", labelKey: "organization", roles: ["lab_admin", "lab_representative"] },
   { id: "student", labelKey: "student", roles: ["student"] },
   { id: "researcher", labelKey: "researcher", roles: ["researcher"] },

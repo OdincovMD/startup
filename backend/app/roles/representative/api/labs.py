@@ -61,15 +61,11 @@ async def list_labs(
     Список опубликованных организаций для публичного каталога.
     Всегда через Elasticsearch для корректной сортировки: paid_active, rank_score, created_at.
     """
-    has_filters = bool((q or "").strip()) or (
-        min_laboratories is not None and min_laboratories > 0
-    ) or (min_employees is not None and min_employees > 0)
-    effective_size = size if has_filters else 100
     try:
         result = await search_organizations(
             q=(q or "").strip(),
             page=page,
-            size=effective_size,
+            size=size,
             min_laboratories=min_laboratories,
             min_employees=min_employees,
             sort_by=sort_by,
@@ -82,13 +78,13 @@ async def list_labs(
                 items=orgs,
                 total=result.get("total", 0),
                 page=result.get("page", page),
-                size=result.get("size", effective_size),
+                size=result.get("size", size),
             )
         return OrganizationListResponse(
             items=[],
             total=result.get("total", 0),
             page=result.get("page", page),
-            size=result.get("size", effective_size),
+            size=result.get("size", size),
         )
     except Exception as e:
         raise HTTPException(

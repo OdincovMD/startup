@@ -14,6 +14,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app import models
 from app.database import async_session_factory
+from app.config import settings
 from app.core.queries.orm import Orm as CoreOrm
 from app.roles.representative.queries import helpers
 from app.roles.representative import ranking
@@ -1302,6 +1303,26 @@ class Orm:
             return result.scalar() or 0
 
     @staticmethod
+    async def count_vacancies_for_creator(creator_user_id: int) -> int:
+        """Count total vacancies by creator (для лимита Basic)."""
+        async with async_session_factory() as session:
+            stmt = select(func.count()).select_from(models.VacancyOrganization).where(
+                models.VacancyOrganization.creator_user_id == creator_user_id,
+            )
+            result = await session.execute(stmt)
+            return result.scalar() or 0
+
+    @staticmethod
+    async def count_queries_for_creator(creator_user_id: int) -> int:
+        """Count total queries by creator (для лимита Basic)."""
+        async with async_session_factory() as session:
+            stmt = select(func.count()).select_from(models.OrganizationQuery).where(
+                models.OrganizationQuery.creator_user_id == creator_user_id,
+            )
+            result = await session.execute(stmt)
+            return result.scalar() or 0
+
+    @staticmethod
     async def list_laboratories_for_creator(
         creator_user_id: int,
     ) -> List[models.OrganizationLaboratory]:
@@ -1433,14 +1454,15 @@ class Orm:
         equipment_ids: Optional[List[int]] = None,
         task_solution_ids: Optional[List[int]] = None,
     ) -> models.OrganizationLaboratory:
-        # Basic tier limit: up to 3 standalone labs (organization_id is None)
+        # Basic tier limit: up to N standalone labs (organization_id is None)
         if organization_id is None and creator_user_id is not None:
             tier = await CoreOrm.get_subscription_tier(creator_user_id)
             if tier == "basic":
                 standalone_count = await Orm.count_standalone_labs_for_creator(creator_user_id)
-                if standalone_count >= 3:
+                limit = settings.BASIC_MAX_STANDALONE_LABS
+                if standalone_count >= limit:
                     raise ValueError(
-                        "Тариф Basic ограничивает до 3 самостоятельных лабораторий. "
+                        f"Тариф Basic ограничивает до {limit} самостоятельных лабораторий. "
                         "Перейдите на Pro для неограниченного количества."
                     )
         async with async_session_factory() as session:
@@ -2330,6 +2352,17 @@ class Orm:
         laboratory_ids: Optional[List[int]] = None,
         employee_ids: Optional[List[int]] = None,
     ) -> models.OrganizationQuery:
+        # Basic tier limit: максимум N запросов
+        if creator_user_id is not None:
+            tier = await CoreOrm.get_subscription_tier(creator_user_id)
+            if tier == "basic":
+                count = await Orm.count_queries_for_creator(creator_user_id)
+                limit = settings.BASIC_MAX_QUERIES
+                if count >= limit:
+                    raise ValueError(
+                        f"Тариф Basic ограничивает до {limit} запросов. "
+                        "Перейдите на Pro для неограниченного количества."
+                    )
         async with async_session_factory() as session:
             query = models.OrganizationQuery(
                 organization_id=organization_id,
@@ -2856,6 +2889,17 @@ class Orm:
         contact_email: Optional[str] = None,
         contact_phone: Optional[str] = None,
     ) -> models.VacancyOrganization:
+        # Basic tier limit: максимум N вакансий
+        if creator_user_id is not None:
+            tier = await CoreOrm.get_subscription_tier(creator_user_id)
+            if tier == "basic":
+                count = await Orm.count_vacancies_for_creator(creator_user_id)
+                limit = settings.BASIC_MAX_VACANCIES
+                if count >= limit:
+                    raise ValueError(
+                        f"Тариф Basic ограничивает до {limit} вакансий. "
+                        "Перейдите на Pro для неограниченного количества."
+                    )
         async with async_session_factory() as session:
             vacancy = models.VacancyOrganization(
                 organization_id=organization_id,

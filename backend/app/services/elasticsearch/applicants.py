@@ -246,10 +246,17 @@ async def suggest_applicants(q: str = "", limit: int = 8) -> List[Dict[str, Any]
     except Exception as e:
         logger.exception("Elasticsearch suggest failed: %s", e)
         return []
+    def _display_text(text: str, public_id: str, full_name: str, from_public_id_suggest: bool = False) -> str:
+        """Не показывать public_id в подсказках — только осмысленный текст (имя, навык и т.д.)."""
+        if from_public_id_suggest or (text and public_id and text == public_id):
+            return full_name or text or ""
+        return text or full_name or ""
+
     seen: set = set()
     result: List[Dict[str, Any]] = []
-    doc_ids = []
+    doc_ids = []  # (doc_id, text, public_id, full_name, from_public_id_suggest)
     for key in ("name-suggest", "public_id-suggest", "skills-suggest", "research-suggest", "position-suggest", "status-suggest"):
+        from_public_id = key == "public_id-suggest"
         suggest_data = resp.get("suggest", {}).get(key, [])
         for opt in suggest_data:
             for item in opt.get("options", []):
@@ -258,12 +265,15 @@ async def suggest_applicants(q: str = "", limit: int = 8) -> List[Dict[str, Any]
                 source = item.get("_source", {})
                 public_id = source.get("public_id") or ""
                 full_name = source.get("full_name") or text or ""
-                if text and (public_id or doc_id, full_name or text) not in seen:
+                display = _display_text(text, public_id, full_name, from_public_id)
+                if not display and from_public_id:
+                    continue
+                if display and (public_id or doc_id, full_name or text) not in seen:
                     seen.add((public_id or doc_id, full_name or text))
                     if public_id or doc_id:
-                        doc_ids.append((doc_id, text, public_id, full_name))
+                        doc_ids.append((doc_id, text, public_id, full_name, from_public_id))
                     else:
-                        result.append({"text": text, "public_id": public_id, "full_name": full_name})
+                        result.append({"text": display, "public_id": public_id, "full_name": full_name})
                     if len(result) + len(doc_ids) >= limit:
                         break
             if len(result) + len(doc_ids) >= limit:
@@ -273,29 +283,34 @@ async def suggest_applicants(q: str = "", limit: int = 8) -> List[Dict[str, Any]
 
     # Completion suggester может не возвращать _source в options — получаем документы по id
     if doc_ids and not any(r.get("public_id") for r in result):
-        ids_to_fetch = list(dict.fromkeys(did for did, _, _, _ in doc_ids))[:limit]
+        ids_to_fetch = list(dict.fromkeys(did for did, _, _, _, _ in doc_ids))[:limit]
         try:
             mget_resp = await client.mget(index=index, ids=ids_to_fetch, _source=["public_id", "full_name"])
             docs = {d["_id"]: d.get("_source", {}) for d in mget_resp.get("docs", []) if d.get("found")}
-            for doc_id, text, _, _ in doc_ids:
+            for doc_id, text, public_id, full_name, from_pid in doc_ids:
                 if len(result) >= limit:
                     break
                 src = docs.get(str(doc_id), {})
-                public_id = src.get("public_id") or ""
-                full_name = src.get("full_name") or text or ""
+                public_id = src.get("public_id") or public_id
+                full_name = src.get("full_name") or full_name or text or ""
+                display = _display_text(text, public_id, full_name, from_pid)
+                if not display and from_pid:
+                    continue
                 if (public_id or doc_id, full_name or text) not in seen:
                     seen.add((public_id or doc_id, full_name or text))
-                    result.append({"text": text, "public_id": public_id, "full_name": full_name})
+                    result.append({"text": display or full_name, "public_id": public_id, "full_name": full_name})
         except Exception as e:
             logger.warning("mget for suggest fallback failed: %s", e)
         if not result:
-            result = [
-                {"text": text, "public_id": "", "full_name": full_name or text}
-                for _, text, _, full_name in doc_ids[:limit]
-            ]
+            for _, text, public_id, full_name, from_pid in doc_ids[:limit]:
+                display = _display_text(text, public_id, full_name, from_pid)
+                if display:
+                    result.append({"text": display, "public_id": public_id or "", "full_name": full_name})
     elif doc_ids:
-        for _, text, public_id, full_name in doc_ids[: limit - len(result)]:
-            result.append({"text": text, "public_id": public_id, "full_name": full_name or text})
+        for _, text, public_id, full_name, from_pid in doc_ids[: limit - len(result)]:
+            display = _display_text(text, public_id, full_name or text, from_pid)
+            if display:
+                result.append({"text": display, "public_id": public_id, "full_name": full_name or text})
 
     return result[:limit]
 

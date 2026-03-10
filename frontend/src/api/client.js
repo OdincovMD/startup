@@ -47,11 +47,17 @@ export async function apiRequest(path, options = {}) {
       onUnauthorized();
     }
     let message = "Ошибка запроса";
+    let subscriptionRequired = false;
     const text = await response.text();
     try {
       const data = text ? JSON.parse(text) : {};
       if (typeof data.message === "string") {
         message = data.message;
+      } else if (data.detail && typeof data.detail === "object" && typeof data.detail.message === "string") {
+        message = data.detail.message;
+        if (data.detail.error === "SUBSCRIPTION_REQUIRED") {
+          subscriptionRequired = true;
+        }
       } else if (typeof data.detail === "string") {
         message = data.detail;
       } else if (Array.isArray(data.fields)) {
@@ -92,6 +98,7 @@ export async function apiRequest(path, options = {}) {
       .replace("Body has already been consumed", "Организация с таким ROR ID уже добавлена на платформу.");
     const err = new Error(normalized);
     err.status = response.status;
+    if (subscriptionRequired) err.subscriptionRequired = true;
     throw err;
   }
   if (response.status === 204) return null;

@@ -163,8 +163,8 @@ export default function Profile() {
   }, [profile, roles]);
 
   const ALLOWED_SECTIONS_BY_ROLE = {
-    lab_admin: ["summary", "subscription", "personal", "organization"],
-    lab_representative: ["summary", "subscription", "personal", "organization"],
+    lab_admin: ["summary", "personal", "subscription", "organization"],
+    lab_representative: ["summary", "personal", "subscription", "organization"],
     student: ["summary", "personal", "student", "my-vacancy-responses"],
     researcher: ["summary", "personal", "researcher", "my-requests", "my-vacancy-responses"],
   };

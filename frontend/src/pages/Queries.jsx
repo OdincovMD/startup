@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import EmployeeModal from "./profile/EmployeeModal";
+import EmptySearchFallback from "../components/EmptySearchFallback";
 
 const QUERY_STATUS_LABELS = { active: "Активный", paused: "На паузе", closed: "Закрыт" };
 const QUERY_STATUS_OPTIONS = [
@@ -42,6 +43,8 @@ export default function Queries() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortBy, setSortBy] = useState("date_desc");
   const [suggestionApplied, setSuggestionApplied] = useState(false);
+  const [emptySuggestions, setEmptySuggestions] = useState([]);
+  const [emptySuggestionsLoading, setEmptySuggestionsLoading] = useState(false);
   const searchInputRef = useRef(null);
   const searchWrapRef = useRef(null);
   const { publicId } = useParams();
@@ -139,6 +142,33 @@ export default function Queries() {
   const hasFilters = Boolean(
     searchDebounced || status || laboratoryId || budgetDebounced
   );
+
+  useEffect(() => {
+    if (!hasFilters || queries.length > 0 || loading) {
+      setEmptySuggestions([]);
+      setEmptySuggestionsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setEmptySuggestionsLoading(true);
+    (async () => {
+      try {
+        const data = await apiRequest(
+          `/home/empty-suggestions?type=queries&limit=12`
+        );
+        if (!cancelled) {
+          setEmptySuggestions(data?.items ?? []);
+        }
+      } catch {
+        if (!cancelled) setEmptySuggestions([]);
+      } finally {
+        if (!cancelled) setEmptySuggestionsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hasFilters, queries.length, loading]);
 
   useEffect(() => {
     async function loadQueries() {
@@ -417,23 +447,144 @@ export default function Queries() {
               {!loading && !error && (
                 <div className="org-cards-grid">
             {queries.length === 0 ? (
-              <div className="lab-empty-block org-empty-block query-empty">
-                <p className="lab-empty">
-                  {hasFilters
-                    ? "По вашему запросу ничего не найдено."
-                    : "Публичные запросы пока не добавлены."}
-                </p>
-                <p className="lab-empty-hint">
-                  {hasFilters
-                    ? "Попробуйте изменить поисковый запрос или сбросить фильтры."
-                    : "Организации добавляют запросы в разделе «Профиль»."}
-                </p>
-                {hasFilters && (
-                  <button type="button" className="primary-btn lab-empty-reset" onClick={resetFilters}>
-                    Сбросить фильтры
-                  </button>
-                )}
-              </div>
+              hasFilters ? (
+                <EmptySearchFallback
+                  entityLabel="запросы"
+                  items={emptySuggestions}
+                  loading={emptySuggestionsLoading}
+                  onResetFilters={resetFilters}
+                  renderCard={(query) => (
+                    <article
+                      key={query.id}
+                      className="query-card"
+                      onClick={() =>
+                        query.public_id && openQuery(query.public_id)
+                      }
+                      role={query.public_id ? "button" : undefined}
+                      tabIndex={query.public_id ? 0 : undefined}
+                      onKeyDown={(e) => {
+                        if (
+                          query.public_id &&
+                          (e.key === "Enter" || e.key === " ")
+                        ) {
+                          e.preventDefault();
+                          openQuery(query.public_id);
+                        }
+                      }}
+                    >
+                      <div
+                        className="query-card__accent"
+                        aria-hidden="true"
+                      />
+                      <div className="query-card__inner">
+                        <div className="query-card__header">
+                          <span
+                            className="query-card__icon"
+                            aria-hidden="true"
+                          >
+                            {query.title
+                              ? query.title.charAt(0).toUpperCase()
+                              : "Q"}
+                          </span>
+                          <div className="query-card__headline">
+                            <h3 className="query-card__title">
+                              {query.title || "Запрос"}
+                            </h3>
+                            {query.status && (
+                              <span className="query-card__status">
+                                {QUERY_STATUS_LABELS[query.status] ??
+                                  query.status}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {(query.deadline || query.budget) && (
+                          <p className="query-card__meta">
+                            {query.deadline && (
+                              <span className="query-card__meta-item">
+                                <span className="query-card__meta-label">
+                                  Дедлайн
+                                </span>{" "}
+                                {formatQueryDate(query.deadline)}
+                              </span>
+                            )}
+                            {query.budget && (
+                              <span className="query-card__meta-item">
+                                <span className="query-card__meta-label">
+                                  Бюджет
+                                </span>{" "}
+                                {query.budget}
+                              </span>
+                            )}
+                          </p>
+                        )}
+                        {query.organization && (
+                          <p className="query-card__org">
+                            {query.organization.public_id ? (
+                              <span
+                                className="query-card__org-link"
+                                role="button"
+                                tabIndex={0}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(
+                                    `/organizations/${query.organization.public_id}`
+                                  );
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    navigate(
+                                      `/organizations/${query.organization.public_id}`
+                                    );
+                                  }
+                                }}
+                              >
+                                {query.organization.name}
+                              </span>
+                            ) : (
+                              <span className="query-card__org-name">
+                                {query.organization.name}
+                              </span>
+                            )}
+                          </p>
+                        )}
+                        {query.task_description && (
+                          <p
+                            className="query-card__description"
+                            title={query.task_description}
+                          >
+                            {query.task_description.length > 100
+                              ? `${query.task_description.slice(0, 100)}…`
+                              : query.task_description}
+                          </p>
+                        )}
+                        {query.public_id && (
+                          <span className="query-card__cta">
+                            Открыть запрос
+                            <span
+                              className="query-card__cta-arrow"
+                              aria-hidden="true"
+                            >
+                              →
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                    </article>
+                  )}
+                />
+              ) : (
+                <div className="lab-empty-block org-empty-block query-empty">
+                  <p className="lab-empty">
+                    Публичные запросы пока не добавлены.
+                  </p>
+                  <p className="lab-empty-hint">
+                    Организации добавляют запросы в разделе «Профиль».
+                  </p>
+                </div>
+              )
             ) : (
               queries.map((query) => (
                 <article

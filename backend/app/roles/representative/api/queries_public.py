@@ -60,18 +60,11 @@ async def list_queries(
 ):
     """Список опубликованных запросов. Всегда через Elasticsearch для корректной сортировки."""
     q_stripped = (q or "").strip()
-    has_filters = bool(
-        q_stripped
-        or (status and status.strip())
-        or laboratory_id is not None
-        or (budget_contains and budget_contains.strip())
-    )
-    effective_size = size if has_filters else 100
     try:
         result = await search_queries(
             q=q_stripped,
             page=page,
-            size=effective_size,
+            size=size,
             status=status,
             laboratory_id=laboratory_id,
             budget_contains=budget_contains,

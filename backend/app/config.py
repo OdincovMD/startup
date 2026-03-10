@@ -75,6 +75,11 @@ class Settings(BaseSettings):
     LOG_FORMAT: str = "plain"  # plain | json
     LOG_FILE_PATH: Optional[str] = None  # если задан — пишем в файл (для монтирования на хост)
 
+    # Лимиты тарифа Basic (защита от злоупотреблений)
+    BASIC_MAX_STANDALONE_LABS: int = 3
+    BASIC_MAX_VACANCIES: int = 15
+    BASIC_MAX_QUERIES: int = 15
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Allowed CORS origins. In development, includes localhost."""

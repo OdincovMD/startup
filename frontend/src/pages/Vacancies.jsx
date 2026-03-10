@@ -4,6 +4,7 @@ import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../ToastContext";
 import EmployeeModal from "./profile/EmployeeModal";
+import EmptySearchFallback from "../components/EmptySearchFallback";
 
 const RESPONSE_STATUS_LABELS = { new: "Новый", accepted: "Принят", rejected: "Отклонен" };
 
@@ -61,6 +62,8 @@ export default function Vacancies() {
   const [suggestions, setSuggestions] = useState([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsVisible, setSuggestionsVisible] = useState(false);
+  const [emptySuggestions, setEmptySuggestions] = useState([]);
+  const [emptySuggestionsLoading, setEmptySuggestionsLoading] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortBy, setSortBy] = useState("date_desc");
@@ -173,6 +176,33 @@ export default function Vacancies() {
     setPage(1);
     hideSuggestions();
   };
+
+  useEffect(() => {
+    if (!hasFilters || vacancies.length > 0 || loading) {
+      setEmptySuggestions([]);
+      setEmptySuggestionsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setEmptySuggestionsLoading(true);
+    (async () => {
+      try {
+        const data = await apiRequest(
+          `/home/empty-suggestions?type=vacancies&limit=15`
+        );
+        if (!cancelled) {
+          setEmptySuggestions(data?.items ?? []);
+        }
+      } catch {
+        if (!cancelled) setEmptySuggestions([]);
+      } finally {
+        if (!cancelled) setEmptySuggestionsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hasFilters, vacancies.length, loading]);
 
   useEffect(() => {
     async function loadVacancies() {
@@ -487,18 +517,119 @@ export default function Vacancies() {
                   <>
                     <div className="org-cards-grid">
                       {vacancies.length === 0 ? (
-                        <div className="lab-empty-block org-empty-block vacancy-empty">
-                          <p className="lab-empty">
-                            {hasFilters
-                              ? "По вашему запросу ничего не найдено."
-                              : "Опубликованные вакансии пока не добавлены."}
-                          </p>
-                          <p className="lab-empty-hint">
-                            {hasFilters
-                              ? "Попробуйте изменить поисковый запрос или сбросить фильтры."
-                              : "Организации публикуют вакансии в разделе «Профиль»."}
-                          </p>
-                        </div>
+                        hasFilters ? (
+                          <EmptySearchFallback
+                            entityLabel="вакансии"
+                            items={emptySuggestions}
+                            loading={emptySuggestionsLoading}
+                            onResetFilters={resetFilters}
+                            renderCard={(vacancy) => {
+                              const skills = parseSkillsFromRequirements(
+                                vacancy.requirements,
+                                vacancy.description
+                              );
+                              return (
+                                <article
+                                  key={vacancy.id}
+                                  className="vacancy-card"
+                                  onClick={() =>
+                                    vacancy.public_id &&
+                                    openVacancy(vacancy.public_id)
+                                  }
+                                  role={
+                                    vacancy.public_id ? "button" : undefined
+                                  }
+                                  tabIndex={
+                                    vacancy.public_id ? 0 : undefined
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (
+                                      vacancy.public_id &&
+                                      (e.key === "Enter" || e.key === " ")
+                                    ) {
+                                      e.preventDefault();
+                                      openVacancy(vacancy.public_id);
+                                    }
+                                  }}
+                                >
+                                  <div
+                                    className="vacancy-card__accent"
+                                    aria-hidden="true"
+                                  />
+                                  <div className="vacancy-card__inner">
+                                    <div className="vacancy-card__header">
+                                      <span
+                                        className="vacancy-card__icon"
+                                        aria-hidden="true"
+                                      >
+                                        {vacancy.name
+                                          ? vacancy.name
+                                              .charAt(0)
+                                              .toUpperCase()
+                                          : "V"}
+                                      </span>
+                                      <div className="vacancy-card__headline">
+                                        <h3 className="vacancy-card__title">
+                                          {vacancy.name || "Вакансия"}
+                                        </h3>
+                                        {vacancy.employment_type && (
+                                          <span className="vacancy-card__type">
+                                            {vacancy.employment_type}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {vacancy.created_at && (
+                                      <p className="vacancy-card__date">
+                                        <span className="vacancy-card__date-label">
+                                          Опубликовано
+                                        </span>{" "}
+                                        {formatVacancyDate(
+                                          vacancy.created_at
+                                        )}
+                                      </p>
+                                    )}
+                                    {skills.length > 0 && (
+                                      <div
+                                        className="vacancy-card__skills"
+                                        aria-label="Навыки"
+                                      >
+                                        {skills.map((skill, i) => (
+                                          <span
+                                            key={i}
+                                            className="vacancy-card__skill"
+                                          >
+                                            {skill}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {vacancy.public_id && (
+                                      <span className="vacancy-card__cta">
+                                        Открыть вакансию
+                                        <span
+                                          className="vacancy-card__cta-arrow"
+                                          aria-hidden="true"
+                                        >
+                                          →
+                                        </span>
+                                      </span>
+                                    )}
+                                  </div>
+                                </article>
+                              );
+                            }}
+                          />
+                        ) : (
+                          <div className="lab-empty-block org-empty-block vacancy-empty">
+                            <p className="lab-empty">
+                              Опубликованные вакансии пока не добавлены.
+                            </p>
+                            <p className="lab-empty-hint">
+                              Организации публикуют вакансии в разделе «Профиль».
+                            </p>
+                          </div>
+                        )
                       ) : (
                         vacancies.map((vacancy) => {
                           const skills = parseSkillsFromRequirements(vacancy.requirements, vacancy.description);

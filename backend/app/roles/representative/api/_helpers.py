@@ -3,6 +3,23 @@
 from fastapi import HTTPException, status
 
 
+async def require_subscription_for_applicants(user) -> None:
+    """403 если у пользователя нет активной подписки. Для доступа к разделу соискателей."""
+    from app.core.queries.orm import Orm as CoreOrm
+
+    if not user or not user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ запрещён")
+    has_sub = await CoreOrm.has_active_subscription(user.id)
+    if not has_sub:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "SUBSCRIPTION_REQUIRED",
+                "message": "Доступ к разделу соискателей требует активной подписки",
+            },
+        )
+
+
 def is_lab_representative(user) -> bool:
     return user.role is not None and user.role.name == "lab_representative"
 

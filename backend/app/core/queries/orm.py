@@ -271,6 +271,19 @@ class Orm:
             return user
 
     @staticmethod
+    async def get_photo_urls_by_public_ids(public_ids: list) -> dict:
+        """Возвращает {public_id: photo_url} для соискателей. Актуальные данные из БД."""
+        if not public_ids:
+            return {}
+        async with async_session_factory() as session:
+            stmt = select(models.User.public_id, models.User.photo_url).where(
+                models.User.public_id.in_(public_ids),
+                models.User.public_id.isnot(None),
+            )
+            result = await session.execute(stmt)
+            return {row[0]: row[1] for row in result.fetchall() if row[0]}
+
+    @staticmethod
     async def get_applicant_detail_by_public_id(public_id: str) -> Optional[Dict[str, Any]]:
         """Загружает соискателя и возвращает dict для ApplicantDetail (внутри сессии)."""
         async with async_session_factory() as session:

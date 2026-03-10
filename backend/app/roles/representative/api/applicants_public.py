@@ -11,8 +11,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import get_current_user
+from app.core.queries.orm import Orm as CoreOrm
 from app.queries.orm import Orm
-from app.roles.representative.api._helpers import require_lab_admin_or_representative
+from app.roles.representative.api._helpers import (
+    require_lab_admin_or_representative,
+    require_subscription_for_applicants,
+)
 from app.roles.representative.schemas import ApplicantDetail, ApplicantListItem, ApplicantListResponse
 from app.services.elasticsearch import search_applicants, suggest_applicants
 
@@ -27,6 +31,7 @@ async def suggest_applicants_endpoint(
 ):
     """Подсказки для автодополнения поиска соискателей."""
     require_lab_admin_or_representative(current_user)
+    await require_subscription_for_applicants(current_user)
     suggestions = await suggest_applicants(q=q.strip(), limit=limit)
     return {"suggestions": suggestions}
 
@@ -45,8 +50,10 @@ async def list_applicants(
     Список опубликованных соискателей.
     При q или фильтрах — поиск через Elasticsearch.
     Иначе — все из PostgreSQL.
+    Доступ только с активной подпиской.
     """
     require_lab_admin_or_representative(current_user)
+    await require_subscription_for_applicants(current_user)
     q_stripped = (q or "").strip()
     role_filter = role if role in ("student", "researcher") else None
     use_es = bool(q_stripped) or role_filter or (status and status.strip())
@@ -61,7 +68,14 @@ async def list_applicants(
                 status=status,
                 sort_by=sort_by,
             )
-            items = [ApplicantListItem(**r) for r in result["items"]]
+            es_items = result["items"]
+            public_ids = [r["public_id"] for r in es_items if r.get("public_id")]
+            photo_map = await CoreOrm.get_photo_urls_by_public_ids(public_ids)
+            for r in es_items:
+                pid = r.get("public_id")
+                if pid and pid in photo_map:
+                    r["photo_url"] = photo_map[pid]
+            items = [ApplicantListItem(**r) for r in es_items]
             return ApplicantListResponse(
                 items=items,
                 total=result["total"],
@@ -92,8 +106,9 @@ async def get_applicant_details(
     public_id: str,
     current_user=Depends(get_current_user),
 ):
-    """Детальная карточка соискателя по public_id. Только lab_admin и lab_representative."""
+    """Детальная карточка соискателя по public_id. Только lab_admin/lab_representative с подпиской."""
     require_lab_admin_or_representative(current_user)
+    await require_subscription_for_applicants(current_user)
     detail_dict = await Orm.get_applicant_detail_by_public_id(public_id)
     if not detail_dict:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Соискатель не найден")

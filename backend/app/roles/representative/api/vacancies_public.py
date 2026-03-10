@@ -171,13 +171,11 @@ async def list_vacancies(
     Всегда через Elasticsearch для корректной сортировки: paid_active, rank_score, created_at.
     """
     q_stripped = (q or "").strip()
-    has_filters = bool(q_stripped) or employment_type or organization_id is not None or laboratory_id is not None
-    effective_size = size if has_filters else 100
     try:
         result = await search_vacancies(
             q=q_stripped,
             page=page,
-            size=effective_size,
+            size=size,
             employment_type=employment_type,
             organization_id=organization_id,
             laboratory_id=laboratory_id,

@@ -32,6 +32,7 @@ from .organizations import (
 )
 from .queries import (
     delete_query,
+    get_queries_ranking_for_featured,
     index_query,
     reindex_queries_if_empty,
     search_queries,
@@ -70,6 +71,7 @@ __all__ = [
     "delete_applicant",
     "reindex_applicants_if_empty",
     # Queries
+    "get_queries_ranking_for_featured",
     "search_queries",
     "suggest_queries",
     "index_query",

@@ -10,6 +10,7 @@ import {
   LabDetailCard,
   LabGalleryGrid,
 } from "../components/lab";
+import EmptySearchFallback from "../components/EmptySearchFallback";
 
 const SEARCH_DEBOUNCE_MS = 350;
 const SUGGEST_DEBOUNCE_MS = 180;
@@ -42,6 +43,8 @@ export default function Laboratories() {
   const [galleryZoom, setGalleryZoom] = useState(1);
   const [employeePreview, setEmployeePreview] = useState(null);
   const [showEmployeePublications, setShowEmployeePublications] = useState(false);
+  const [emptySuggestions, setEmptySuggestions] = useState([]);
+  const [emptySuggestionsLoading, setEmptySuggestionsLoading] = useState(false);
   const { publicId } = useParams();
   const navigate = useNavigate();
   const selectedId = useMemo(() => (publicId ? String(publicId) : null), [publicId]);
@@ -144,6 +147,33 @@ export default function Laboratories() {
     setPage(1);
     hideSuggestions();
   };
+
+  useEffect(() => {
+    if (!hasFilters || laboratories.length > 0 || loading) {
+      setEmptySuggestions([]);
+      setEmptySuggestionsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setEmptySuggestionsLoading(true);
+    (async () => {
+      try {
+        const data = await apiRequest(
+          `/home/empty-suggestions?type=laboratories&limit=12`
+        );
+        if (!cancelled) {
+          setEmptySuggestions(data?.items ?? []);
+        }
+      } catch {
+        if (!cancelled) setEmptySuggestions([]);
+      } finally {
+        if (!cancelled) setEmptySuggestionsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hasFilters, laboratories.length, loading]);
 
   useEffect(() => {
     async function loadLaboratories() {
@@ -525,16 +555,33 @@ export default function Laboratories() {
           <>
             <div className="org-cards-grid">
               {laboratories.length === 0 ? (
-                <div className="lab-empty-block">
-                  <p className="lab-empty">
-                    {hasFilters ? "По вашему запросу ничего не найдено." : "Публичные лаборатории пока не добавлены."}
-                  </p>
-                  <p className="lab-empty-hint">
-                    {hasFilters
-                      ? "Попробуйте изменить поисковый запрос или сбросить фильтры."
-                      : "Организации и представители лабораторий могут добавлять лаборатории в разделе «Профиль»."}
-                  </p>
-                </div>
+                hasFilters ? (
+                  <EmptySearchFallback
+                    entityLabel="лаборатории"
+                    items={emptySuggestions}
+                    loading={emptySuggestionsLoading}
+                    onResetFilters={resetFilters}
+                    renderCard={(lab) => (
+                      <LabCard
+                        key={lab.id}
+                        lab={lab}
+                        labImages={labImages}
+                        onOpen={openLaboratory}
+                        onOrgClick={(id) => navigate(`/organizations/${id}`)}
+                        navigate={navigate}
+                      />
+                    )}
+                  />
+                ) : (
+                  <div className="lab-empty-block">
+                    <p className="lab-empty">
+                      Публичные лаборатории пока не добавлены.
+                    </p>
+                    <p className="lab-empty-hint">
+                      Организации и представители лабораторий могут добавлять лаборатории в разделе «Профиль».
+                    </p>
+                  </div>
+                )
               ) : (
                 laboratories.map((lab) => (
                   <LabCard

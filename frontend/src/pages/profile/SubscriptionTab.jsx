@@ -7,13 +7,29 @@ import { apiRequest } from "../../api/client";
 
 const TIER_CARDS = [
   {
+    id: "trial",
+    name: "Trial",
+    tagline: "Пробный период",
+    description: "Попробуйте Basic или Pro до оформления подписки",
+    features: [
+      "Все возможности выбранного тарифа",
+      "Ограниченный срок (например, 14 дней)",
+      "Оформляется по запросу администратором",
+    ],
+    cta: "Запросить trial",
+    accent: false,
+    isTrial: true,
+  },
+  {
     id: "basic",
     name: "Basic",
     tagline: "Для начинающих",
-    description: "1 организация или до 3 самостоятельных лабораторий",
+    description: "1 организация или до 3 самостоятельных лабораторий, до 15 вакансий и 15 запросов",
     features: [
       "Приоритетная выдача в поиске",
       "Участие в блоках на главной",
+      "Доступ к каталогу соискателей",
+      "До 15 вакансий и 15 запросов",
     ],
     cta: "Подключить",
     accent: false,
@@ -26,6 +42,7 @@ const TIER_CARDS = [
     features: [
       "Всё из Basic",
       "Лаборатории организации наследуют статус",
+      "Доступ к каталогу соискателей",
       "Расширенная аналитика",
     ],
     cta: "Подключить",
@@ -56,7 +73,11 @@ const FAQ_ITEMS = [
   },
   {
     q: "Есть пробный период?",
-    a: "Первые 7 дней после создания первой организации или лаборатории вы получаете повышенную видимость бесплатно — чтобы оценить результат перед оформлением подписки.",
+    a: "Да. Trial — пробная подписка на Basic или Pro на ограниченный срок (например, 14 дней). Запросите её у администратора платформы. Кроме того, первые 7 дней после создания первой организации или лаборатории действует grace period — повышенная видимость бесплатно.",
+  },
+  {
+    q: "Нужна ли подписка для доступа к разделу соискателей?",
+    a: "Да. Раздел соискателей (профили студентов и исследователей) доступен только пользователям с активной подпиской. Представители организаций и лабораторий (lab_admin, lab_representative) могут просматривать каталог соискателей и их контакты только при наличии подписки Basic или Pro.",
   },
 ];
 
@@ -149,8 +170,11 @@ export default function SubscriptionTab({ onError }) {
               </div>
               <div className="subscription-status-body">
                 <strong className="subscription-status-title">Подписка активна</strong>
-                {tier && tier !== "pro" && (
-                  <span className="subscription-status-tier">Тариф: {tier === "basic" ? "Basic" : "Pro"}</span>
+                {tier && (
+                  <span className="subscription-status-tier">
+                    Тариф: {tier === "basic" ? "Basic" : "Pro"}
+                    {isTrial && " (Trial)"}
+                  </span>
                 )}
                 {isTrial && (
                   <p className="subscription-status-meta">
@@ -223,14 +247,24 @@ export default function SubscriptionTab({ onError }) {
                   <li key={i}>{f}</li>
                 ))}
               </ul>
-              <button
-                type="button"
-                className={`subscription-tier-cta ${card.accent ? "primary-btn" : "secondary-btn"}`}
-                disabled
-                aria-label={`Подключить тариф ${card.name} (пока недоступно)`}
-              >
-                {card.cta}
-              </button>
+              {card.isTrial ? (
+                <a
+                  href="mailto:?subject=Запрос пробного периода подписки"
+                  className={`subscription-tier-cta secondary-btn`}
+                  aria-label="Запросить пробный период"
+                >
+                  {card.cta}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  className={`subscription-tier-cta ${card.accent ? "primary-btn" : "secondary-btn"}`}
+                  disabled
+                  aria-label={`Подключить тариф ${card.name} (пока недоступно)`}
+                >
+                  {card.cta}
+                </button>
+              )}
             </article>
           ))}
         </div>

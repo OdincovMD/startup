@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-const RELEASE_VERSION = "D-01.005.00.0";
+const RELEASE_VERSION = "D-01.006.00.0";
 const STORAGE_KEY = `synthesium_release_banner_${RELEASE_VERSION}`;
 
 export default function ReleaseBanner() {
@@ -34,10 +34,10 @@ export default function ReleaseBanner() {
           <strong className="release-banner__title">Что нового</strong>
           <span className="release-banner__version">release/{RELEASE_VERSION}</span>
           <ul className="release-banner__list">
-            <li><strong>Подписка:</strong> карточки тарифов Basic и Pro, обновлённый FAQ без технических деталей</li>
-            <li><strong>Профиль:</strong> раздел «Подписка» вынесен в начало, нумерация шагов, «Мои запросы» в блоке профиля лаборатории</li>
-            <li><strong>Дашборд:</strong> упрощённая аналитика, общие рекомендации вместо коэффициентов, без персональных подсказок по карточкам</li>
-            <li><strong>Главная:</strong> карусели автоматически листаются каждые 5 секунд, в разное время</li>
+            <li><strong>Поиск:</strong> при пустых результатах — блок «Посмотрите другие» с рекомендованными вакансиями, запросами, лабораториями и организациями</li>
+            <li><strong>Соискатели:</strong> доступ только с активной подпиской; исправлены подсказки (имена вместо ID) и отображение аватаров при поиске</li>
+            <li><strong>Подписка:</strong> добавлен доступ к каталогу соискателей в Basic и Pro; FAQ о требованиях подписки</li>
+            <li><strong>Профиль:</strong> вкладка «Подписка» перенесена после «Личные данные»</li>
           </ul>
         </div>
         <button type="button" className="release-banner__btn" onClick={handleDismiss}>

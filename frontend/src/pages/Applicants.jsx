@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import PageLoader from "../components/PageLoader";
@@ -472,8 +472,10 @@ export default function Applicants() {
   const searchWrapRef = useRef(null);
 
   const roleKey = auth?.user?.role_name;
-  const canAccess =
-    roleKey === "lab_admin" || roleKey === "lab_representative";
+  const hasLabRole = roleKey === "lab_admin" || roleKey === "lab_representative";
+  const [subscription, setSubscription] = useState(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  const canAccess = hasLabRole && subscription?.active === true;
 
   useEffect(() => {
     if (!auth) {
@@ -484,11 +486,32 @@ export default function Applicants() {
       refreshUser();
       return;
     }
-    if (auth && !canAccess) {
+    if (auth && !hasLabRole) {
       navigate("/", { replace: true });
       return;
     }
-  }, [auth, canAccess, navigate, refreshUser]);
+  }, [auth, hasLabRole, navigate, refreshUser]);
+
+  useEffect(() => {
+    if (!hasLabRole || !auth?.token) {
+      setSubscriptionLoading(false);
+      setSubscription(null);
+      return;
+    }
+    let cancelled = false;
+    setSubscriptionLoading(true);
+    apiRequest("/profile/subscription")
+      .then((res) => {
+        if (!cancelled) setSubscription(res || null);
+      })
+      .catch(() => {
+        if (!cancelled) setSubscription(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSubscriptionLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [hasLabRole, auth?.token]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(searchQuery.trim()), SEARCH_DEBOUNCE_MS);
@@ -513,8 +536,11 @@ export default function Applicants() {
           setSuggestions(data?.suggestions || []);
           setHighlightedIndex(-1);
         }
-      } catch {
-        if (!cancelled) setSuggestions([]);
+      } catch (e) {
+        if (!cancelled) {
+          if (e.subscriptionRequired) setSubscription({ active: false });
+          setSuggestions([]);
+        }
       } finally {
         if (!cancelled) setSuggestionsLoading(false);
       }
@@ -603,6 +629,10 @@ export default function Applicants() {
         setTotal(data?.total ?? 0);
       } catch (e) {
         if (cancelled) return;
+        if (e.status === 403 && e.subscriptionRequired) {
+          setSubscription({ active: false });
+          return;
+        }
         if (e.status === 403) {
           refreshUser();
           navigate("/", { replace: true });
@@ -632,6 +662,11 @@ export default function Applicants() {
         setDetails(data);
       } catch (e) {
         if (cancelled) return;
+        if (e.status === 403 && e.subscriptionRequired) {
+          setSubscription({ active: false });
+          setDetails(null);
+          return;
+        }
         if (e.status === 403) {
           refreshUser();
           navigate("/", { replace: true });
@@ -657,7 +692,26 @@ export default function Applicants() {
   }, [navigate]);
 
   if (!auth) return <PageLoader />;
-  if (auth && !canAccess) return <PageLoader />;
+  if (auth && !hasLabRole) return <PageLoader />;
+  if (hasLabRole && subscriptionLoading) return <PageLoader />;
+
+  if (hasLabRole && !canAccess) {
+    return (
+      <main className="main">
+        <section className="section">
+          <div className="lab-empty-block org-empty-block applicant-subscription-gate">
+            <p className="lab-empty">Доступ к разделу соискателей</p>
+            <p className="lab-empty-hint">
+              Раздел соискателей доступен только пользователям с активной подпиской. Оформите подписку, чтобы просматривать профили студентов и исследователей.
+            </p>
+            <Link to="/profile?section=subscription" className="primary-btn lab-empty-reset">
+              Оформить подписку
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   if (selectedId) {
     if (loadingDetails) return <PageLoader />;

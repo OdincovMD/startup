@@ -457,6 +457,54 @@ async def search_queries(
     return {"items": items, "total": total, "page": page, "size": size}
 
 
+async def get_queries_ranking_for_featured(size: int = 30) -> list[dict]:
+    """
+    Возвращает список {id, rank_score, paid_active} для главной и empty-suggestions.
+    Фильтр is_published: true. Сортировка: paid_active desc, rank_score desc.
+    """
+    client = get_es_client()
+    index = settings.QUERIES_INDEX
+    filters = [{"term": {"is_published": True}}]
+    query = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
+    sort_clause = sort_with_ranking(None)
+    try:
+        resp = await client.search(
+            index=index,
+            query=query,
+            from_=0,
+            size=size,
+            sort=sort_clause,
+        )
+    except NotFoundError:
+        await reindex_queries_if_empty()
+        try:
+            resp = await client.search(
+                index=index,
+                query=query,
+                from_=0,
+                size=size,
+                sort=sort_clause,
+            )
+        except Exception as e:
+            logger.exception("get_queries_ranking_for_featured failed: %s", e)
+            return []
+    except Exception as e:
+        logger.exception("get_queries_ranking_for_featured failed: %s", e)
+        return []
+
+    result = []
+    for h in resp.get("hits", {}).get("hits", []):
+        source = h.get("_source", h)
+        qid = source.get("id")
+        if qid is not None:
+            result.append({
+                "id": qid,
+                "rank_score": float(source.get("rank_score") or 0),
+                "paid_active": bool(source.get("paid_active", False)),
+            })
+    return result
+
+
 async def reindex_queries_if_empty() -> None:
     """Первичная индексация: если индекс пуст — загрузить все опубликованные запросы."""
     await reindex_queries(force=False)
