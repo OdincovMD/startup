@@ -1,12 +1,26 @@
-import React from "react";
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { Card, Badge, Button } from "../ui";
 
-export default function LabCard({ lab, labImages, onOpen, onOrgClick, navigate }) {
-  const images = labImages(lab.image_urls);
+const DESCRIPTION_MAX = 140;
+
+export default function LabCard({ lab, labImages, onOpen, navigate }) {
+  const [avatarError, setAvatarError] = useState(false);
+  const images = labImages ? labImages(lab.image_urls) : [];
+  const avatarUrl = images[0];
   const hasLink = !!lab.public_id;
+  const showAvatar = avatarUrl && !avatarError;
+  const displayName = lab.name || "Лаборатория";
+  const initial = displayName.charAt(0).toUpperCase();
+  const description = lab.description || lab.activities || "";
+  const truncatedDesc = description.length > DESCRIPTION_MAX ? `${description.slice(0, DESCRIPTION_MAX)}…` : description;
 
   return (
-    <article
-      className="org-card-modern"
+    <Card
+      variant="solid"
+      as="article"
+      padding="md"
+      className="lab-card-modern"
       onClick={() => hasLink && onOpen(lab.public_id)}
       role={hasLink ? "button" : undefined}
       tabIndex={hasLink ? 0 : undefined}
@@ -17,77 +31,101 @@ export default function LabCard({ lab, labImages, onOpen, onOrgClick, navigate }
         }
       }}
     >
-      <div className="org-card-modern__media">
-        {images[0] ? (
-          <img
-            className="org-card-modern__avatar"
-            src={images[0]}
-            alt=""
-            loading="lazy"
-          />
-        ) : (
-          <div className="org-card-modern__avatar-placeholder" aria-hidden="true">
-            {lab.name ? lab.name.charAt(0).toUpperCase() : "?"}
-          </div>
-        )}
-      </div>
-      <div className="org-card-modern__body">
-        <h3 className="org-card-modern__title">{lab.name || "Лаборатория"}</h3>
-        <div className="org-card-modern__meta">
-          {lab.organization && (
-            <span
-              className="org-card-modern__meta-item"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (lab.organization?.public_id) {
-                  navigate(`/organizations/${lab.organization.public_id}`);
-                }
-              }}
-              role={lab.organization?.public_id ? "button" : undefined}
-              tabIndex={lab.organization?.public_id ? 0 : undefined}
-            >
-              {lab.organization.name}
-            </span>
-          )}
-          {!lab.organization && (
-            <span className="org-card-modern__meta-item org-card-modern__meta-item--muted">
-              Независимая лаборатория
-            </span>
-          )}
-          {lab.head_employee && (
-            <span className="org-card-modern__meta-item org-card-modern__meta-item--head">
-              Руководитель: {lab.head_employee.full_name}
-            </span>
+      <div className="lab-card-modern__inner">
+        <div className="lab-card-modern__avatar-wrap">
+          {showAvatar ? (
+            <img
+              className="lab-card-modern__avatar"
+              src={avatarUrl}
+              alt=""
+              loading="lazy"
+              onError={() => setAvatarError(true)}
+            />
+          ) : (
+            <div className="lab-card-modern__avatar-fallback" aria-hidden="true">
+              {initial}
+            </div>
           )}
         </div>
-        {(lab.description || lab.activities) && (
-          <p className="org-card-modern__description" title={lab.description || lab.activities}>
-            {(lab.description || lab.activities).length > 140
-              ? `${(lab.description || lab.activities).slice(0, 140)}…`
-              : (lab.description || lab.activities)}
-          </p>
-        )}
-        {(lab.employees || []).length > 0 && (
-          <div className="org-detail-card__chips org-card-modern__chips">
-            {lab.employees.slice(0, 3).map((emp) => (
-              <span key={emp.id} className="org-detail-chip">
-                {emp.full_name}
+
+        <div className="lab-card-modern__content">
+          <h3 className="lab-card-modern__title-wrap">
+            {hasLink ? (
+              <Link
+                to={`/laboratories/${lab.public_id}`}
+                className="lab-card-modern__title"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {displayName}
+              </Link>
+            ) : (
+              <span className="lab-card-modern__title lab-card-modern__title--plain">{displayName}</span>
+            )}
+          </h3>
+
+          <div className="lab-card-modern__meta">
+            {lab.organization ? (
+              <span
+                className="lab-card-modern__meta-item lab-card-modern__meta-item--link"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (lab.organization?.public_id) navigate(`/organizations/${lab.organization.public_id}`);
+                }}
+                role={lab.organization?.public_id ? "button" : undefined}
+                tabIndex={lab.organization?.public_id ? 0 : undefined}
+                onKeyDown={(e) => {
+                  if (lab.organization?.public_id && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigate(`/organizations/${lab.organization.public_id}`);
+                  }
+                }}
+              >
+                {lab.organization.name}
               </span>
-            ))}
-            {lab.employees.length > 3 && (
-              <span className="org-detail-chip">+{lab.employees.length - 3}</span>
+            ) : (
+              <span className="lab-card-modern__meta-item lab-card-modern__meta-item--muted">
+                Независимая лаборатория
+              </span>
+            )}
+            {lab.head_employee && (
+              <span className="lab-card-modern__meta-item lab-card-modern__meta-item--head">
+                Руководитель: {lab.head_employee.full_name}
+              </span>
             )}
           </div>
-        )}
-        {hasLink && (
-          <span className="org-card-modern__cta">
-            Открыть лабораторию
-            <span className="org-card-modern__cta-arrow" aria-hidden="true">
-              →
-            </span>
-          </span>
-        )}
+
+          {truncatedDesc && (
+            <p className="lab-card-modern__description" title={description}>
+              {truncatedDesc}
+            </p>
+          )}
+
+          {(lab.employees || []).length > 0 && (
+            <div className="lab-card-modern__badges">
+              {lab.employees.slice(0, 3).map((emp) => (
+                <Badge key={emp.id} variant="default">
+                  {emp.full_name}
+                </Badge>
+              ))}
+              {lab.employees.length > 3 && <Badge variant="default">+{lab.employees.length - 3}</Badge>}
+            </div>
+          )}
+
+          {hasLink && (
+            <div className="lab-card-modern__actions">
+              <Button
+                variant="ghost"
+                size="small"
+                to={`/laboratories/${lab.public_id}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                Открыть лабораторию
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
-    </article>
+    </Card>
   );
 }

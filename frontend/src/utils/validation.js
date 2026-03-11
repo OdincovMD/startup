@@ -1,4 +1,18 @@
 /**
+ * Декодирование URL-параметра с защитой от ошибок.
+ * @param {string} value
+ * @returns {string}
+ */
+export function safeDecodeParam(value) {
+  if (!value || typeof value !== "string") return "";
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+/**
  * Валидация email.
  * @param {string} value
  * @returns {boolean}

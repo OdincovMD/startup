@@ -1,39 +1,34 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
+import { useOrgSearch } from "../hooks";
 import WebsiteLink from "../components/WebsiteLink";
 import {
   OrganizationCard,
+  OrgFilters,
   OrganizationDetailHero,
+  OrganizationDetailSidebar,
   OrganizationSection,
   OrganizationDetailCard,
 } from "../components/organization";
+import { ListingSearchBar } from "../components/listing";
+import { Drawer, Button } from "../components/ui";
 import EmptySearchFallback from "../components/EmptySearchFallback";
 
-const SEARCH_DEBOUNCE_MS = 350;
-const SUGGEST_DEBOUNCE_MS = 180;
 const ORGANIZATIONS_PAGE_SIZE = 20;
 
 export default function Organizations() {
+  const search = useOrgSearch(apiRequest);
   const [organizations, setOrganizations] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [detailsMap, setDetailsMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchDebounced, setSearchDebounced] = useState("");
   const [minLaboratories, setMinLaboratories] = useState("");
   const [minEmployees, setMinEmployees] = useState("");
-  const [suggestions, setSuggestions] = useState([]);
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
-  const [suggestionsVisible, setSuggestionsVisible] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortBy, setSortBy] = useState("date_desc");
-  const [suggestionApplied, setSuggestionApplied] = useState(false);
-  const searchInputRef = useRef(null);
-  const searchWrapRef = useRef(null);
+  const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
   const [gallery, setGallery] = useState({ open: false, images: [], index: 0 });
   const [galleryZoom, setGalleryZoom] = useState(1);
   const [employeePreview, setEmployeePreview] = useState(null);
@@ -45,94 +40,26 @@ export default function Organizations() {
   const navigate = useNavigate();
   const selectedId = useMemo(() => (publicId ? String(publicId) : null), [publicId]);
 
-  useEffect(() => {
-    const t = setTimeout(() => setSearchDebounced(searchQuery.trim()), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(t);
-  }, [searchQuery]);
-
-  useEffect(() => {
-    const q = searchQuery.trim();
-    if (q.length < 2) {
-      setSuggestions([]);
-      setSuggestionsLoading(false);
-      setSuggestionsVisible(false);
-      return;
-    }
-    setSuggestionsVisible(true);
-    setSuggestionsLoading(true);
-    let cancelled = false;
-    const t = setTimeout(async () => {
-      try {
-        const data = await apiRequest(`/labs/suggest?q=${encodeURIComponent(q)}&limit=10`);
-        if (!cancelled) {
-          setSuggestions(data?.suggestions || []);
-          setHighlightedIndex(-1);
-        }
-      } catch {
-        if (!cancelled) setSuggestions([]);
-      } finally {
-        if (!cancelled) setSuggestionsLoading(false);
-      }
-    }, SUGGEST_DEBOUNCE_MS);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [searchQuery]);
-
-  const hideSuggestions = useCallback(() => {
-    setSuggestionsVisible(false);
-    setHighlightedIndex(-1);
-  }, []);
-
-  const applySuggestion = useCallback((text) => {
-    setSearchQuery(text);
-    setSuggestionApplied(true);
-    hideSuggestions();
-    searchInputRef.current?.focus();
-  }, [hideSuggestions]);
-
-  useEffect(() => {
-    if (!suggestionApplied) return;
-    const t = setTimeout(() => setSuggestionApplied(false), 450);
-    return () => clearTimeout(t);
-  }, [suggestionApplied]);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (
-        searchWrapRef.current &&
-        !searchWrapRef.current.contains(e.target) &&
-        !e.target.closest("[data-org-suggestions]")
-      ) {
-        hideSuggestions();
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [hideSuggestions]);
-
   const hasFilters =
-    searchDebounced ||
+    search.searchDebounced ||
     (minLaboratories !== "" && Number(minLaboratories) > 0) ||
     (minEmployees !== "" && Number(minEmployees) > 0);
 
   useEffect(() => {
     setPage(1);
-  }, [searchDebounced, minLaboratories, minEmployees]);
+  }, [search.searchDebounced, minLaboratories, minEmployees]);
 
   useEffect(() => {
-    if (selectedId) hideSuggestions();
-  }, [selectedId, hideSuggestions]);
+    if (selectedId) search.hideSuggestions();
+  }, [selectedId, search.hideSuggestions]);
 
-  const resetFilters = () => {
-    setSearchQuery("");
-    setSearchDebounced("");
+  const handleResetFilters = useCallback(() => {
+    search.setSearchQuery("");
     setMinLaboratories("");
     setMinEmployees("");
     setPage(1);
-    hideSuggestions();
-  };
+    search.hideSuggestions();
+  }, [search.setSearchQuery, search.hideSuggestions]);
 
   useEffect(() => {
     if (!hasFilters || organizations.length > 0 || loading) {
@@ -174,7 +101,7 @@ export default function Organizations() {
           const params = new URLSearchParams();
           params.set("page", String(page));
           params.set("size", String(ORGANIZATIONS_PAGE_SIZE));
-          if (searchDebounced) params.set("q", searchDebounced);
+          if (search.searchDebounced) params.set("q", search.searchDebounced);
           const minLabs = minLaboratories !== "" ? Number(minLaboratories) : null;
           if (minLabs != null && minLabs > 0) params.set("min_laboratories", String(minLabs));
           const minEmp = minEmployees !== "" ? Number(minEmployees) : null;
@@ -192,7 +119,7 @@ export default function Organizations() {
       }
     }
     loadOrganizations();
-  }, [hasFilters, searchDebounced, minLaboratories, minEmployees, page, sortBy]);
+  }, [hasFilters, search.searchDebounced, minLaboratories, minEmployees, page, sortBy]);
 
   useEffect(() => {
     async function loadDetails() {
@@ -320,130 +247,79 @@ export default function Organizations() {
     navigate(`/vacancies/${publicIdValue}`);
   };
 
+  const getOrgFilterCount = () =>
+    [search.searchDebounced, minLaboratories && Number(minLaboratories) > 0, minEmployees && Number(minEmployees) > 0].filter(Boolean).length;
+
+  const handleSearchKeyDown = (e) => {
+    if (!search.suggestionsVisible || search.suggestions.length === 0) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      search.hideSuggestions();
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      search.setHighlightedIndex((i) => (i < search.suggestions.length - 1 ? i + 1 : -1));
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      search.setHighlightedIndex((i) => (i <= 0 ? -1 : i - 1));
+      return;
+    }
+    if (e.key === "Enter") {
+      if (search.highlightedIndex >= 0 && search.suggestions[search.highlightedIndex]) {
+        e.preventDefault();
+        search.applySuggestion(search.suggestions[search.highlightedIndex]);
+      } else {
+        search.hideSuggestions();
+      }
+    }
+  };
+
   return (
     <main className="main">
       <section className="section">
         {!selectedId && (
-          <>
-            <div className="section-header section-header--search">
-              <h2>Организации</h2>
-              <p>Научные организации с лабораториями, сотрудниками и вакансиями. Выберите карточку, чтобы открыть профиль.</p>
-              <div className="search-toolbar">
-                <div className="lab-search vacancy-search" ref={searchWrapRef}>
-                  <div className="vacancy-search__field">
-                  <div className={`vacancy-search__bar ${loading ? "vacancy-search__bar--loading" : ""} ${suggestionApplied ? "vacancy-search__bar--applied" : ""}`}>
-                    <span className="vacancy-search__icon" aria-hidden="true">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="11" cy="11" r="8" />
-                        <path d="m21 21-4.35-4.35" />
-                      </svg>
-                    </span>
-                    <input
-                      ref={searchInputRef}
-                      type="search"
-                      className="vacancy-search__input"
-                      placeholder="Название, описание, ROR ID, лаборатории, сотрудники, оборудование…"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onFocus={() => searchQuery.trim().length >= 2 && setSuggestionsVisible(true)}
-                      onKeyDown={(e) => {
-                        if (!suggestionsVisible || suggestions.length === 0) return;
-                        if (e.key === "Escape") {
-                          e.preventDefault();
-                          hideSuggestions();
-                          return;
-                        }
-                        if (e.key === "ArrowDown") {
-                          e.preventDefault();
-                          setHighlightedIndex((i) => (i < suggestions.length - 1 ? i + 1 : -1));
-                          return;
-                        }
-                        if (e.key === "ArrowUp") {
-                          e.preventDefault();
-                          setHighlightedIndex((i) => (i <= 0 ? -1 : i - 1));
-                          return;
-                        }
-                        if (e.key === "Enter") {
-                          if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {
-                            e.preventDefault();
-                            applySuggestion(suggestions[highlightedIndex]);
-                          } else {
-                            hideSuggestions();
-                          }
-                          return;
-                        }
-                      }}
-                      aria-label="Поиск по организациям"
-                      autoComplete="off"
-                      aria-autocomplete="list"
-                      aria-expanded={suggestionsVisible && suggestions.length > 0}
-                      aria-controls="org-suggestions-list"
-                      aria-activedescendant={highlightedIndex >= 0 ? `org-suggestion-${highlightedIndex}` : undefined}
-                    />
-                    {searchQuery && (
-                      <button
-                        type="button"
-                        className="vacancy-search__clear"
-                        onClick={() => setSearchQuery("")}
-                        aria-label="Очистить поиск"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                  {suggestionsVisible && (suggestions.length > 0 || suggestionsLoading) && (
-                    <div
-                      data-org-suggestions
-                      className="vacancy-search__suggestions vacancy-search__suggestions--dropdown"
-                      role="listbox"
-                      id="org-suggestions-list"
-                    >
-                      {suggestionsLoading ? (
-                        <div className="vacancy-search__suggestion-item vacancy-search__suggestion-item--loading">
-                          Загрузка…
-                        </div>
-                      ) : suggestions.length === 0 ? (
-                        <div className="vacancy-search__suggestion-item vacancy-search__suggestion-item--loading">
-                          Нет подсказок
-                        </div>
-                      ) : (
-                        suggestions.map((text, i) => (
-                          <div
-                            key={i}
-                            role="option"
-                            id={`org-suggestion-${i}`}
-                            className={`vacancy-search__suggestion-item ${i === highlightedIndex ? "vacancy-search__suggestion-item--highlighted" : ""}`}
-                            onClick={() => applySuggestion(text)}
-                            onMouseEnter={() => setHighlightedIndex(i)}
-                          >
-                            {text}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                  </div>
-                </div>
-                <div className="search-toolbar__actions">
-                  <button
-                    type="button"
-                    className={`search-toolbar__filter-btn ${filtersOpen ? "search-toolbar__filter-btn--active" : ""}`}
-                    onClick={() => setFiltersOpen((v) => !v)}
-                    aria-expanded={filtersOpen}
-                    aria-controls="org-filters-panel"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-                    </svg>
-                    Фильтры
-                    {hasFilters && (
-                      <span className="search-toolbar__filter-badge">
-                        {[searchDebounced, minLaboratories && Number(minLaboratories) > 0, minEmployees && Number(minEmployees) > 0].filter(Boolean).length}
-                      </span>
-                    )}
-                  </button>
+          <div className="listing-page">
+            <h1 className="listing-page__title">Организации</h1>
+            <div className="listing-page__grid">
+              <aside className="listing-page__sidebar">
+                <OrgFilters
+                  minLaboratories={minLaboratories}
+                  onMinLaboratoriesChange={setMinLaboratories}
+                  minEmployees={minEmployees}
+                  onMinEmployeesChange={setMinEmployees}
+                  hasFilters={hasFilters}
+                  onResetFilters={handleResetFilters}
+                />
+              </aside>
+              <div className="listing-page__content">
+                <div className="listing-page__toolbar">
+                  <ListingSearchBar
+                    searchQuery={search.searchQuery}
+                    onSearchChange={search.setSearchQuery}
+                    loading={loading}
+                    suggestions={search.suggestions}
+                    suggestionsLoading={search.suggestionsLoading}
+                    suggestionsVisible={search.suggestionsVisible}
+                    highlightedIndex={search.highlightedIndex}
+                    onSuggestionMouseEnter={search.setHighlightedIndex}
+                    onSuggestionClick={search.applySuggestion}
+                    onKeyDown={handleSearchKeyDown}
+                    onFocus={() => search.searchQuery.trim().length >= 2 && search.setSuggestionsVisible(true)}
+                    searchInputRef={search.searchInputRef}
+                    searchWrapRef={search.searchWrapRef}
+                    onClear={() => search.setSearchQuery("")}
+                    suggestionApplied={search.suggestionApplied}
+                    onSearchClick={search.hideSuggestions}
+                    placeholder="Название, описание, ROR ID, лаборатории, сотрудники, оборудование…"
+                    ariaLabel="Поиск по организациям"
+                    suggestionsId="org-suggestions-list"
+                    dataSuggestionsAttr="data-org-suggestions"
+                  />
                   <select
-                    className="search-toolbar__sort"
+                    className="listing-page__sort"
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
                     aria-label="Сортировка по дате"
@@ -451,68 +327,116 @@ export default function Organizations() {
                     <option value="date_desc">Сначала новые</option>
                     <option value="date_asc">Сначала старые</option>
                   </select>
+                  <button
+                    type="button"
+                    className="listing-page__filters-toggle"
+                    onClick={() => setFiltersDrawerOpen(true)}
+                    aria-label="Открыть фильтры"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                    </svg>
+                    Фильтры
+                    {getOrgFilterCount() > 0 && (
+                      <span className="listing-page__filters-badge">{getOrgFilterCount()}</span>
+                    )}
+                  </button>
                 </div>
-              </div>
-              <div
-                id="org-filters-panel"
-                className={`filters-panel ${filtersOpen ? "filters-panel--open" : ""}`}
-                role="region"
-                aria-label="Фильтры"
-              >
-                <div className="vacancy-filters lab-filters">
-                  <div className="vacancy-filters__field">
-                    <label htmlFor="org-filter-min-labs" className="vacancy-filters__label">Минимум лабораторий</label>
-                    <input
-                      id="org-filter-min-labs"
-                      type="number"
-                      min="0"
-                      className="vacancy-filters__select"
-                      placeholder="Не менее"
-                      value={minLaboratories}
-                      onChange={(e) => setMinLaboratories(e.target.value)}
-                    />
+
+                {loading && (
+                  <div className="listing-page__skeleton" aria-busy="true" role="status" aria-label="Загрузка">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                      <div key={i} className="listing-card-skeleton org-card-skeleton">
+                        <div className="skeleton" style={{ width: 80, height: 80, flexShrink: 0, borderRadius: 8 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="skeleton" style={{ height: "1.25rem", width: "70%" }} />
+                          <div className="skeleton" style={{ height: "0.875rem", width: "50%", marginTop: "0.5rem" }} />
+                          <div className="skeleton" style={{ height: "0.875rem", width: "100%", marginTop: "0.75rem" }} />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="vacancy-filters__field">
-                    <label htmlFor="org-filter-min-employees" className="vacancy-filters__label">Минимум сотрудников</label>
-                    <input
-                      id="org-filter-min-employees"
-                      type="number"
-                      min="0"
-                      className="vacancy-filters__select"
-                      placeholder="Не менее"
-                      value={minEmployees}
-                      onChange={(e) => setMinEmployees(e.target.value)}
-                    />
-                  </div>
-                  {hasFilters && (
-                    <button type="button" className="vacancy-filters__reset" onClick={resetFilters}>
-                      Сбросить фильтры
-                    </button>
-                  )}
-                </div>
+                )}
+
+                {error && !loading && <p className="listing-page__error error">{error}</p>}
+
+                {!loading && !error && (
+                  <>
+                    <div className="listing-page__list listing-page__list--grid">
+                      {organizations.length === 0 ? (
+                        hasFilters ? (
+                          <div className="listing-page__empty">
+                            <EmptySearchFallback
+                              entityLabel="организации"
+                              items={emptySuggestions}
+                              loading={emptySuggestionsLoading}
+                              onResetFilters={handleResetFilters}
+                              renderCard={(org) => (
+                                <OrganizationCard key={org.id} org={org} onOpen={openOrganization} />
+                              )}
+                            />
+                          </div>
+                        ) : (
+                          <div className="listing-page__empty listing-page__empty--no-results">
+                            <p className="listing-page__empty-text">Публичные организации пока не добавлены.</p>
+                            <p className="listing-page__empty-hint">
+                              Организации могут создавать профиль и публиковать его в разделе «Профиль».
+                            </p>
+                          </div>
+                        )
+                      ) : (
+                        organizations.map((org) => (
+                          <OrganizationCard key={org.id} org={org} onOpen={openOrganization} />
+                        ))
+                      )}
+                    </div>
+
+                    {total > ORGANIZATIONS_PAGE_SIZE && (
+                      <div className="listing-page__pagination">
+                        <span className="listing-page__pagination-info">
+                          Показано {(page - 1) * ORGANIZATIONS_PAGE_SIZE + 1}–
+                          {Math.min(page * ORGANIZATIONS_PAGE_SIZE, total)} из {total}
+                        </span>
+                        <div className="listing-page__pagination-buttons">
+                          <Button
+                            variant="ghost"
+                            disabled={page <= 1}
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                          >
+                            Назад
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            disabled={page * ORGANIZATIONS_PAGE_SIZE >= total}
+                            onClick={() => setPage((p) => p + 1)}
+                          >
+                            Вперёд
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
-          </>
-        )}
-        {loading && !selectedId && (
-          <div className="org-cards-grid labs-skeleton-grid" aria-busy="true" role="status" aria-label="Загрузка">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <article key={i} className="org-card-modern">
-                <div className="org-card-modern__media">
-                  <div className="skeleton" aria-hidden="true" style={{ width: "100%", aspectRatio: 1 }} />
-                </div>
-                <div className="org-card-modern__body">
-                  <div className="skeleton" aria-hidden="true" style={{ height: "1.125rem", width: "80%" }} />
-                  <div className="skeleton" aria-hidden="true" style={{ height: "0.875rem" }} />
-                  <div className="skeleton" aria-hidden="true" style={{ height: "0.875rem" }} />
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-        {error && !selectedId && (
-          <div className="org-detail-error-banner" role="alert">
-            {error}
+
+            <Drawer
+              isOpen={filtersDrawerOpen}
+              onClose={() => setFiltersDrawerOpen(false)}
+              title="Фильтры организаций"
+            >
+              <OrgFilters
+                minLaboratories={minLaboratories}
+                onMinLaboratoriesChange={setMinLaboratories}
+                minEmployees={minEmployees}
+                onMinEmployeesChange={setMinEmployees}
+                hasFilters={hasFilters}
+                onResetFilters={() => {
+                  handleResetFilters();
+                  setFiltersDrawerOpen(false);
+                }}
+              />
+            </Drawer>
           </div>
         )}
         {error && selectedId && (
@@ -527,85 +451,24 @@ export default function Organizations() {
             </div>
           </div>
         )}
-        {!loading && !error && !selectedId && (
-          <>
-            <div className="org-cards-grid">
-              {organizations.length === 0 ? (
-                hasFilters ? (
-                  <EmptySearchFallback
-                    entityLabel="организации"
-                    items={emptySuggestions}
-                    loading={emptySuggestionsLoading}
-                    onResetFilters={resetFilters}
-                    renderCard={(org) => (
-                      <OrganizationCard
-                        key={org.id}
-                        org={org}
-                        onOpen={openOrganization}
-                      />
-                    )}
-                  />
-                ) : (
-                  <div className="lab-empty-block org-empty-block">
-                    <p className="lab-empty">
-                      Публичные организации пока не добавлены.
-                    </p>
-                    <p className="lab-empty-hint">
-                      Организации могут создавать профиль и публиковать его в разделе «Профиль».
-                    </p>
-                  </div>
-                )
-              ) : organizations.map((org) => (
-                <OrganizationCard
-                  key={org.id}
-                  org={org}
-                  onOpen={openOrganization}
-                />
-              ))}
-            </div>
-            {hasFilters && total > ORGANIZATIONS_PAGE_SIZE && (
-              <div className="vacancy-pagination">
-                <span className="vacancy-pagination__info">
-                  Показано {(page - 1) * ORGANIZATIONS_PAGE_SIZE + 1}–{Math.min(page * ORGANIZATIONS_PAGE_SIZE, total)} из {total}
-                </span>
-                <div className="vacancy-pagination__buttons">
-                  <button
-                    type="button"
-                    className="vacancy-pagination__btn"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    Назад
-                  </button>
-                  <button
-                    type="button"
-                    className="vacancy-pagination__btn"
-                    disabled={page * ORGANIZATIONS_PAGE_SIZE >= total}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    Вперёд
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
         {!loading && !error && selectedId && (
           <div className="org-details-page">
             {!detailsMap[selectedId] && <p className="muted">Загружаем профиль...</p>}
             {detailsMap[selectedId] && (
-              <div className="org-details">
+              <div className="detail-page">
                 <button className="org-detail-back" onClick={goBack} type="button">
                   ← Назад
                 </button>
                 <OrganizationDetailHero details={detailsMap[selectedId]} />
-                <OrganizationSection
-                  title="Лаборатории"
-                  badge={detailsMap[selectedId].laboratories.length}
-                  emptyMessage="Лаборатории не добавлены."
-                  empty={detailsMap[selectedId].laboratories.length === 0}
-                >
-                  <div className="org-detail-grid">
+                <div className="detail-page__layout">
+                  <div className="detail-page__main">
+                    <OrganizationSection
+                      title="Лаборатории"
+                      badge={detailsMap[selectedId].laboratories.length}
+                      emptyMessage="Лаборатории не добавлены."
+                      empty={detailsMap[selectedId].laboratories.length === 0}
+                    >
+                      <div className="org-detail-grid">
                     {detailsMap[selectedId].laboratories.map((lab) => {
                       const labMedia = splitMedia(lab.image_urls);
                       return (
@@ -654,15 +517,15 @@ export default function Organizations() {
                         </OrganizationDetailCard>
                       );
                     })}
-                  </div>
-                </OrganizationSection>
-                <OrganizationSection
-                  title="Оборудование"
-                  badge={detailsMap[selectedId].equipment.length}
-                  emptyMessage="Оборудование не добавлено."
-                  empty={detailsMap[selectedId].equipment.length === 0}
-                >
-                  <div className="org-detail-grid">
+                      </div>
+                    </OrganizationSection>
+                    <OrganizationSection
+                      title="Оборудование"
+                      badge={detailsMap[selectedId].equipment.length}
+                      emptyMessage="Оборудование не добавлено."
+                      empty={detailsMap[selectedId].equipment.length === 0}
+                    >
+                      <div className="org-detail-grid">
                     {detailsMap[selectedId].equipment.map((item) => {
                       const itemMedia = splitMedia(item.image_urls);
                       return (
@@ -687,15 +550,15 @@ export default function Organizations() {
                         </OrganizationDetailCard>
                       );
                     })}
-                  </div>
-                </OrganizationSection>
-                <OrganizationSection
-                  title="Сотрудники"
-                  badge={detailsMap[selectedId].employees.length}
-                  emptyMessage="Сотрудники не добавлены."
-                  empty={detailsMap[selectedId].employees.length === 0}
-                >
-                  <div className="org-detail-grid org-detail-grid--employees">
+                      </div>
+                    </OrganizationSection>
+                    <OrganizationSection
+                      title="Сотрудники"
+                      badge={detailsMap[selectedId].employees.length}
+                      emptyMessage="Сотрудники не добавлены."
+                      empty={detailsMap[selectedId].employees.length === 0}
+                    >
+                      <div className="org-detail-grid org-detail-grid--employees">
                     {detailsMap[selectedId].employees.map((employee) => {
                       const interests = Array.isArray(employee.research_interests) ? employee.research_interests : [];
                       return (
@@ -749,15 +612,15 @@ export default function Organizations() {
                         </OrganizationDetailCard>
                       );
                     })}
-                  </div>
-                </OrganizationSection>
-                <OrganizationSection
-                  title="Решённые задачи"
-                  badge={detailsMap[selectedId].task_solutions.length}
-                  emptyMessage="Задачи не добавлены."
-                  empty={detailsMap[selectedId].task_solutions.length === 0}
-                >
-                  <div className="org-detail-grid">
+                      </div>
+                    </OrganizationSection>
+                    <OrganizationSection
+                      title="Решённые задачи"
+                      badge={detailsMap[selectedId].task_solutions.length}
+                      emptyMessage="Задачи не добавлены."
+                      empty={detailsMap[selectedId].task_solutions.length === 0}
+                    >
+                      <div className="org-detail-grid">
                     {detailsMap[selectedId].task_solutions.map((task) => (
                       <OrganizationDetailCard key={task.id}>
                         <h3 className="org-detail-card__title">{task.title}</h3>
@@ -797,15 +660,15 @@ export default function Organizations() {
                         )}
                       </OrganizationDetailCard>
                     ))}
-                  </div>
-                </OrganizationSection>
-                <OrganizationSection
-                  title="Запросы"
-                  badge={detailsMap[selectedId].queries.length}
-                  emptyMessage="Запросы не добавлены."
-                  empty={detailsMap[selectedId].queries.length === 0}
-                >
-                  <div className="org-detail-grid">
+                      </div>
+                    </OrganizationSection>
+                    <OrganizationSection
+                      title="Запросы"
+                      badge={detailsMap[selectedId].queries.length}
+                      emptyMessage="Запросы не добавлены."
+                      empty={detailsMap[selectedId].queries.length === 0}
+                    >
+                      <div className="org-detail-grid">
                     {detailsMap[selectedId].queries.map((query) => (
                       <OrganizationDetailCard
                         key={query.id}
@@ -854,15 +717,15 @@ export default function Organizations() {
                         )}
                       </OrganizationDetailCard>
                     ))}
-                  </div>
-                </OrganizationSection>
-                <OrganizationSection
-                  title="Вакансии"
-                  badge={detailsMap[selectedId].vacancies.length}
-                  emptyMessage="Вакансии не добавлены."
-                  empty={detailsMap[selectedId].vacancies.length === 0}
-                >
-                  <div className="org-detail-grid">
+                      </div>
+                    </OrganizationSection>
+                    <OrganizationSection
+                      title="Вакансии"
+                      badge={detailsMap[selectedId].vacancies.length}
+                      emptyMessage="Вакансии не добавлены."
+                      empty={detailsMap[selectedId].vacancies.length === 0}
+                    >
+                      <div className="org-detail-grid">
                     {detailsMap[selectedId].vacancies.map((vacancy) => (
                       <OrganizationDetailCard key={vacancy.id}>
                         <h3 className="org-detail-card__title">{vacancy.name}</h3>
@@ -896,8 +759,13 @@ export default function Organizations() {
                         )}
                       </OrganizationDetailCard>
                     ))}
+                      </div>
+                    </OrganizationSection>
                   </div>
-                </OrganizationSection>
+                  <aside className="detail-page__sidebar">
+                    <OrganizationDetailSidebar details={detailsMap[selectedId]} />
+                  </aside>
+                </div>
               </div>
             )}
           </div>

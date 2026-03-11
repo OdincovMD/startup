@@ -1,24 +1,30 @@
-import React from "react";
+import React, { useState } from "react";
 import WebsiteLink from "../WebsiteLink";
 
 export default function OrganizationDetailHero({ details }) {
+  const [avatarError, setAvatarError] = useState(false);
+  const showAvatar = details.avatar_url && !avatarError;
+  const displayName = details.name || "Организация";
+  const initial = displayName.charAt(0).toUpperCase();
+
   return (
     <div className="org-detail-hero">
       <div className="org-detail-hero__media">
-        {details.avatar_url ? (
+        {showAvatar ? (
           <img
             className="org-detail-hero__avatar"
             src={details.avatar_url}
             alt=""
+            onError={() => setAvatarError(true)}
           />
         ) : (
-          <div className="org-detail-hero__avatar-placeholder">
-            {details.name ? details.name.charAt(0).toUpperCase() : "?"}
+          <div className="org-detail-hero__avatar-placeholder" aria-hidden="true">
+            {initial}
           </div>
         )}
       </div>
       <div className="org-detail-hero__body">
-        <h1 className="org-detail-hero__title">{details.name}</h1>
+        <h1 className="org-detail-hero__title">{displayName}</h1>
         <div className="org-detail-hero__meta">
           {details.address && (
             <span className="org-detail-hero__meta-item">{details.address}</span>

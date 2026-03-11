@@ -1,35 +1,39 @@
-import React from "react";
+import React, { useState } from "react";
 
 export default function LabDetailHero({ details, labImages, onOrgClick, onHeadClick }) {
+  const [avatarError, setAvatarError] = useState(false);
   const images = labImages(details.image_urls);
   const head = details.head_employee;
+  const avatarUrl = images[0];
+  const showAvatar = avatarUrl && !avatarError;
+  const displayName = details.name || "Лаборатория";
+  const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <div className="org-detail-hero">
       <div className="org-detail-hero__media">
-        {images[0] ? (
+        {showAvatar ? (
           <img
             className="org-detail-hero__avatar"
-            src={images[0]}
+            src={avatarUrl}
             alt=""
+            onError={() => setAvatarError(true)}
           />
         ) : (
-          <div className="org-detail-hero__avatar-placeholder">
-            {details.name ? details.name.charAt(0).toUpperCase() : "?"}
+          <div className="org-detail-hero__avatar-placeholder" aria-hidden="true">
+            {initial}
           </div>
         )}
       </div>
       <div className="org-detail-hero__body">
-        <h1 className="org-detail-hero__title">{details.name}</h1>
+        <h1 className="org-detail-hero__title">{displayName}</h1>
         <div className="org-detail-hero__meta">
           {details.organization && (
             <span
               className="org-detail-hero__link"
               onClick={(e) => {
                 e.stopPropagation();
-                if (details.organization?.public_id) {
-                  onOrgClick(details.organization.public_id);
-                }
+                if (details.organization?.public_id) onOrgClick(details.organization.public_id);
               }}
               role={details.organization?.public_id ? "button" : undefined}
               tabIndex={details.organization?.public_id ? 0 : undefined}
