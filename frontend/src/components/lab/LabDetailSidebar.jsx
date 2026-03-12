@@ -5,11 +5,9 @@ export default function LabDetailSidebar({
   details,
   onHeadClick,
   onOrgClick,
-  onSendQuery,
 }) {
   const head = details?.head_employee;
   const org = details?.organization;
-  const hasQueries = (details?.queries || []).length > 0;
 
   return (
     <Card variant="elevated" padding="md">
@@ -69,16 +67,6 @@ export default function LabDetailSidebar({
         )}
 
         <div className="detail-sidebar__actions">
-          {hasQueries && (
-            <Button
-              variant="primary"
-              size="default"
-              to={details?.queries?.[0]?.public_id ? `/queries/${details.queries[0].public_id}` : undefined}
-              onClick={() => onSendQuery?.()}
-            >
-              Отправить запрос
-            </Button>
-          )}
           <Button
             variant="secondary"
             size="default"

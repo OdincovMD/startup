@@ -19,8 +19,8 @@ export default function OrganizationCard({ org, onOpen }) {
     <Card
       variant="solid"
       as="article"
-      padding="md"
-      className="org-card-modern org-card-modern--listing"
+      padding="none"
+      className="modern-entity-card"
       onClick={() => hasLink && onOpen(org.public_id)}
       role={hasLink ? "button" : undefined}
       tabIndex={hasLink ? 0 : undefined}
@@ -31,79 +31,78 @@ export default function OrganizationCard({ org, onOpen }) {
         }
       }}
     >
-      <div className="org-card-modern__inner org-card-modern__inner--listing">
-        <div className="org-card-modern__avatar-wrap">
-          {showAvatar ? (
-            <img
-              className="org-card-modern__avatar"
-              src={avatarUrl}
-              alt=""
-              loading="lazy"
-              onError={() => setAvatarError(true)}
-            />
-          ) : (
-            <div className="org-card-modern__avatar-fallback" aria-hidden="true">
-              {initial}
-            </div>
-          )}
-        </div>
+      <div className="modern-entity-card__media">
+        {showAvatar ? (
+          <img
+            src={avatarUrl}
+            alt=""
+            loading="lazy"
+            onError={() => setAvatarError(true)}
+          />
+        ) : (
+          <div className="modern-entity-card__fallback" aria-hidden="true">
+            {initial}
+          </div>
+        )}
+      </div>
 
-        <div className="org-card-modern__content">
-          <h3 className="org-card-modern__title-wrap">
+      <div className="modern-entity-card__body">
+        <div className="modern-entity-card__info">
+          <h3 className="modern-entity-card__title">
             {hasLink ? (
               <Link
                 to={`/organizations/${org.public_id}`}
-                className="org-card-modern__title org-card-modern__title--link"
                 onClick={(e) => e.stopPropagation()}
               >
                 {displayName}
               </Link>
             ) : (
-              <span className="org-card-modern__title">{displayName}</span>
+              <span>{displayName}</span>
             )}
           </h3>
 
-          <div className="org-card-modern__meta">
+          <div className="modern-entity-card__meta">
             {org.address && (
-              <span className="org-card-modern__meta-item" title={org.address}>
+              <span className="modern-entity-card__meta-item" title={org.address}>
                 {org.address}
               </span>
             )}
             {org.website && (
               <span
-                className="org-card-modern__meta-item"
+                className="modern-entity-card__meta-item"
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
               >
-                <WebsiteLink url={org.website} className="org-card-modern__link" />
+                <WebsiteLink url={org.website} className="modern-entity-card__link" />
               </span>
             )}
             {!org.address && !org.website && (
-              <span className="org-card-modern__meta-item org-card-modern__meta-item--muted">
+              <span className="modern-entity-card__meta-item modern-entity-card__meta-item--muted">
                 Нет контактов
               </span>
             )}
           </div>
 
           {truncatedDesc && (
-            <p className="org-card-modern__description" title={description}>
+            <p className="modern-entity-card__desc" title={description}>
               {truncatedDesc}
             </p>
           )}
-
-          {hasLink && (
-            <div className="org-card-modern__actions">
-              <Button
-                variant="ghost"
-                size="small"
-                to={`/organizations/${org.public_id}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                Открыть профиль
-              </Button>
-            </div>
-          )}
         </div>
+
+        {hasLink && (
+          <div className="modern-entity-card__actions">
+            <Button
+              variant="ghost"
+              size="small"
+              to={`/organizations/${org.public_id}`}
+              className="nowrap-btn"
+              onClick={(e) => e.stopPropagation()}
+            >
+              В профиль
+            </Button>
+          </div>
+        )}
       </div>
     </Card>
   );

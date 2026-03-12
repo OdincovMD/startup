@@ -7,14 +7,13 @@ import {
   AuthSplitLayout, 
   AuthAlert, 
   AuthButton, 
-  AuthIconHeader 
+  AuthIconHeader,
+  ORCID_ICON_URL 
 } from "../components/auth";
 
 const EMAIL_ERROR_PHRASES = ["email", "корректный"];
 const hasEmailError = (error) =>
   error && EMAIL_ERROR_PHRASES.some((phrase) => error.includes(phrase));
-
-const ORCID_ICON_URL = "https://orcid.org/sites/default/files/images/orcid_24x24.png";
 
 export default function RegisterOrcid() {
   const [searchParams] = useSearchParams();

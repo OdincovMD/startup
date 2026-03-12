@@ -92,15 +92,15 @@ export default function App() {
             <Route path="/applicants/:publicId" element={<Applicants />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/register/orcid" element={<RegisterOrcid />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/set-password" element={<SetPassword />} />
           </Route>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="/register/orcid" element={<RegisterOrcid />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/set-password" element={<SetPassword />} />
         </Routes>
       </Suspense>
     </div>

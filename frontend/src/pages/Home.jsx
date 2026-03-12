@@ -52,12 +52,14 @@ function labImages(urls) {
 
 function HomeSkeletonCard({ type = "org" }) {
   return (
-    <div className={`listing-card-skeleton ${type === "lab" ? "lab-card-skeleton" : "org-card-skeleton"}`}>
-      <div className="skeleton listing-card-skeleton__avatar" aria-hidden="true" />
-      <div className="listing-card-skeleton__body">
-        <div className="skeleton listing-card-skeleton__line listing-card-skeleton__line--title" aria-hidden="true" />
-        <div className="skeleton listing-card-skeleton__line" aria-hidden="true" />
-        <div className="skeleton listing-card-skeleton__line" aria-hidden="true" />
+    <div className="modern-entity-card listing-card-skeleton">
+      <div className="modern-entity-card__media">
+        <div className="skeleton" aria-hidden="true" style={{ width: "100%", height: "100%", minHeight: "160px" }} />
+      </div>
+      <div className="modern-entity-card__body">
+        <div className="skeleton listing-card-skeleton__line--title" aria-hidden="true" style={{ height: "1.125rem", width: "80%" }} />
+        <div className="skeleton" aria-hidden="true" style={{ height: "0.875rem", width: "90%" }} />
+        <div className="skeleton" aria-hidden="true" style={{ height: "0.875rem", width: "70%" }} />
       </div>
     </div>
   );

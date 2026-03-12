@@ -6,7 +6,6 @@ import GlobalSearch from "../GlobalSearch";
 import NotificationsDropdown from "../NotificationsDropdown";
 import CookieBanner from "../CookieBanner";
 import ReleaseBanner from "../ReleaseBanner";
-import { Button } from "../ui";
 
 const navLinkClass = ({ isActive }) =>
   `nav-link${isActive ? " nav-link--active" : ""}`;
@@ -106,11 +105,11 @@ export default function MainLayout() {
 
           <div className="header__right">
             <nav className="nav" aria-label="Основное меню">
-              <NavLink className={navLinkClass} to="/laboratories" end={false}>
-                Лаборатории
-              </NavLink>
               <NavLink className={navLinkClass} to="/organizations" end={false}>
                 Организации
+              </NavLink>
+              <NavLink className={navLinkClass} to="/laboratories" end={false}>
+                Лаборатории
               </NavLink>
               <NavLink className={navLinkClass} to="/queries" end={false}>
                 Запросы
@@ -141,9 +140,14 @@ export default function MainLayout() {
                   </button>
                 </div>
               ) : (
-                <Button variant="primary" to="/login">
+                <NavLink
+                  to="/login"
+                  className={({ isActive }) =>
+                    `nav-cta primary-btn nav-link${isActive ? " nav-link--active" : ""}`
+                  }
+                >
                   Войти
-                </Button>
+                </NavLink>
               )}
             </nav>
             <div className="nav-mobile-actions">
@@ -201,19 +205,19 @@ export default function MainLayout() {
               </NavLink>
               <NavLink
                 className={navLinkClass}
-                to="/laboratories"
-                end={false}
-                onClick={closeMenu}
-              >
-                Лаборатории
-              </NavLink>
-              <NavLink
-                className={navLinkClass}
                 to="/organizations"
                 end={false}
                 onClick={closeMenu}
               >
                 Организации
+              </NavLink>
+              <NavLink
+                className={navLinkClass}
+                to="/laboratories"
+                end={false}
+                onClick={closeMenu}
+              >
+                Лаборатории
               </NavLink>
               <NavLink
                 className={navLinkClass}
@@ -262,13 +266,15 @@ export default function MainLayout() {
                   </button>
                 </div>
               ) : (
-                <Link
+                <NavLink
                   to="/login"
                   onClick={closeMenu}
-                  className="primary-btn nav-drawer__cta"
+                  className={({ isActive }) =>
+                    `primary-btn nav-drawer__cta${isActive ? " nav-link--active" : ""}`
+                  }
                 >
                   Войти
-                </Link>
+                </NavLink>
               )}
             </div>
           </div>

@@ -10,7 +10,7 @@ export function OrgFilters({
   onResetFilters,
 }) {
   return (
-    <Card variant="solid" padding="md" role="region" aria-label="Фильтры организаций">
+    <Card variant="solid" padding="sm" role="region" aria-label="Фильтры организаций">
       <div className="vacancy-filters org-filters">
         <div className="vacancy-filters__field">
           <label htmlFor="org-filter-min-labs" className="vacancy-filters__label">

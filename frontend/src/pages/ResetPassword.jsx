@@ -43,7 +43,7 @@ export default function ResetPassword() {
 
   if (!token) {
     return (
-      <main className="main auth-page">
+      <div className="main auth-page">
         <div className="auth-wrapper">
           <div className="auth-card-modern">
             <h1>Недействительная ссылка</h1>
@@ -60,13 +60,13 @@ export default function ResetPassword() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   if (status === "success") {
     return (
-      <main className="main auth-page">
+      <div className="main auth-page">
         <div className="auth-wrapper">
           <div className="auth-card-modern">
             <h1>Пароль изменён</h1>
@@ -80,12 +80,12 @@ export default function ResetPassword() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="main auth-page">
+    <div className="main auth-page">
       <div className="auth-wrapper">
         <div className="auth-card-modern">
           <h1>Новый пароль</h1>
@@ -137,6 +137,6 @@ export default function ResetPassword() {
           </form>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

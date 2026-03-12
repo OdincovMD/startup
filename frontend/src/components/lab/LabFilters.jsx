@@ -13,7 +13,7 @@ export function LabFilters({
   onResetFilters,
 }) {
   return (
-    <Card variant="solid" padding="md" role="region" aria-label="Фильтры лабораторий">
+    <Card variant="solid" padding="sm" role="region" aria-label="Фильтры лабораторий">
       <div className="vacancy-filters lab-filters">
         <div className="vacancy-filters__field">
           <label htmlFor="lab-filter-org" className="vacancy-filters__label">

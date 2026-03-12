@@ -12,7 +12,7 @@ export function AuthSplitLayout({
   brandDesc = DEFAULT_BRAND.desc,
 }) {
   return (
-    <main className="auth-page auth-page--split">
+    <div className="auth-page auth-page--split" role="main">
       <div className="auth-split">
         {/* ── Left brand panel ── */}
         <div className="auth-split__brand" aria-hidden="true">
@@ -37,6 +37,6 @@ export function AuthSplitLayout({
         {/* ── Right form panel ── */}
         <div className="auth-split__form">{children}</div>
       </div>
-    </main>
+    </div>
   );
 }

@@ -19,8 +19,8 @@ export default function LabCard({ lab, labImages, onOpen, navigate }) {
     <Card
       variant="solid"
       as="article"
-      padding="md"
-      className="lab-card-modern"
+      padding="none"
+      className="modern-entity-card"
       onClick={() => hasLink && onOpen(lab.public_id)}
       role={hasLink ? "button" : undefined}
       tabIndex={hasLink ? 0 : undefined}
@@ -31,42 +31,40 @@ export default function LabCard({ lab, labImages, onOpen, navigate }) {
         }
       }}
     >
-      <div className="lab-card-modern__inner">
-        <div className="lab-card-modern__avatar-wrap">
-          {showAvatar ? (
-            <img
-              className="lab-card-modern__avatar"
-              src={avatarUrl}
-              alt=""
-              loading="lazy"
-              onError={() => setAvatarError(true)}
-            />
-          ) : (
-            <div className="lab-card-modern__avatar-fallback" aria-hidden="true">
-              {initial}
-            </div>
-          )}
-        </div>
+      <div className="modern-entity-card__media">
+        {showAvatar ? (
+          <img
+            src={avatarUrl}
+            alt=""
+            loading="lazy"
+            onError={() => setAvatarError(true)}
+          />
+        ) : (
+          <div className="modern-entity-card__fallback" aria-hidden="true">
+            {initial}
+          </div>
+        )}
+      </div>
 
-        <div className="lab-card-modern__content">
-          <h3 className="lab-card-modern__title-wrap">
+      <div className="modern-entity-card__body">
+        <div className="modern-entity-card__info">
+          <h3 className="modern-entity-card__title">
             {hasLink ? (
               <Link
                 to={`/laboratories/${lab.public_id}`}
-                className="lab-card-modern__title"
                 onClick={(e) => e.stopPropagation()}
               >
                 {displayName}
               </Link>
             ) : (
-              <span className="lab-card-modern__title lab-card-modern__title--plain">{displayName}</span>
+              <span>{displayName}</span>
             )}
           </h3>
 
-          <div className="lab-card-modern__meta">
+          <div className="modern-entity-card__meta">
             {lab.organization ? (
               <span
-                className="lab-card-modern__meta-item lab-card-modern__meta-item--link"
+                className="modern-entity-card__meta-item modern-entity-card__meta-item--link"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (lab.organization?.public_id) navigate(`/organizations/${lab.organization.public_id}`);
@@ -84,25 +82,25 @@ export default function LabCard({ lab, labImages, onOpen, navigate }) {
                 {lab.organization.name}
               </span>
             ) : (
-              <span className="lab-card-modern__meta-item lab-card-modern__meta-item--muted">
+              <span className="modern-entity-card__meta-item modern-entity-card__meta-item--muted">
                 Независимая лаборатория
               </span>
             )}
             {lab.head_employee && (
-              <span className="lab-card-modern__meta-item lab-card-modern__meta-item--head">
+              <span className="modern-entity-card__meta-item modern-entity-card__meta-item--head">
                 Руководитель: {lab.head_employee.full_name}
               </span>
             )}
           </div>
 
           {truncatedDesc && (
-            <p className="lab-card-modern__description" title={description}>
+            <p className="modern-entity-card__desc" title={description}>
               {truncatedDesc}
             </p>
           )}
 
           {(lab.employees || []).length > 0 && (
-            <div className="lab-card-modern__badges">
+            <div className="modern-entity-card__badges">
               {lab.employees.slice(0, 3).map((emp) => (
                 <Badge key={emp.id} variant="default">
                   {emp.full_name}
@@ -111,20 +109,21 @@ export default function LabCard({ lab, labImages, onOpen, navigate }) {
               {lab.employees.length > 3 && <Badge variant="default">+{lab.employees.length - 3}</Badge>}
             </div>
           )}
-
-          {hasLink && (
-            <div className="lab-card-modern__actions">
-              <Button
-                variant="ghost"
-                size="small"
-                to={`/laboratories/${lab.public_id}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                Открыть лабораторию
-              </Button>
-            </div>
-          )}
         </div>
+
+        {hasLink && (
+          <div className="modern-entity-card__actions">
+            <Button
+              variant="ghost"
+              size="small"
+              to={`/laboratories/${lab.public_id}`}
+              className="nowrap-btn"
+              onClick={(e) => e.stopPropagation()}
+            >
+              В лабораторию
+            </Button>
+          </div>
+        )}
       </div>
     </Card>
   );

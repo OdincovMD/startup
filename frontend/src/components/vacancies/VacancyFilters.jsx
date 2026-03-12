@@ -23,7 +23,7 @@ export function VacancyFilters({
   onResetFilters,
 }) {
   return (
-    <Card variant="solid" padding="md" role="region" aria-label="Фильтры">
+    <Card variant="solid" padding="sm" role="region" aria-label="Фильтры">
       <div className="vacancy-filters">
         <div className="vacancy-filters__field">
           <label htmlFor="vacancy-filter-employment" className="vacancy-filters__label">

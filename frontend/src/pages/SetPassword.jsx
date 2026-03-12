@@ -55,7 +55,7 @@ export default function SetPassword() {
 
   if (status === "success") {
     return (
-      <main className="main auth-page">
+      <div className="main auth-page">
         <div className="auth-wrapper">
           <div className="auth-card-modern">
             <h1>Пароль установлен</h1>
@@ -69,12 +69,12 @@ export default function SetPassword() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="main auth-page">
+    <div className="main auth-page">
       <div className="auth-wrapper">
         <div className="auth-card-modern">
           <h1>Установка пароля</h1>
@@ -126,6 +126,6 @@ export default function SetPassword() {
           </form>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

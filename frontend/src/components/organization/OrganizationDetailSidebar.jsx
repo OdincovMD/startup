@@ -3,8 +3,6 @@ import { Card, Button } from "../ui";
 import WebsiteLink from "../WebsiteLink";
 
 export default function OrganizationDetailSidebar({ details }) {
-  const hasVacancies = (details?.vacancies || []).length > 0;
-
   return (
     <Card variant="elevated" padding="md">
       <div className="detail-sidebar">
@@ -32,11 +30,6 @@ export default function OrganizationDetailSidebar({ details }) {
           <Button variant="primary" size="default">
             Связаться
           </Button>
-          {hasVacancies && (
-            <Button variant="secondary" size="default" to="/vacancies">
-              Вакансии
-            </Button>
-          )}
         </div>
       </div>
     </Card>

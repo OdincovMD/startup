@@ -59,7 +59,7 @@ export default function VerifyEmail() {
 
   if (status === "loading") {
     return (
-      <main className="main auth-page">
+      <div className="main auth-page">
         <div className="auth-wrapper">
           <div className="auth-card-modern auth-card-modern--loading">
             <h1>Подтверждение email</h1>
@@ -69,13 +69,13 @@ export default function VerifyEmail() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   if (status === "success") {
     return (
-      <main className="main auth-page">
+      <div className="main auth-page">
         <div className="auth-wrapper">
           <div className="auth-card-modern">
             <h1>Email подтверждён</h1>
@@ -92,12 +92,12 @@ export default function VerifyEmail() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="main auth-page">
+    <div className="main auth-page">
       <div className="auth-wrapper">
         <div className="auth-card-modern">
           <h1>Ошибка подтверждения</h1>
@@ -112,6 +112,6 @@ export default function VerifyEmail() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

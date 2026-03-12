@@ -120,7 +120,7 @@ export default function ForgotPassword() {
   /* ── Sent state ── */
   if (status === "sent") {
     return (
-      <main className="auth-page auth-page--centered">
+      <div className="auth-page auth-page--centered">
         <div className="auth-icon-card">
           <div className="auth-icon-card__icon auth-icon-card__icon--success">
             <MailCheckIcon />
@@ -143,14 +143,14 @@ export default function ForgotPassword() {
             </Link>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   /* ── Sending (auto-send for authenticated user) ── */
   if (status === "sending" && effectiveMail) {
     return (
-      <main className="auth-page auth-page--centered">
+      <div className="auth-page auth-page--centered">
         <div className="auth-icon-card">
           <div className="auth-icon-card__icon auth-icon-card__icon--loading">
             <SpinnerIcon />
@@ -162,13 +162,13 @@ export default function ForgotPassword() {
             </p>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   /* ── Idle / Error state (main form) ── */
   return (
-    <main className="auth-page auth-page--centered">
+    <div className="auth-page auth-page--centered">
       <div className="auth-icon-card">
         <div className="auth-icon-card__icon">
           <LockIcon />
@@ -227,6 +227,6 @@ export default function ForgotPassword() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

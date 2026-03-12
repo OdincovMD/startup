@@ -6,7 +6,8 @@ import {
   AuthButton, 
   AuthIconHeader, 
   EyeOffIcon, 
-  EyeOpenIcon 
+  EyeOpenIcon,
+  ORCID_ICON_URL
 } from "../components/auth";
 import { useAuth } from "../auth/AuthContext";
 import { isValidEmail } from "../utils/validation";
@@ -144,10 +145,11 @@ export default function Login() {
             aria-label="Войти через ORCID"
           >
             <img
-              src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
+              src={ORCID_ICON_URL}
               alt=""
               width="24"
               height="24"
+              aria-hidden
             />
             Войти через ORCID
           </a>

@@ -1,9 +1,9 @@
 import React from "react";
-import { Button } from "../ui";
 
 /**
  * Shared search bar component for listing pages (Vacancies, Laboratories, Organizations).
  * Supports placeholder, aria-label, suggestions listbox ID and data attribute for click-outside detection.
+ * Search is reactive — no submit button needed.
  */
 export function ListingSearchBar({
   searchQuery,
@@ -21,12 +21,10 @@ export function ListingSearchBar({
   searchWrapRef,
   onClear,
   suggestionApplied,
-  onSearchClick = () => {},
   placeholder = "Поиск…",
   ariaLabel = "Поиск",
   suggestionsId = "listing-suggestions-list",
   dataSuggestionsAttr = "data-listing-suggestions",
-  searchButtonText = "Найти",
 }) {
   return (
     <div className="listing-search-bar" ref={searchWrapRef}>
@@ -79,14 +77,6 @@ export function ListingSearchBar({
               ×
             </button>
           )}
-          <Button
-            variant="primary"
-            type="button"
-            onClick={onSearchClick}
-            className="listing-search-bar__btn"
-          >
-            {searchButtonText}
-          </Button>
         </div>
 
         {suggestionsVisible && (

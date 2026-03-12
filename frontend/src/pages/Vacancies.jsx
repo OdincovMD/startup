@@ -5,7 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../ToastContext";
 import { useVacancySearch, useVacancyFilters } from "../hooks";
 import { VacancyCard, VacancySearchBar, VacancyFilters } from "../components/vacancies";
-import { Drawer, Button } from "../components/ui";
+import { Drawer, Button, Card } from "../components/ui";
 import EmployeeModal from "./profile/EmployeeModal";
 import EmptySearchFallback from "../components/EmptySearchFallback";
 
@@ -304,6 +304,47 @@ export default function Vacancies() {
                     )}
                   </div>
 
+                  <div className="vacancy-response vacancy-response--prominent">
+                    {myResponse === null ? (
+                      <p className="vacancy-response__loading">Загрузка…</p>
+                    ) : !auth ? (
+                      <div className="vacancy-response__cta-wrap">
+                        <Button
+                          variant="primary"
+                          size="large"
+                          to={`/login?returnUrl=${encodeURIComponent(`/vacancies/${selectedId}`)}`}
+                          className="vacancy-response__btn"
+                        >
+                          Войти, чтобы откликнуться
+                        </Button>
+                      </div>
+                    ) : myResponse?.has_response ? (
+                      <p className="vacancy-response__status">
+                        Вы откликнулись. Статус:{" "}
+                        <span className="vacancy-response__chip">
+                          {RESPONSE_STATUS_LABELS[myResponse.status] ?? myResponse.status}
+                        </span>
+                      </p>
+                    ) : (
+                      <div className="vacancy-response__cta-wrap">
+                        {respondError && (
+                          <p className="auth-alert auth-alert-error" role="alert">
+                            {respondError}
+                          </p>
+                        )}
+                        <Button
+                          variant="primary"
+                          size="large"
+                          onClick={handleRespond}
+                          disabled={respondLoading}
+                          className="vacancy-response__btn"
+                        >
+                          {respondLoading ? "Отправка…" : "Откликнуться"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
                   {(details.organization || details.laboratory || details.query) && (
                     <div className="vacancy-detail__block">
                       <h2 className="vacancy-detail__block-title">Организация и контекст</h2>
@@ -384,99 +425,68 @@ export default function Vacancies() {
                     </div>
                   )}
 
-                  {details.contact_employee && (
-                    <div className="vacancy-contact">
-                      <button
-                        type="button"
-                        className="vacancy-contact__card"
-                        onClick={() => {
-                          setEmployeePreview(details.contact_employee);
-                          setShowEmployeePublications(false);
-                        }}
-                      >
-                        <span className="vacancy-contact__avatar-wrap">
-                          {details.contact_employee.photo_url ? (
-                            <img
-                              className="vacancy-contact__avatar"
-                              src={details.contact_employee.photo_url}
-                              alt=""
-                            />
-                          ) : (
-                            <span className="vacancy-contact__avatar-placeholder">
-                              {details.contact_employee.full_name
-                                ? details.contact_employee.full_name.charAt(0).toUpperCase()
-                                : "?"}
+                  {(details.contact_employee || details.contact_email || details.contact_phone) && (
+                    <Card variant="elevated" padding="md" className="vacancy-contacts-card">
+                      <h2 className="vacancy-contacts-card__title">Контакты</h2>
+                      <div className="vacancy-contacts-card__content">
+                        {details.contact_employee && (
+                          <button
+                            type="button"
+                            className="vacancy-contact"
+                            onClick={() => {
+                              setEmployeePreview(details.contact_employee);
+                              setShowEmployeePublications(false);
+                            }}
+                          >
+                            <span className="vacancy-contact__avatar-wrap">
+                              {details.contact_employee.photo_url ? (
+                                <img
+                                  className="vacancy-contact__avatar"
+                                  src={details.contact_employee.photo_url}
+                                  alt=""
+                                />
+                              ) : (
+                                <span className="vacancy-contact__avatar-placeholder">
+                                  {details.contact_employee.full_name
+                                    ? details.contact_employee.full_name.charAt(0).toUpperCase()
+                                    : "?"}
+                                </span>
+                              )}
                             </span>
-                          )}
-                        </span>
-                        <span className="vacancy-contact__body">
-                          <span className="vacancy-contact__label">Контактное лицо</span>
-                          <span className="vacancy-contact__name">{details.contact_employee.full_name}</span>
-                          {details.contact_employee.academic_degree && (
-                            <span className="vacancy-contact__meta">{details.contact_employee.academic_degree}</span>
-                          )}
-                          {(details.contact_employee.positions || []).length > 0 && (
-                            <span className="vacancy-contact__meta">{details.contact_employee.positions.join(", ")}</span>
-                          )}
-                          <span className="vacancy-contact__cta">Открыть профиль →</span>
-                        </span>
-                      </button>
-                    </div>
-                  )}
-
-                  {!details.contact_employee && (details.contact_email || details.contact_phone) && (
-                    <div className="org-detail-section org-detail-section--inline">
-                      <h2 className="org-detail-section__title">Контакт</h2>
-                      <p className="org-detail-hero__description">
-                        {details.contact_email && (
-                          <span>
-                            Email:{" "}
-                            <a href={`mailto:${details.contact_email}`} className="org-detail-hero__link">
-                              {details.contact_email}
-                            </a>
-                          </span>
+                            <span className="vacancy-contact__body">
+                              <span className="vacancy-contact__label">Контактное лицо</span>
+                              <span className="vacancy-contact__name">{details.contact_employee.full_name}</span>
+                              {details.contact_employee.academic_degree && (
+                                <span className="vacancy-contact__meta">{details.contact_employee.academic_degree}</span>
+                              )}
+                              {(details.contact_employee.positions || []).length > 0 && (
+                                <span className="vacancy-contact__meta">{details.contact_employee.positions.join(", ")}</span>
+                              )}
+                              <span className="vacancy-contact__cta">Открыть профиль →</span>
+                            </span>
+                          </button>
                         )}
-                        {details.contact_email && details.contact_phone && " · "}
-                        {details.contact_phone && <span>Телефон: {details.contact_phone}</span>}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="vacancy-response">
-                    {myResponse === null ? (
-                      <p className="vacancy-response__loading">Загрузка…</p>
-                    ) : !auth ? (
-                      <Link
-                        to={`/login?returnUrl=${encodeURIComponent(`/vacancies/${selectedId}`)}`}
-                        className="primary-btn vacancy-response__btn"
-                      >
-                        Войти, чтобы откликнуться
-                      </Link>
-                    ) : myResponse?.has_response ? (
-                      <p className="vacancy-response__status">
-                        Вы откликнулись. Статус:{" "}
-                        <span className="vacancy-response__chip">
-                          {RESPONSE_STATUS_LABELS[myResponse.status] ?? myResponse.status}
-                        </span>
-                      </p>
-                    ) : (
-                      <>
-                        {respondError && (
-                          <p className="auth-alert auth-alert-error" role="alert">
-                            {respondError}
-                          </p>
+                        {(details.contact_email || details.contact_phone) && (
+                          <div className="vacancy-contacts-card__data">
+                            {details.contact_email && (
+                              <div className="vacancy-contacts-card__row">
+                                <span className="vacancy-contacts-card__label">Email</span>
+                                <a href={`mailto:${details.contact_email}`} className="vacancy-contacts-card__link">
+                                  {details.contact_email}
+                                </a>
+                              </div>
+                            )}
+                            {details.contact_phone && (
+                              <div className="vacancy-contacts-card__row">
+                                <span className="vacancy-contacts-card__label">Телефон</span>
+                                <span>{details.contact_phone}</span>
+                              </div>
+                            )}
+                          </div>
                         )}
-                        <button
-                          type="button"
-                          className="primary-btn vacancy-response__btn"
-                          onClick={handleRespond}
-                          disabled={respondLoading}
-                        >
-                          {respondLoading ? "Отправка…" : "Откликнуться"}
-                        </button>
-                      </>
-                    )}
-                  </div>
+                      </div>
+                    </Card>
+                  )}
                 </div>
               </div>
             </div>
@@ -497,9 +507,11 @@ export default function Vacancies() {
   }
 
   return (
-    <main className="listing-page">
-      <h1 className="listing-page__title">Вакансии</h1>
-      <div className="listing-page__grid">
+    <main className="main">
+      <section className="section">
+        <div className="listing-page">
+          <h1 className="listing-page__title">Вакансии</h1>
+          <div className="listing-page__grid">
         <aside className="listing-page__sidebar">
           <VacancyFilters
             employmentType={filters.employmentType}
@@ -534,7 +546,6 @@ export default function Vacancies() {
               searchWrapRef={search.searchWrapRef}
               onClear={() => search.setSearchQuery("")}
               suggestionApplied={search.suggestionApplied}
-              onSearchClick={search.hideSuggestions}
             />
             <select
               className="listing-page__sort"
@@ -578,7 +589,7 @@ export default function Vacancies() {
 
           {!loading && !error && (
             <>
-              <div className="listing-page__list">
+              <div className="listing-page__list listing-page__list--grid">
                 {vacancies.length === 0 ? (
                   hasFilters ? (
                     <div className="listing-page__empty">
@@ -653,6 +664,8 @@ export default function Vacancies() {
           )}
         </div>
       </div>
+        </div>
+      </section>
 
       <Drawer
         isOpen={filtersDrawerOpen}

@@ -12,7 +12,7 @@ import {
   OrganizationDetailCard,
 } from "../components/organization";
 import { ListingSearchBar } from "../components/listing";
-import { Drawer, Button } from "../components/ui";
+import { Drawer, Button, Card } from "../components/ui";
 import EmptySearchFallback from "../components/EmptySearchFallback";
 
 const ORGANIZATIONS_PAGE_SIZE = 20;
@@ -312,7 +312,6 @@ export default function Organizations() {
                     searchWrapRef={search.searchWrapRef}
                     onClear={() => search.setSearchQuery("")}
                     suggestionApplied={search.suggestionApplied}
-                    onSearchClick={search.hideSuggestions}
                     placeholder="Название, описание, ROR ID, лаборатории, сотрудники, оборудование…"
                     ariaLabel="Поиск по организациям"
                     suggestionsId="org-suggestions-list"
@@ -559,59 +558,48 @@ export default function Organizations() {
                       empty={detailsMap[selectedId].employees.length === 0}
                     >
                       <div className="org-detail-grid org-detail-grid--employees">
-                    {detailsMap[selectedId].employees.map((employee) => {
-                      const interests = Array.isArray(employee.research_interests) ? employee.research_interests : [];
-                      return (
-                        <OrganizationDetailCard
-                          key={employee.id}
-                          clickable
-                          variant="employee"
-                          onClick={() => {
-                            setEmployeePreview(employee);
-                            setShowEmployeePublications(false);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              setEmployeePreview(employee);
-                              setShowEmployeePublications(false);
-                            }
-                          }}
-                        >
-                          {employee.photo_url ? (
-                            <img
-                              className="org-detail-card__avatar"
-                              src={employee.photo_url}
-                              alt=""
-                            />
-                          ) : (
-                            <div className="org-detail-card__avatar-placeholder">
-                              {employee.full_name ? employee.full_name.charAt(0).toUpperCase() : "?"}
-                            </div>
-                          )}
-                          <h3 className="org-detail-card__title">{employee.full_name}</h3>
-                          {employee.academic_degree && (
-                            <p className="org-detail-card__text org-detail-card__text--muted">
-                              {employee.academic_degree}
-                            </p>
-                          )}
-                          {(employee.positions || []).length > 0 && (
-                            <p className="org-detail-card__text org-detail-card__text--positions">
-                              {employee.positions.join(", ")}
-                            </p>
-                          )}
-                          {interests.length > 0 && (
-                            <div className="org-detail-card__chips org-detail-card__chips--interests">
-                              {interests.slice(0, 3).map((interest) => (
-                                <span key={interest} className="org-detail-chip">{interest}</span>
-                              ))}
-                              {interests.length > 3 && <span className="org-detail-chip">+{interests.length - 3}</span>}
-                            </div>
-                          )}
-                          <span className="org-detail-card__cta">Профиль →</span>
-                        </OrganizationDetailCard>
-                      );
-                    })}
+                        {detailsMap[selectedId].employees.map((employee) => {
+                          const position = [employee.academic_degree, (employee.positions || []).join(", ")]
+                            .filter(Boolean)
+                            .join(" · ");
+                          return (
+                            <Card
+                              key={employee.id}
+                              variant="glass"
+                              padding="sm"
+                              className="employee-mini-card"
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => {
+                                setEmployeePreview(employee);
+                                setShowEmployeePublications(false);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setEmployeePreview(employee);
+                                  setShowEmployeePublications(false);
+                                }
+                              }}
+                            >
+                              <div className="employee-mini-card__avatar">
+                                {employee.photo_url ? (
+                                  <img src={employee.photo_url} alt="" />
+                                ) : (
+                                  <span className="employee-mini-card__avatar-fallback">
+                                    {employee.full_name ? employee.full_name.charAt(0).toUpperCase() : "?"}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="employee-mini-card__info">
+                                <span className="employee-mini-card__name">{employee.full_name}</span>
+                                {position && (
+                                  <span className="employee-mini-card__meta">{position}</span>
+                                )}
+                              </div>
+                            </Card>
+                          );
+                        })}
                       </div>
                     </OrganizationSection>
                     <OrganizationSection

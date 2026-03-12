@@ -27,7 +27,7 @@ export default function AuthCallback() {
 
   if (error) {
     return (
-      <main className="main auth-page">
+      <div className="main auth-page">
         <div className="auth-wrapper">
           <div className="auth-card-modern">
             <h1>Ошибка входа</h1>
@@ -37,18 +37,18 @@ export default function AuthCallback() {
             </Link>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="main auth-page">
+    <div className="main auth-page">
       <div className="auth-wrapper">
         <div className="auth-card-modern">
           <h1>Вход выполнен</h1>
           <p className="auth-subtitle">Перенаправление в профиль...</p>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
