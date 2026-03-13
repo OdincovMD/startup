@@ -1,5 +1,8 @@
 import React, { useRef, useState } from "react";
 import { normalizeWebsiteInput } from "../../utils/validation";
+import { Card } from "../../components/ui/Card";
+import { Input } from "../../components/ui/Input";
+import { Button } from "../../components/ui/Button";
 
 const fileNameFromUrl = (url) => {
   try {
@@ -109,9 +112,13 @@ export default function ResearcherProfileSection({
   };
 
   return (
-    <div className="profile-section profile-section--no-border">
-      {!hideTitle && <h3 className="profile-section-title">Профиль исследователя</h3>}
-      <p className="profile-section-desc">Научная деятельность и поиск работы</p>
+    <Card variant="solid" padding="lg" className="profile-section-card">
+      {!hideTitle && (
+        <h2 className="profile-section-card__title">Профиль исследователя</h2>
+      )}
+      <p className="profile-section-desc">
+        Научная деятельность и поиск работы
+      </p>
 
       <div className="profile-form profile-form--grouped">
         <div className="profile-form-group">
@@ -125,24 +132,22 @@ export default function ResearcherProfileSection({
               {p.is_published ? "Опубликовано" : "Черновик"}
             </span>
           </div>
-          <label>
-            Учёная степень / звание
-            <input
-              value={p.academic_degree || ""}
-              onChange={(e) => handleResearcherChange("academic_degree", e.target.value)}
-              placeholder="Доктор химических наук, профессор"
-            />
-          </label>
-          <label>
-            Должность
-            <input
-              value={p.position || ""}
-              onChange={(e) => handleResearcherChange("position", e.target.value)}
-              placeholder="Ведущий научный сотрудник, постдок"
-            />
-          </label>
-          <label htmlFor="researcher-interests">
-            Научные интересы
+          <Input
+            id="researcher-academic_degree"
+            label="Учёная степень / звание"
+            value={p.academic_degree || ""}
+            onChange={(e) => handleResearcherChange("academic_degree", e.target.value)}
+            placeholder="Доктор химических наук, профессор"
+          />
+          <Input
+            id="researcher-position"
+            label="Должность"
+            value={p.position || ""}
+            onChange={(e) => handleResearcherChange("position", e.target.value)}
+            placeholder="Ведущий научный сотрудник, постдок"
+          />
+          <div className="ui-input-group">
+            <label htmlFor="researcher-interests">Научные интересы</label>
             <TagInput
               id="researcher-interests"
               value={p.research_interests || []}
@@ -150,7 +155,7 @@ export default function ResearcherProfileSection({
               placeholder="Введите интерес и нажмите запятую или Enter"
             />
             <span className="profile-field-hint">Материаловедение, наноэнзимы и т.д.</span>
-          </label>
+          </div>
         </div>
 
         <div className="profile-form-group">
@@ -225,42 +230,39 @@ export default function ResearcherProfileSection({
         <div className="profile-form-group">
           <div className="profile-form-group-title">Индексы цитирования</div>
           <div className="researcher-hindex-grid">
-            <label>
-              h-index WoS
-              <input
-                type="number"
-                value={p.hindex_wos ?? ""}
-                onChange={(e) =>
-                  handleResearcherChange("hindex_wos", e.target.value ? Number(e.target.value) : null)
-                }
-                placeholder="—"
-                min="0"
-              />
-            </label>
-            <label>
-              h-index Scopus
-              <input
-                type="number"
-                value={p.hindex_scopus ?? ""}
-                onChange={(e) =>
-                  handleResearcherChange("hindex_scopus", e.target.value ? Number(e.target.value) : null)
-                }
-                placeholder="—"
-                min="0"
-              />
-            </label>
-            <label>
-              h-index РИНЦ
-              <input
-                type="number"
-                value={p.hindex_rsci ?? ""}
-                onChange={(e) =>
-                  handleResearcherChange("hindex_rsci", e.target.value ? Number(e.target.value) : null)
-                }
-                placeholder="—"
-                min="0"
-              />
-            </label>
+            <Input
+              id="hindex_wos"
+              label="h-index WoS"
+              type="number"
+              value={p.hindex_wos ?? ""}
+              onChange={(e) =>
+                handleResearcherChange("hindex_wos", e.target.value ? Number(e.target.value) : null)
+              }
+              placeholder="—"
+              min={0}
+            />
+            <Input
+              id="hindex_scopus"
+              label="h-index Scopus"
+              type="number"
+              value={p.hindex_scopus ?? ""}
+              onChange={(e) =>
+                handleResearcherChange("hindex_scopus", e.target.value ? Number(e.target.value) : null)
+              }
+              placeholder="—"
+              min={0}
+            />
+            <Input
+              id="hindex_rsci"
+              label="h-index РИНЦ"
+              type="number"
+              value={p.hindex_rsci ?? ""}
+              onChange={(e) =>
+                handleResearcherChange("hindex_rsci", e.target.value ? Number(e.target.value) : null)
+              }
+              placeholder="—"
+              min={0}
+            />
           </div>
         </div>
 
@@ -296,7 +298,8 @@ export default function ResearcherProfileSection({
               {(p.publications || []).map((pub, index) => (
                 <div key={`pub-${index}`} className="publication-card">
                   <div className="publication-card-fields">
-                    <input
+                    <Input
+                      id={`pub-title-${index}`}
                       value={pub.title || ""}
                       onChange={(e) => {
                         const next = [...(p.publications || [])];
@@ -306,7 +309,8 @@ export default function ResearcherProfileSection({
                       placeholder="Название статьи"
                       className="publication-title-input"
                     />
-                    <input
+                    <Input
+                      id={`pub-link-${index}`}
                       type="url"
                       value={pub.link || ""}
                       onChange={(e) => {
@@ -361,71 +365,70 @@ export default function ResearcherProfileSection({
               </label>
             ))}
           </div>
-          <label>
-            Желаемые должности
-            <input
-              value={p.desired_positions || ""}
-              onChange={(e) => handleResearcherChange("desired_positions", e.target.value)}
-              placeholder="Постдок, научный сотрудник, руководитель группы"
+          <Input
+            id="researcher-desired_positions"
+            label="Желаемые должности"
+            value={p.desired_positions || ""}
+            onChange={(e) => handleResearcherChange("desired_positions", e.target.value)}
+            placeholder="Постдок, научный сотрудник, руководитель группы"
+          />
+          <Input
+            id="researcher-employment_type"
+            label="Предпочтительный тип занятости"
+            value={p.employment_type_preference || ""}
+            onChange={(e) => handleResearcherChange("employment_type_preference", e.target.value)}
+            placeholder="Полная занятость, частичная, удалённо"
+          />
+          <Input
+            id="researcher-preferred_region"
+            label="Предпочтительный регион"
+            value={p.preferred_region || ""}
+            onChange={(e) => handleResearcherChange("preferred_region", e.target.value)}
+            placeholder="Москва, Санкт-Петербург, удалённо"
+          />
+          <div className="profile-form__row job-search-row">
+            <Input
+              id="researcher-availability_date"
+              label="Дата выхода на работу"
+              value={p.availability_date || ""}
+              onChange={(e) => handleResearcherChange("availability_date", e.target.value)}
+              placeholder="Сентябрь 2025"
             />
-          </label>
-          <label>
-            Предпочтительный тип занятости
-            <input
-              value={p.employment_type_preference || ""}
-              onChange={(e) => handleResearcherChange("employment_type_preference", e.target.value)}
-              placeholder="Полная занятость, частичная, удалённо"
+            <Input
+              id="researcher-salary_expectation"
+              label="Ожидания по зарплате"
+              value={p.salary_expectation || ""}
+              onChange={(e) => handleResearcherChange("salary_expectation", e.target.value)}
+              placeholder="По договорённости"
             />
-          </label>
-          <label>
-            Предпочтительный регион
-            <input
-              value={p.preferred_region || ""}
-              onChange={(e) => handleResearcherChange("preferred_region", e.target.value)}
-              placeholder="Москва, Санкт-Петербург, удалённо"
-            />
-          </label>
-          <div className="job-search-row">
-            <label>
-              Дата выхода на работу
-              <input
-                value={p.availability_date || ""}
-                onChange={(e) => handleResearcherChange("availability_date", e.target.value)}
-                placeholder="Сентябрь 2025"
-              />
-            </label>
-            <label>
-              Ожидания по зарплате
-              <input
-                value={p.salary_expectation || ""}
-                onChange={(e) => handleResearcherChange("salary_expectation", e.target.value)}
-                placeholder="По договорённости"
-              />
-            </label>
           </div>
-          <label>
-            Дополнительно о поиске работы
+          <div className="ui-input-group">
+            <label htmlFor="researcher-job_search_notes">Дополнительно о поиске работы</label>
             <textarea
+              id="researcher-job_search_notes"
               rows={3}
+              className="ui-input"
               value={p.job_search_notes || ""}
               onChange={(e) => handleResearcherChange("job_search_notes", e.target.value)}
               placeholder="Готов к релокации, интересуют международные проекты..."
             />
-          </label>
+          </div>
         </div>
 
         <div className="profile-form-group">
           <div className="profile-form-group-title">Резюме и документы</div>
-          <label>
-            Резюме / CV
+          <div className="ui-input-group">
+            <label htmlFor="researcher-resume">Резюме / CV</label>
             <input
               ref={resumeInputRef}
+              id="researcher-resume"
               type="file"
+              className="ui-input"
               accept=".pdf,.doc,.docx,.txt"
               onChange={(e) => uploadResearcherResume?.(e.target.files?.[0])}
               disabled={uploading || saving}
             />
-          </label>
+          </div>
           {p.resume_url && (
             <div className="file-item">
               <a href={p.resume_url} target="_blank" rel="noopener noreferrer">
@@ -440,16 +443,18 @@ export default function ResearcherProfileSection({
               </button>
             </div>
           )}
-          <label>
-            Дополнительные документы (сертификаты, дипломы и т.д.)
+          <div className="ui-input-group">
+            <label htmlFor="researcher-docs">Дополнительные документы (сертификаты, дипломы и т.д.)</label>
             <input
               ref={documentInputRef}
+              id="researcher-docs"
               type="file"
+              className="ui-input"
               accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
               onChange={(e) => uploadResearcherDocument?.(e.target.files?.[0])}
               disabled={uploading || saving}
             />
-          </label>
+          </div>
           {(p.document_urls || []).map((url, index) => (
             <div key={`doc-${index}`} className="file-item">
               <a href={url} target="_blank" rel="noopener noreferrer">
@@ -467,20 +472,20 @@ export default function ResearcherProfileSection({
         </div>
 
         <div className="profile-actions-wrap">
-          <button className="primary-btn" onClick={handleSave} disabled={saving}>
+          <Button variant="primary" onClick={handleSave} loading={saving} disabled={saving}>
             {saving ? "Сохраняем..." : "Сохранить"}
-          </button>
+          </Button>
           {togglePublish && (
-            <button
-              className={p.is_published ? "ghost-btn secondary" : "ghost-btn"}
+            <Button
+              variant={p.is_published ? "secondary" : "ghost"}
               onClick={() => togglePublish()}
               disabled={saving}
             >
               {p.is_published ? "Снять с публикации" : "Опубликовать"}
-            </button>
+            </Button>
           )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

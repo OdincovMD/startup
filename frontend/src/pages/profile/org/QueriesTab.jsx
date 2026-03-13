@@ -1,4 +1,8 @@
 import React, { useState, useRef } from "react";
+import { Card } from "../../../components/ui/Card";
+import { Button } from "../../../components/ui/Button";
+import { Input } from "../../../components/ui/Input";
+import { Badge } from "../../../components/ui/Badge";
 
 const STATUS_OPTIONS = [
   { value: "active", label: "Активный", hint: "Запрос открыт для откликов" },
@@ -56,51 +60,47 @@ export default function QueriesTab({
   };
 
   return (
-    <div className="profile-form">
-      <div className="lab-tab-header">
-        <p className="lab-tab-desc">Создавайте запросы на решение задач, указывайте бюджет, сроки и грант. Привязывайте к лабораториям и сотрудникам.</p>
-        <button type="button" className="primary-btn lab-btn-add" onClick={handleAddQueryClick}>
+    <Card variant="solid" padding="lg" className="profile-section-card">
+      <div className="profile-section-header">
+        <h2 className="profile-section-card__title" style={{ margin: 0 }}>Запросы</h2>
+        <Button variant="primary" onClick={handleAddQueryClick}>
           + Добавить запрос
-        </button>
+        </Button>
       </div>
+      <p className="profile-section-desc" style={{ marginBottom: "1.5rem" }}>
+        Создавайте запросы на решение задач, указывайте бюджет, сроки и грант. Привязывайте к лабораториям и сотрудникам.
+      </p>
       <div className="profile-list" ref={listRef}>
-        {orgQueries.length === 0 && <p className="muted">Запросы пока не добавлены.</p>}
+        {orgQueries.length === 0 && (
+          <div className="profile-empty-state">
+            Запросы пока не добавлены.
+          </div>
+        )}
         {orgQueries.map((query) => (
-          <div key={query.id} className="profile-list-card query-card">
-            <div className="profile-list-content">
-              <div className="profile-list-title">
-                {query.title}
-                <span
-                  className={`org-detail-chip org-detail-chip--status ${query.is_published ? "org-detail-chip--published" : "org-detail-chip--draft"}`}
-                  title={query.is_published ? "Запрос опубликован" : "Черновик запроса"}
-                >
-                  {query.is_published ? "Опубликован" : "Черновик"}
-                </span>
-              </div>
-              <div className="profile-list-text small muted">
-                {query.status && `Статус: ${STATUS_OPTIONS.find((o) => o.value === query.status)?.label || query.status}`}
-              </div>
-              {query.task_description && (
-                <div className="profile-list-text" title={query.task_description}>
-                  {query.task_description.length > 140
-                    ? `${query.task_description.slice(0, 140)}…`
-                    : query.task_description}
-                </div>
-              )}
-              {query.completed_examples && <div className="profile-list-text small muted">{query.completed_examples}</div>}
-              {(query.grant_info || query.budget || query.deadline) && (
-                <div className="profile-list-text small muted">
-                  {query.grant_info && <span>Грант: {query.grant_info}</span>}
-                  {query.grant_info && (query.budget || query.deadline) && " · "}
-                  {query.budget && <span>Бюджет: {query.budget}</span>}
-                  {query.budget && query.deadline && " · "}
-                  {query.deadline && <span>Дедлайн: {query.deadline}</span>}
-                </div>
-              )}
-              {query.status && <span className="profile-list-text small muted">Статус: {STATUS_OPTIONS.find((o) => o.value === query.status)?.label || query.status}</span>}
-              {query.linked_task_solution && (
-                <div className="profile-list-text small muted">Решённая задача: {query.linked_task_solution.title}</div>
-              )}
+          <Card key={query.id} variant="elevated" padding="md" className="dashboard-list-item query-card">
+            <div className="dashboard-list-item__title-row">
+              <h4 className="dashboard-list-item__title">{query.title}</h4>
+              <Badge variant={query.is_published ? "published" : "draft"} className="dashboard-list-item__badge">
+                {query.is_published ? "Опубликован" : "Черновик"}
+              </Badge>
+            </div>
+            <div className="profile-list-text muted">
+              {[
+                query.status && `Статус: ${STATUS_OPTIONS.find((o) => o.value === query.status)?.label || query.status}`,
+                query.grant_info && `Грант: ${query.grant_info}`,
+                query.budget && `Бюджет: ${query.budget}`,
+                query.deadline && `Дедлайн: ${query.deadline}`,
+                query.linked_task_solution && `Задача: ${query.linked_task_solution.title}`,
+              ].filter(Boolean).join(" · ")}
+            </div>
+            {query.task_description && (
+              <p className="profile-list-text" style={{ margin: 0 }} title={query.task_description}>
+                {query.task_description.length > 140
+                  ? `${query.task_description.slice(0, 140)}…`
+                  : query.task_description}
+              </p>
+            )}
+            {query.completed_examples && <p className="profile-list-text muted" style={{ margin: 0 }}>{query.completed_examples}</p>}
               {(query.laboratories || []).length > 0 && (
                 <div className="chip-row">
                   {query.laboratories.map((lab) => <span key={lab.id} className="chip">{lab.name}</span>)}
@@ -116,20 +116,63 @@ export default function QueriesTab({
                   {query.vacancies.map((v) => <span key={v.id} className="chip">{v.name}</span>)}
                 </div>
               )}
-            </div>
             {editingQueryId === query.id && queryEdit ? (
-              <div className="profile-edit lab-form-grouped">
+              <div className="profile-edit lab-form-grouped profile-form">
                 <div className="profile-form-group">
                   <div className="profile-form-group-title">Основная информация</div>
-                  <label>Название <input value={queryEdit.title} onChange={(e) => setQueryEdit((prev) => ({ ...prev, title: e.target.value }))} placeholder="Например: Разработка аналитического метода" /></label>
-                  <label>Описание задачи <textarea rows={3} value={queryEdit.task_description} onChange={(e) => setQueryEdit((prev) => ({ ...prev, task_description: e.target.value }))} placeholder="Опишите задачу, проблему и ожидаемый результат" /></label>
-                  <label>Примеры и кейсы <textarea rows={2} value={queryEdit.completed_examples} onChange={(e) => setQueryEdit((prev) => ({ ...prev, completed_examples: e.target.value }))} placeholder="Пилотные проекты, внедрения, похожие решения" /></label>
+                  <Input
+                    id={`query-edit-title-${query.id}`}
+                    label="Название"
+                    value={queryEdit.title}
+                    onChange={(e) => setQueryEdit((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder="Например: Разработка аналитического метода"
+                  />
+                  <div className="ui-input-group">
+                    <label htmlFor={`query-edit-task-${query.id}`}>Описание задачи</label>
+                    <textarea
+                      id={`query-edit-task-${query.id}`}
+                      rows={3}
+                      className="ui-input"
+                      value={queryEdit.task_description}
+                      onChange={(e) => setQueryEdit((prev) => ({ ...prev, task_description: e.target.value }))}
+                      placeholder="Опишите задачу, проблему и ожидаемый результат"
+                    />
+                  </div>
+                  <div className="ui-input-group">
+                    <label htmlFor={`query-edit-examples-${query.id}`}>Примеры и кейсы</label>
+                    <textarea
+                      id={`query-edit-examples-${query.id}`}
+                      rows={2}
+                      className="ui-input"
+                      value={queryEdit.completed_examples}
+                      onChange={(e) => setQueryEdit((prev) => ({ ...prev, completed_examples: e.target.value }))}
+                      placeholder="Пилотные проекты, внедрения, похожие решения"
+                    />
+                  </div>
                 </div>
                 <div className="profile-form-group">
                   <div className="profile-form-group-title">Бюджет, сроки и грант</div>
-                  <label>Грант <input value={queryEdit.grant_info || ""} onChange={(e) => setQueryEdit((prev) => ({ ...prev, grant_info: e.target.value }))} placeholder="Название или номер гранта" /></label>
-                  <label>Бюджет <input value={queryEdit.budget} onChange={(e) => setQueryEdit((prev) => ({ ...prev, budget: e.target.value }))} placeholder="Диапазон или сумма, руб." /></label>
-                  <label>Дедлайн <input value={queryEdit.deadline} onChange={(e) => setQueryEdit((prev) => ({ ...prev, deadline: e.target.value }))} placeholder="ДД.ММ.ГГГГ или квартал 2026" /></label>
+                  <Input
+                    id={`query-edit-grant-${query.id}`}
+                    label="Грант"
+                    value={queryEdit.grant_info || ""}
+                    onChange={(e) => setQueryEdit((prev) => ({ ...prev, grant_info: e.target.value }))}
+                    placeholder="Название или номер гранта"
+                  />
+                  <Input
+                    id={`query-edit-budget-${query.id}`}
+                    label="Бюджет"
+                    value={queryEdit.budget}
+                    onChange={(e) => setQueryEdit((prev) => ({ ...prev, budget: e.target.value }))}
+                    placeholder="Диапазон или сумма, руб."
+                  />
+                  <Input
+                    id={`query-edit-deadline-${query.id}`}
+                    label="Дедлайн"
+                    value={queryEdit.deadline}
+                    onChange={(e) => setQueryEdit((prev) => ({ ...prev, deadline: e.target.value }))}
+                    placeholder="ДД.ММ.ГГГГ или квартал 2026"
+                  />
                   <div className="query-field query-field-status">
                     <span className="query-field-label">Статус</span>
                     <div className="query-status-selector">
@@ -188,23 +231,25 @@ export default function QueriesTab({
                   )}
                 </div>
                 <div className="lab-form-actions">
-                  <button className="primary-btn lab-btn-save" onClick={updateQuery} disabled={saving}>{saving ? "Сохранение…" : "Сохранить"}</button>
-                  <button className="ghost-btn" onClick={cancelEditQuery} disabled={saving}>Отмена</button>
-                  <button className="ghost-btn" onClick={() => toggleQueryPublish(query.id, !query.is_published)} disabled={saving}>
+                  <Button variant="primary" onClick={updateQuery} loading={saving} disabled={saving}>
+                    {saving ? "Сохранение…" : "Сохранить"}
+                  </Button>
+                  <Button variant="ghost" onClick={cancelEditQuery} disabled={saving}>Отмена</Button>
+                  <Button variant="ghost" onClick={() => toggleQueryPublish(query.id, !query.is_published)} disabled={saving}>
                     {query.is_published ? "Снять с публикации" : "Опубликовать"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
-              <div className="lab-card-actions">
-                <button className="primary-btn lab-btn-edit" onClick={() => startEditQuery(query)} disabled={saving}>Редактировать</button>
-                <button className="ghost-btn lab-btn-delete" onClick={() => deleteQuery(query.id)} disabled={saving}>Удалить</button>
-                <button className="ghost-btn" onClick={() => toggleQueryPublish(query.id, !query.is_published)} disabled={saving}>
+              <div className="dashboard-list-item__actions">
+                <Button variant="primary" size="small" onClick={() => startEditQuery(query)} disabled={saving}>Редактировать</Button>
+                <Button variant="ghost" size="small" className="lab-btn-delete" onClick={() => deleteQuery(query.id)} disabled={saving}>Удалить</Button>
+                <Button variant="ghost" size="small" onClick={() => toggleQueryPublish(query.id, !query.is_published)} disabled={saving}>
                   {query.is_published ? "Снять с публикации" : "Опубликовать"}
-                </button>
+                </Button>
               </div>
             )}
-          </div>
+          </Card>
         ))}
       </div>
 
@@ -215,18 +260,62 @@ export default function QueriesTab({
         <button type="button" className="profile-form-collapsible-header" onClick={() => setExpandedNewQuery((prev) => !prev)} aria-expanded={expandedNewQuery}>
           Новый запрос
         </button>
-        <div className="profile-form-collapsible-body lab-form-grouped">
+        <div className="profile-form-collapsible-body lab-form-grouped profile-form">
           <div className="profile-form-group">
             <div className="profile-form-group-title">Основная информация</div>
-            <label>Название <input value={queryDraft.title} onChange={(e) => setQueryDraft((prev) => ({ ...prev, title: e.target.value }))} placeholder="Например: Разработка аналитического метода" /></label>
-            <label>Описание задачи <textarea rows={3} value={queryDraft.task_description} onChange={(e) => setQueryDraft((prev) => ({ ...prev, task_description: e.target.value }))} placeholder="Опишите задачу, проблему и ожидаемый результат" /></label>
-            <label>Примеры и кейсы <textarea rows={2} value={queryDraft.completed_examples} onChange={(e) => setQueryDraft((prev) => ({ ...prev, completed_examples: e.target.value }))} placeholder="Пилотные проекты, внедрения, похожие решения" /></label>
+            <Input
+              id="query-draft-title"
+              label="Название"
+              value={queryDraft.title}
+              onChange={(e) => setQueryDraft((prev) => ({ ...prev, title: e.target.value }))}
+              placeholder="Например: Разработка аналитического метода"
+            />
+            <div className="ui-input-group">
+              <label htmlFor="query-draft-task">Описание задачи</label>
+              <textarea
+                id="query-draft-task"
+                rows={3}
+                className="ui-input"
+                value={queryDraft.task_description}
+                onChange={(e) => setQueryDraft((prev) => ({ ...prev, task_description: e.target.value }))}
+                placeholder="Опишите задачу, проблему и ожидаемый результат"
+              />
+            </div>
+            <div className="ui-input-group">
+              <label htmlFor="query-draft-examples">Примеры и кейсы</label>
+              <textarea
+                id="query-draft-examples"
+                rows={2}
+                className="ui-input"
+                value={queryDraft.completed_examples}
+                onChange={(e) => setQueryDraft((prev) => ({ ...prev, completed_examples: e.target.value }))}
+                placeholder="Пилотные проекты, внедрения, похожие решения"
+              />
+            </div>
           </div>
           <div className="profile-form-group">
             <div className="profile-form-group-title">Бюджет, сроки и грант</div>
-            <label>Грант <input value={queryDraft.grant_info} onChange={(e) => setQueryDraft((prev) => ({ ...prev, grant_info: e.target.value }))} placeholder="Название или номер гранта" /></label>
-            <label>Бюджет <input value={queryDraft.budget} onChange={(e) => setQueryDraft((prev) => ({ ...prev, budget: e.target.value }))} placeholder="Диапазон или сумма, руб." /></label>
-            <label>Дедлайн <input value={queryDraft.deadline} onChange={(e) => setQueryDraft((prev) => ({ ...prev, deadline: e.target.value }))} placeholder="ДД.ММ.ГГГГ или квартал 2026" /></label>
+            <Input
+              id="query-draft-grant"
+              label="Грант"
+              value={queryDraft.grant_info}
+              onChange={(e) => setQueryDraft((prev) => ({ ...prev, grant_info: e.target.value }))}
+              placeholder="Название или номер гранта"
+            />
+            <Input
+              id="query-draft-budget"
+              label="Бюджет"
+              value={queryDraft.budget}
+              onChange={(e) => setQueryDraft((prev) => ({ ...prev, budget: e.target.value }))}
+              placeholder="Диапазон или сумма, руб."
+            />
+            <Input
+              id="query-draft-deadline"
+              label="Дедлайн"
+              value={queryDraft.deadline}
+              onChange={(e) => setQueryDraft((prev) => ({ ...prev, deadline: e.target.value }))}
+              placeholder="ДД.ММ.ГГГГ или квартал 2026"
+            />
             <div className="query-field query-field-status">
               <span className="query-field-label">Статус</span>
               <div className="query-status-selector">
@@ -285,10 +374,12 @@ export default function QueriesTab({
             )}
           </div>
           <div className="lab-form-actions lab-form-actions--create">
-            <button className="primary-btn lab-btn-save" onClick={handleCreateQuery} disabled={saving}>{saving ? "Сохранение…" : "Создать запрос"}</button>
+            <Button variant="primary" onClick={handleCreateQuery} loading={saving} disabled={saving}>
+              {saving ? "Сохранение…" : "Создать запрос"}
+            </Button>
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

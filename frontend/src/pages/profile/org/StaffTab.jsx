@@ -1,5 +1,8 @@
 import React, { useRef, useEffect, useState } from "react";
 import { formatPhoneRU, normalizeWebsiteInput } from "../../../utils/validation";
+import { Card } from "../../../components/ui/Card";
+import { Button } from "../../../components/ui/Button";
+import { Input } from "../../../components/ui/Input";
 
 function TagInput({ value = [], onChange, placeholder, id }) {
   const [inputValue, setInputValue] = useState("");
@@ -85,10 +88,19 @@ export default function StaffTab({
   const editPhotoInputRef = useRef(null);
   const newEmployeeRef = useRef(null);
   const listRef = useRef(null);
+  const editFormRef = useRef(null);
 
   useEffect(() => {
     onFileInputRefsReady?.([draftPhotoInputRef, editPhotoInputRef]);
   }, [onFileInputRefsReady]);
+
+  useEffect(() => {
+    if (employeeEditId && editFormRef.current) {
+      requestAnimationFrame(() => {
+        editFormRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }, [employeeEditId]);
 
   const [employeeImportInput, setEmployeeImportInput] = useState("");
   const [employeeImporting, setEmployeeImporting] = useState(false);
@@ -153,17 +165,22 @@ export default function StaffTab({
   };
 
   return (
-    <div className="profile-form">
-      <div className="lab-tab-header">
-        <p className="lab-tab-desc">Добавляйте сотрудников организации. Можно импортировать данные из OpenAlex.</p>
-        <button type="button" className="primary-btn lab-btn-add" onClick={handleAddEmployeeClick}>
+    <Card variant="solid" padding="lg" className="profile-section-card">
+      <div className="profile-section-header">
+        <h2 className="profile-section-card__title" style={{ margin: 0 }}>Сотрудники</h2>
+        <Button variant="primary" onClick={handleAddEmployeeClick}>
           + Добавить сотрудника
-        </button>
+        </Button>
       </div>
+      <p className="profile-section-desc">
+        Добавляйте сотрудников организации. Можно импортировать данные из OpenAlex.
+      </p>
       <div className="profile-list" ref={listRef}>
-        {orgEmployees.length === 0 && <p className="muted">Сотрудники пока не добавлены.</p>}
+        {orgEmployees.length === 0 && (
+          <div className="profile-empty-state">Сотрудники пока не добавлены.</div>
+        )}
         {orgEmployees.map((employee) => (
-          <div key={employee.id} className="profile-list-card employee-card">
+          <Card key={employee.id} variant="elevated" padding="md" className="dashboard-list-item employee-card">
             <div className="profile-list-content">
               <div className="employee-photo employee-photo-small">
                 {employee.photo_url ? (
@@ -207,17 +224,23 @@ export default function StaffTab({
                 )}
               </div>
             </div>
-            <div className="lab-card-actions">
-              <button type="button" className="primary-btn lab-btn-edit" onClick={() => startEditEmployee(employee)} disabled={saving}>Редактировать</button>
-              <button type="button" className="ghost-btn" onClick={() => { setEmployeePreview(employee); setShowEmployeePublications(false); }} disabled={saving}>Профиль</button>
-              <button type="button" className="ghost-btn lab-btn-delete" onClick={() => deleteEmployee(employee.id)} disabled={saving}>Удалить</button>
+            <div className="dashboard-list-item__actions">
+              <Button variant="primary" size="small" onClick={() => startEditEmployee(employee)} disabled={saving}>
+                Редактировать
+              </Button>
+              <Button variant="ghost" size="small" onClick={() => { setEmployeePreview(employee); setShowEmployeePublications(false); }} disabled={saving}>
+                Профиль
+              </Button>
+              <Button variant="ghost" size="small" onClick={() => deleteEmployee(employee.id)} disabled={saving}>
+                Удалить
+              </Button>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
 
       {employeeEditId && employeeEdit && (
-        <div className="profile-edit lab-form-grouped">
+        <div ref={editFormRef} className="profile-edit lab-form-grouped profile-form">
           <h4 className="profile-form-group-title">Редактирование: {employeeEdit.full_name || "Сотрудник"}</h4>
           <div className="profile-form-group">
             <div className="profile-form-group-title">Импорт из OpenAlex</div>
@@ -244,15 +267,15 @@ export default function StaffTab({
           </div>
           <div className="profile-form-group">
             <div className="profile-form-group-title">Основная информация</div>
-            <label>
-              ФИО
-              <input
+            <div className="profile-form__row">
+              <Input
+                label="ФИО"
                 value={employeeEdit.full_name}
                 onChange={(e) => handleEmployeeEditChange("full_name", e.target.value)}
                 onBlur={(e) => { const v = capitalizeEachWord(e.target.value); if (v !== e.target.value) handleEmployeeEditChange("full_name", v); }}
                 placeholder="Иванов Иван Иванович"
               />
-            </label>
+            </div>
             <label>
               Фото
               <input ref={editPhotoInputRef} type="file" accept="image/*" onChange={(e) => uploadEmployeePhoto(e.target.files?.[0], true)} disabled={uploading || saving} />
@@ -263,18 +286,22 @@ export default function StaffTab({
                 <button type="button" className="file-remove" onClick={() => handleEmployeeEditChange("photo_url", "")}>×</button>
               </div>
             )}
-            <label>
-              Учёная степень / звание
-              <input value={employeeEdit.academic_degree} onChange={(e) => handleEmployeeEditChange("academic_degree", e.target.value)} placeholder="Доктор химических наук" />
-            </label>
-            <label>
-              Должность
-              <input
+            <div className="profile-form__row">
+              <Input
+                label="Учёная степень / звание"
+                value={employeeEdit.academic_degree}
+                onChange={(e) => handleEmployeeEditChange("academic_degree", e.target.value)}
+                placeholder="Доктор химических наук"
+              />
+            </div>
+            <div className="profile-form__row">
+              <Input
+                label="Должность"
                 value={employeeEditPositionInput}
                 onChange={(e) => setEmployeeEditPositionInput(e.target.value)}
                 placeholder="Ведущий научный сотрудник, постдок"
               />
-            </label>
+            </div>
             <label htmlFor="employee-edit-interests">
               Научные интересы
               <TagInput
@@ -307,7 +334,7 @@ export default function StaffTab({
             {expandedEditEducation && (
               <div className="collapsible-content">
                 <div className="inline-form">
-                  <input ref={editEducationInputRef} placeholder="Университет, факультет, год" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEducation(e.currentTarget.value, true); e.currentTarget.value = ""; } }} />
+                  <input ref={editEducationInputRef} className="ui-input" placeholder="Университет, факультет, год" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEducation(e.currentTarget.value, true); e.currentTarget.value = ""; } }} style={{ flex: 1, minWidth: 0 }} />
                   <button type="button" className="ghost-btn" onClick={() => { const input = editEducationInputRef.current; if (input) { addEducation(input.value, true); input.value = ""; } }}>Добавить</button>
                 </div>
                 <span className="profile-field-hint">Введите и нажмите Enter или «Добавить»</span>
@@ -364,8 +391,10 @@ export default function StaffTab({
             <label>Telegram <input value={employeeEdit.contacts?.telegram || ""} onChange={(e) => handleEmployeeContacts("telegram", e.target.value, true)} placeholder="@username" /></label>
           </div>
           <div className="lab-form-actions">
-            <button className="primary-btn lab-btn-save" onClick={updateEmployee} disabled={saving}>{saving ? "Сохранение…" : "Сохранить"}</button>
-            <button className="ghost-btn" onClick={cancelEditEmployee} disabled={saving}>Отмена</button>
+            <Button variant="primary" onClick={updateEmployee} disabled={saving}>
+              {saving ? "Сохранение…" : "Сохранить"}
+            </Button>
+            <Button variant="ghost" onClick={cancelEditEmployee} disabled={saving}>Отмена</Button>
           </div>
         </div>
       )}
@@ -377,7 +406,7 @@ export default function StaffTab({
         <button type="button" className="profile-form-collapsible-header" onClick={() => setExpandedNewEmployee((prev) => !prev)} aria-expanded={expandedNewEmployee}>
           Новый сотрудник
         </button>
-        <div className="profile-form-collapsible-body lab-form-grouped">
+        <div className="profile-form-collapsible-body lab-form-grouped profile-form">
           <div className="profile-form-group">
             <div className="profile-form-group-title">Импорт из OpenAlex</div>
             <div className="orcid-status orcid-status--disconnected openalex-status">
@@ -392,14 +421,23 @@ export default function StaffTab({
           </div>
           <div className="profile-form-group">
             <div className="profile-form-group-title">Основная информация</div>
-            <label>
-              ФИО
-              <input value={employeeDraft.full_name} onChange={(e) => handleEmployeeDraftChange("full_name", e.target.value)} onBlur={(e) => { const v = capitalizeEachWord(e.target.value); if (v !== e.target.value) handleEmployeeDraftChange("full_name", v); }} placeholder="Иванов Иван Иванович" />
-            </label>
+            <div className="profile-form__row">
+              <Input
+                label="ФИО"
+                value={employeeDraft.full_name}
+                onChange={(e) => handleEmployeeDraftChange("full_name", e.target.value)}
+                onBlur={(e) => { const v = capitalizeEachWord(e.target.value); if (v !== e.target.value) handleEmployeeDraftChange("full_name", v); }}
+                placeholder="Иванов Иван Иванович"
+              />
+            </div>
             <label>Фото <input ref={draftPhotoInputRef} type="file" accept="image/*" onChange={(e) => uploadEmployeePhoto(e.target.files?.[0], false)} disabled={uploading || saving} /></label>
             {employeeDraft.photo_url && <div className="employee-photo"><img src={employeeDraft.photo_url} alt="Фото" /><button type="button" className="file-remove" onClick={() => handleEmployeeDraftChange("photo_url", "")}>×</button></div>}
-            <label>Учёная степень / звание <input value={employeeDraft.academic_degree} onChange={(e) => handleEmployeeDraftChange("academic_degree", e.target.value)} placeholder="Доктор химических наук" /></label>
-            <label>Должность <input value={employeeDraftPositionInput} onChange={(e) => setEmployeeDraftPositionInput(e.target.value)} placeholder="Ведущий научный сотрудник, постдок" /></label>
+            <div className="profile-form__row">
+              <Input label="Учёная степень / звание" value={employeeDraft.academic_degree} onChange={(e) => handleEmployeeDraftChange("academic_degree", e.target.value)} placeholder="Доктор химических наук" />
+            </div>
+            <div className="profile-form__row">
+              <Input label="Должность" value={employeeDraftPositionInput} onChange={(e) => setEmployeeDraftPositionInput(e.target.value)} placeholder="Ведущий научный сотрудник, постдок" />
+            </div>
             <label htmlFor="employee-draft-interests">Научные интересы <TagInput id="employee-draft-interests" value={employeeDraft.research_interests || []} onChange={(v) => handleEmployeeDraftChange("research_interests", v)} placeholder="Введите интерес и нажмите запятую или Enter" /></label>
           </div>
           <div className="profile-form-group">
@@ -424,7 +462,7 @@ export default function StaffTab({
             {expandedDraftEducation && (
               <div className="collapsible-content">
                 <div className="inline-form">
-                  <input ref={draftEducationInputRef} placeholder="Университет, факультет, год" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEducation(e.currentTarget.value, false); e.currentTarget.value = ""; } }} />
+                  <input ref={draftEducationInputRef} className="ui-input" placeholder="Университет, факультет, год" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEducation(e.currentTarget.value, false); e.currentTarget.value = ""; } }} style={{ flex: 1, minWidth: 0 }} />
                   <button type="button" className="ghost-btn" onClick={() => { const input = draftEducationInputRef.current; if (input) { addEducation(input.value, false); input.value = ""; } }}>Добавить</button>
                 </div>
                 <span className="profile-field-hint">Введите и нажмите Enter или «Добавить»</span>
@@ -479,10 +517,12 @@ export default function StaffTab({
             <label>Telegram <input value={employeeDraft.contacts?.telegram || ""} onChange={(e) => handleEmployeeContacts("telegram", e.target.value, false)} placeholder="@username" /></label>
           </div>
           <div className="lab-form-actions lab-form-actions--create">
-            <button className="primary-btn lab-btn-save" onClick={handleCreateEmployee} disabled={saving}>{saving ? "Сохранение…" : "Создать сотрудника"}</button>
+            <Button variant="primary" onClick={handleCreateEmployee} disabled={saving}>
+              {saving ? "Сохранение…" : "Создать сотрудника"}
+            </Button>
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

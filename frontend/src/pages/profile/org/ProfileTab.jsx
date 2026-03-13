@@ -1,5 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { normalizeWebsiteInput } from "../../../utils/validation";
+import { Input } from "../../../components/ui/Input";
+import { Button } from "../../../components/ui/Button";
 import OrgOpenAlexSection from "../OrgOpenAlexSection";
 
 /**
@@ -36,33 +38,36 @@ export default function ProfileTab({
             </span>
           )}
         </div>
-        <label>
-          Название организации
-          <input
-            value={orgProfile?.name || ""}
-            onChange={(e) => handleOrgChange("name", e.target.value)}
-            placeholder="Название"
-          />
-        </label>
-        <label>
-          Описание
+        <Input
+          id="org-name"
+          label="Название организации"
+          value={orgProfile?.name || ""}
+          onChange={(e) => handleOrgChange("name", e.target.value)}
+          placeholder="Название"
+        />
+        <div className="ui-input-group">
+          <label htmlFor="org-description">Описание</label>
           <textarea
+            id="org-description"
             rows={4}
+            className="ui-input"
             value={orgProfile?.description || ""}
             onChange={(e) => handleOrgChange("description", e.target.value)}
             placeholder="Краткое описание организации"
           />
-        </label>
-        <label>
-          Аватар организации
+        </div>
+        <div className="ui-input-group">
+          <label htmlFor="org-avatar">Аватар организации</label>
           <input
             ref={avatarInputRef}
+            id="org-avatar"
             type="file"
+            className="ui-input"
             accept="image/*"
             onChange={(e) => uploadOrgAvatar(e.target.files?.[0])}
             disabled={uploading || saving}
           />
-        </label>
+        </div>
         {orgProfile?.avatar_url && (
           <div className="employee-photo">
             <img src={orgProfile.avatar_url} alt="Аватар организации" />
@@ -75,17 +80,17 @@ export default function ProfileTab({
 
       <div className="profile-form-group">
         <div className="profile-form-group-title">Контакты и адрес</div>
-        <label>
-          Адрес
-          <input
+        <div className="profile-form__row">
+          <Input
+            id="org-address"
+            label="Адрес"
             value={orgProfile?.address || ""}
             onChange={(e) => handleOrgChange("address", e.target.value)}
             placeholder="Адрес"
           />
-        </label>
-        <label>
-          Сайт
-          <input
+          <Input
+            id="org-website"
+            label="Сайт"
             type="url"
             value={orgProfile?.website || ""}
             onChange={(e) => handleOrgChange("website", e.target.value)}
@@ -95,7 +100,7 @@ export default function ProfileTab({
             }}
             placeholder="example.com или https://..."
           />
-        </label>
+        </div>
       </div>
 
       <div className="profile-form-group">
@@ -104,17 +109,17 @@ export default function ProfileTab({
       </div>
 
       <div className="profile-actions-wrap">
-        <button className="primary-btn" onClick={saveOrganization} disabled={saving}>
+        <Button variant="primary" onClick={saveOrganization} loading={saving} disabled={saving}>
           {saving ? "Сохраняем..." : "Сохранить"}
-        </button>
+        </Button>
         {orgProfile && orgProfile.name && (
-          <button
-            className={orgProfile.is_published ? "ghost-btn secondary" : "ghost-btn"}
+          <Button
+            variant={orgProfile.is_published ? "secondary" : "ghost"}
             onClick={() => toggleOrgPublish(!orgProfile.is_published)}
             disabled={saving}
           >
             {orgProfile.is_published ? "Снять с публикации" : "Опубликовать"}
-          </button>
+          </Button>
         )}
       </div>
     </div>

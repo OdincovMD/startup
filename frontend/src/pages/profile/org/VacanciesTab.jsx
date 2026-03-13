@@ -1,5 +1,9 @@
 import React, { useState, useRef } from "react";
 import { formatPhoneRU, normalizePhoneRU } from "../../../utils/validation";
+import { Card } from "../../../components/ui/Card";
+import { Button } from "../../../components/ui/Button";
+import { Input } from "../../../components/ui/Input";
+import { Badge } from "../../../components/ui/Badge";
 
 /**
  * Вкладка «Вакансии»: список вакансий, форма новой и редактирование.
@@ -128,7 +132,7 @@ export default function VacanciesTab({
     );
   };
 
-  const renderContactBlock = (state, setState, isPublished = false) => {
+  const renderContactBlock = (state, setState, isPublished = false, idPrefix = "vacancy-contact") => {
     const selectedEmp = state.contact_employee_id ? orgEmployees.find((e) => e.id === state.contact_employee_id) : null;
     const showEmailPhone = !state.contact_employee_id;
     const contactHasNoEmail =
@@ -177,22 +181,29 @@ export default function VacanciesTab({
         {showEmailPhone && (
           <div className="vacancy-contact-fields">
             <p className="profile-field-hint">Если контактное лицо не выбрано, укажите email и телефон для связи (обязательно).</p>
-            <label>Email для связи <input type="email" value={state.contact_email || ""} onChange={(e) => setState((prev) => ({ ...prev, contact_email: e.target.value }))} placeholder="contact@example.com" autoComplete="email" /></label>
-            <label>
-              Телефон для связи
-              <input
-                type="tel"
-                value={state.contact_phone ? formatPhoneRU(state.contact_phone) : ""}
-                onChange={(e) => {
-                  const digits = normalizePhoneRU(e.target.value);
-                  setState((prev) => ({ ...prev, contact_phone: digits ? `7${digits}` : "" }));
-                }}
-                placeholder="+7 (999) 123-45-67"
-                autoComplete="tel"
-                maxLength={18}
-              />
-              <span className="profile-field-hint">Формат: +7 (999) 123-45-67</span>
-            </label>
+            <Input
+              id={`${idPrefix}-email`}
+              label="Email для связи"
+              type="email"
+              value={state.contact_email || ""}
+              onChange={(e) => setState((prev) => ({ ...prev, contact_email: e.target.value }))}
+              placeholder="contact@example.com"
+              autoComplete="email"
+            />
+            <Input
+              id={`${idPrefix}-phone`}
+              label="Телефон для связи"
+              type="tel"
+              value={state.contact_phone ? formatPhoneRU(state.contact_phone) : ""}
+              onChange={(e) => {
+                const digits = normalizePhoneRU(e.target.value);
+                setState((prev) => ({ ...prev, contact_phone: digits ? `7${digits}` : "" }));
+              }}
+              placeholder="+7 (999) 123-45-67"
+              autoComplete="tel"
+              maxLength={18}
+              hint="Формат: +7 (999) 123-45-67"
+            />
           </div>
         )}
       </>
@@ -200,53 +211,80 @@ export default function VacanciesTab({
   };
 
   return (
-    <div className="profile-form">
-      <div className="lab-tab-header">
-        <p className="lab-tab-desc">Добавляйте вакансии, привязывайте к запросам и лабораториям. Укажите контактное лицо (сотрудника) или email и телефон для связи.</p>
-        <button type="button" className="primary-btn lab-btn-add" onClick={handleAddVacancyClick}>
+    <Card variant="solid" padding="lg" className="profile-section-card">
+      <div className="profile-section-header">
+        <h2 className="profile-section-card__title" style={{ margin: 0 }}>Вакансии</h2>
+        <Button variant="primary" onClick={handleAddVacancyClick}>
           + Добавить вакансию
-        </button>
+        </Button>
       </div>
+      <p className="profile-section-desc" style={{ marginBottom: "1.5rem" }}>
+        Добавляйте вакансии, привязывайте к запросам и лабораториям. Укажите контактное лицо (сотрудника) или email и телефон для связи.
+      </p>
       <div className="profile-list" ref={listRef}>
-        {orgVacancies.length === 0 && <p className="muted">Вакансии пока не добавлены.</p>}
+        {orgVacancies.length === 0 && (
+          <div className="profile-empty-state">
+            Вакансии пока не добавлены.
+          </div>
+        )}
         {orgVacancies.map((vacancy) => (
-          <div key={vacancy.id} className="profile-list-card">
-            <div className="profile-list-content">
-              <div className="profile-list-title">
-                {vacancy.name}
-                <span className={`org-detail-chip org-detail-chip--status ${vacancy.is_published ? "org-detail-chip--published" : "org-detail-chip--draft"}`}>
-                  {vacancy.is_published ? "Опубликовано" : "Черновик"}
-                </span>
-              </div>
-              {vacancy.employment_type && (
-                <div className="chip-row">
-                  <span className="chip">{vacancy.employment_type}</span>
-                </div>
-              )}
-              {vacancy.requirements && <div className="profile-list-text">{vacancy.requirements}</div>}
-              {vacancy.description && <div className="profile-list-text">{vacancy.description}</div>}
-              <div className="profile-list-meta">
-                {(vacancy.query || vacancy.query_id) && (
-                  <span className="profile-list-text small muted">
-                    Запрос: {vacancy.query?.title || orgQueries.find((q) => q.id === vacancy.query_id)?.title || "—"}
-                  </span>
-                )}
-                {(vacancy.laboratory || vacancy.laboratory_id) && (
-                  <span className="profile-list-text small muted">
-                    Лаборатория: {vacancy.laboratory?.name || orgLabs.find((l) => l.id === vacancy.laboratory_id)?.name || "—"}
-                  </span>
-                )}
-                {renderContactMeta(vacancy)}
-              </div>
+          <Card key={vacancy.id} variant="elevated" padding="md" className="dashboard-list-item">
+            <div className="dashboard-list-item__title-row">
+              <h4 className="dashboard-list-item__title">{vacancy.name}</h4>
+              <Badge variant={vacancy.is_published ? "published" : "draft"} className="dashboard-list-item__badge">
+                {vacancy.is_published ? "Опубликовано" : "Черновик"}
+              </Badge>
             </div>
+            <div className="profile-list-text muted">
+              {[
+                vacancy.employment_type,
+                (vacancy.query || vacancy.query_id) && `Запрос: ${vacancy.query?.title || orgQueries.find((q) => q.id === vacancy.query_id)?.title || "—"}`,
+                (vacancy.laboratory || vacancy.laboratory_id) && `Лаборатория: ${vacancy.laboratory?.name || orgLabs.find((l) => l.id === vacancy.laboratory_id)?.name || "—"}`,
+              ].filter(Boolean).join(" · ")}
+              {renderContactMeta(vacancy)}
+            </div>
+            {vacancy.requirements && <p className="profile-list-text" style={{ margin: 0 }}>{vacancy.requirements}</p>}
+            {vacancy.description && <p className="profile-list-text" style={{ margin: 0 }}>{vacancy.description}</p>}
             {editingVacancyId === vacancy.id && vacancyEdit ? (
-              <div className="profile-edit lab-form-grouped">
+              <div className="profile-edit lab-form-grouped profile-form">
                 <div className="profile-form-group">
                   <div className="profile-form-group-title">Основная информация</div>
-                  <label>Название <input value={vacancyEdit.name} onChange={(e) => setVacancyEdit((prev) => ({ ...prev, name: e.target.value }))} placeholder="Например: Исследователь, Постдок" /></label>
-                  <label>Требования <textarea rows={2} value={vacancyEdit.requirements} onChange={(e) => setVacancyEdit((prev) => ({ ...prev, requirements: e.target.value }))} placeholder="Образование, опыт, навыки" /></label>
-                  <label>Описание <textarea rows={2} value={vacancyEdit.description} onChange={(e) => setVacancyEdit((prev) => ({ ...prev, description: e.target.value }))} placeholder="Обязанности, условия работы" /></label>
-                  <label>Тип занятости <input value={vacancyEdit.employment_type || ""} onChange={(e) => setVacancyEdit((prev) => ({ ...prev, employment_type: e.target.value }))} placeholder="Полная занятость, стажировка" /></label>
+                  <Input
+                    id={`vacancy-edit-name-${vacancy.id}`}
+                    label="Название"
+                    value={vacancyEdit.name}
+                    onChange={(e) => setVacancyEdit((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="Например: Исследователь, Постдок"
+                  />
+                  <div className="ui-input-group">
+                    <label htmlFor={`vacancy-edit-requirements-${vacancy.id}`}>Требования</label>
+                    <textarea
+                      id={`vacancy-edit-requirements-${vacancy.id}`}
+                      rows={2}
+                      className="ui-input"
+                      value={vacancyEdit.requirements}
+                      onChange={(e) => setVacancyEdit((prev) => ({ ...prev, requirements: e.target.value }))}
+                      placeholder="Образование, опыт, навыки"
+                    />
+                  </div>
+                  <div className="ui-input-group">
+                    <label htmlFor={`vacancy-edit-description-${vacancy.id}`}>Описание</label>
+                    <textarea
+                      id={`vacancy-edit-description-${vacancy.id}`}
+                      rows={2}
+                      className="ui-input"
+                      value={vacancyEdit.description}
+                      onChange={(e) => setVacancyEdit((prev) => ({ ...prev, description: e.target.value }))}
+                      placeholder="Обязанности, условия работы"
+                    />
+                  </div>
+                  <Input
+                    id={`vacancy-edit-employment-${vacancy.id}`}
+                    label="Тип занятости"
+                    value={vacancyEdit.employment_type || ""}
+                    onChange={(e) => setVacancyEdit((prev) => ({ ...prev, employment_type: e.target.value }))}
+                    placeholder="Полная занятость, стажировка"
+                  />
                 </div>
                 <div className="profile-form-group">
                   <div className="profile-form-group-title">Связанный запрос</div>
@@ -260,26 +298,28 @@ export default function VacanciesTab({
                 </div>
                 <div className="profile-form-group">
                   <div className="profile-form-group-title">Контакт для связи</div>
-                  {renderContactBlock(vacancyEdit, setVacancyEdit, vacancy.is_published)}
+                  {renderContactBlock(vacancyEdit, setVacancyEdit, vacancy.is_published, `vacancy-edit-${vacancy.id}-contact`)}
                 </div>
                 <div className="lab-form-actions">
-                  <button className="primary-btn lab-btn-save" onClick={updateVacancy} disabled={saving}>{saving ? "Сохранение…" : "Сохранить"}</button>
-                  <button className="ghost-btn" onClick={cancelEditVacancy} disabled={saving}>Отмена</button>
-                  <button className="ghost-btn" onClick={() => toggleVacancyPublish(vacancy.id, !vacancy.is_published)} disabled={saving}>
+                  <Button variant="primary" onClick={updateVacancy} loading={saving} disabled={saving}>
+                    {saving ? "Сохранение…" : "Сохранить"}
+                  </Button>
+                  <Button variant="ghost" onClick={cancelEditVacancy} disabled={saving}>Отмена</Button>
+                  <Button variant="ghost" onClick={() => toggleVacancyPublish(vacancy.id, !vacancy.is_published)} disabled={saving}>
                     {vacancy.is_published ? "Снять с публикации" : "Опубликовать"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
-              <div className="lab-card-actions">
-                <button className="primary-btn lab-btn-edit" onClick={() => startEditVacancy(vacancy)} disabled={saving}>Редактировать</button>
-                <button className="ghost-btn lab-btn-delete" onClick={() => deleteVacancy(vacancy.id)} disabled={saving}>Удалить</button>
-                <button className="ghost-btn" onClick={() => toggleVacancyPublish(vacancy.id, !vacancy.is_published)} disabled={saving}>
+              <div className="dashboard-list-item__actions">
+                <Button variant="primary" size="small" onClick={() => startEditVacancy(vacancy)} disabled={saving}>Редактировать</Button>
+                <Button variant="ghost" size="small" className="lab-btn-delete" onClick={() => deleteVacancy(vacancy.id)} disabled={saving}>Удалить</Button>
+                <Button variant="ghost" size="small" onClick={() => toggleVacancyPublish(vacancy.id, !vacancy.is_published)} disabled={saving}>
                   {vacancy.is_published ? "Снять с публикации" : "Опубликовать"}
-                </button>
+                </Button>
               </div>
             )}
-          </div>
+          </Card>
         ))}
       </div>
 
@@ -290,13 +330,45 @@ export default function VacanciesTab({
         <button type="button" className="profile-form-collapsible-header" onClick={() => setExpandedNewVacancy((prev) => !prev)} aria-expanded={expandedNewVacancy}>
           Новая вакансия
         </button>
-        <div className="profile-form-collapsible-body lab-form-grouped">
+        <div className="profile-form-collapsible-body lab-form-grouped profile-form">
           <div className="profile-form-group">
             <div className="profile-form-group-title">Основная информация</div>
-            <label>Название <input value={vacancyDraft.name} onChange={(e) => setVacancyDraft((prev) => ({ ...prev, name: e.target.value }))} placeholder="Например: Исследователь, Постдок" /></label>
-            <label>Требования <textarea rows={2} value={vacancyDraft.requirements} onChange={(e) => setVacancyDraft((prev) => ({ ...prev, requirements: e.target.value }))} placeholder="Образование, опыт, навыки" /></label>
-            <label>Описание <textarea rows={2} value={vacancyDraft.description} onChange={(e) => setVacancyDraft((prev) => ({ ...prev, description: e.target.value }))} placeholder="Обязанности, условия работы" /></label>
-            <label>Тип занятости <input value={vacancyDraft.employment_type || ""} onChange={(e) => setVacancyDraft((prev) => ({ ...prev, employment_type: e.target.value }))} placeholder="Полная занятость, стажировка" /></label>
+            <Input
+              id="vacancy-draft-name"
+              label="Название"
+              value={vacancyDraft.name}
+              onChange={(e) => setVacancyDraft((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder="Например: Исследователь, Постдок"
+            />
+            <div className="ui-input-group">
+              <label htmlFor="vacancy-draft-requirements">Требования</label>
+              <textarea
+                id="vacancy-draft-requirements"
+                rows={2}
+                className="ui-input"
+                value={vacancyDraft.requirements}
+                onChange={(e) => setVacancyDraft((prev) => ({ ...prev, requirements: e.target.value }))}
+                placeholder="Образование, опыт, навыки"
+              />
+            </div>
+            <div className="ui-input-group">
+              <label htmlFor="vacancy-draft-description">Описание</label>
+              <textarea
+                id="vacancy-draft-description"
+                rows={2}
+                className="ui-input"
+                value={vacancyDraft.description}
+                onChange={(e) => setVacancyDraft((prev) => ({ ...prev, description: e.target.value }))}
+                placeholder="Обязанности, условия работы"
+              />
+            </div>
+            <Input
+              id="vacancy-draft-employment"
+              label="Тип занятости"
+              value={vacancyDraft.employment_type || ""}
+              onChange={(e) => setVacancyDraft((prev) => ({ ...prev, employment_type: e.target.value }))}
+              placeholder="Полная занятость, стажировка"
+            />
           </div>
           <div className="profile-form-group">
             <div className="profile-form-group-title">Связанный запрос</div>
@@ -310,13 +382,15 @@ export default function VacanciesTab({
           </div>
           <div className="profile-form-group">
             <div className="profile-form-group-title">Контакт для связи</div>
-            {renderContactBlock(vacancyDraft, setVacancyDraft)}
+            {renderContactBlock(vacancyDraft, setVacancyDraft, false, "vacancy-draft-contact")}
           </div>
           <div className="lab-form-actions lab-form-actions--create">
-            <button className="primary-btn lab-btn-save" onClick={handleCreateVacancy} disabled={saving}>{saving ? "Сохранение…" : "Создать вакансию"}</button>
+            <Button variant="primary" onClick={handleCreateVacancy} loading={saving} disabled={saving}>
+              {saving ? "Сохранение…" : "Создать вакансию"}
+            </Button>
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

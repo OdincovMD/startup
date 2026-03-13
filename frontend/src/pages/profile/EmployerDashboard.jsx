@@ -20,6 +20,8 @@ import {
   ReferenceLine,
 } from "recharts";
 import { apiRequest } from "../../api/client";
+import { Card } from "../../components/ui/Card";
+import { Button } from "../../components/ui/Button";
 
 const COLORS = { vacancy: "#8884d8", laboratory: "#82ca9d", query: "#ffc658" };
 const PIE_COLORS = [COLORS.vacancy, COLORS.laboratory, COLORS.query];
@@ -75,25 +77,29 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
 
   if (loading) {
     return (
-      <div className="profile-form dashboard-page">
-        <div className="dashboard-hero">
-          <h2 className="dashboard-hero-title">Аналитика</h2>
-          <p className="dashboard-hero-desc">Просмотры, отклики и динамика за 30 дней.</p>
+      <Card variant="solid" padding="lg" className="profile-section-card dashboard-page">
+        <div className="profile-section-header">
+          <h2 className="profile-section-card__title" style={{ margin: 0 }}>Аналитика</h2>
         </div>
-        <p className="muted">Загрузка…</p>
-      </div>
+        <p className="profile-section-desc">Просмотры, отклики и динамика за 30 дней.</p>
+        <div className="profile-empty-state">
+          <p className="muted">Загрузка…</p>
+        </div>
+      </Card>
     );
   }
 
   if (!data) {
     return (
-      <div className="profile-form dashboard-page">
-        <div className="dashboard-hero">
-          <h2 className="dashboard-hero-title">Аналитика</h2>
-          <p className="dashboard-hero-desc">Просмотры, отклики и динамика.</p>
+      <Card variant="solid" padding="lg" className="profile-section-card dashboard-page">
+        <div className="profile-section-header">
+          <h2 className="profile-section-card__title" style={{ margin: 0 }}>Аналитика</h2>
         </div>
-        <p className="muted">Не удалось загрузить данные.</p>
-      </div>
+        <p className="profile-section-desc">Просмотры, отклики и динамика.</p>
+        <div className="profile-empty-state">
+          <p className="muted">Не удалось загрузить данные.</p>
+        </div>
+      </Card>
     );
   }
 
@@ -129,33 +135,46 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
   const showSubLineOnViews = subscriptionStartDate && viewsChartData.some((d) => d.date === subscriptionStartDate);
   const showSubLineOnResponses = subscriptionStartDate && responses_over_time.some((d) => d.date === subscriptionStartDate);
 
+  const metricItems = [
+    summary && { value: summary.total_vacancies_published ?? 0, label: "Опубликовано", primary: true },
+    summary && { value: summary.total_responses ?? 0, label: "Всего откликов", primary: true },
+    summary && { value: summary.new_count ?? 0, label: "Новых" },
+    summary && { value: summary.accepted_count ?? 0, label: "Принято" },
+    summary && { value: summary.rejected_count ?? 0, label: "Отклонено" },
+    summary && { value: summary.vacancies_with_zero_responses ?? 0, label: "Без откликов" },
+    summary?.avg_responses_per_vacancy != null && { value: summary.avg_responses_per_vacancy, label: "Ср. откликов" },
+    summary?.accepted_rate != null && { value: `${summary.accepted_rate}%`, label: "Доля принятых" },
+    summary?.avg_days_to_first_response != null && { value: summary.avg_days_to_first_response, label: "Дней до 1-го отклика" },
+    summary?.avg_days_to_first_acceptance != null && { value: summary.avg_days_to_first_acceptance, label: "Дней до 1-го принятия" },
+  ].filter(Boolean);
+
   return (
-    <div className="profile-form dashboard-page">
-      <header className="dashboard-hero">
-        <h2 className="dashboard-hero-title">Аналитика</h2>
-        <p className="dashboard-hero-desc">
-          Просмотры, отклики и динамика по вакансиям, лабораториям и запросам за последние 30 дней.
-        </p>
+    <Card variant="solid" padding="lg" className="profile-section-card dashboard-page">
+      <div className="profile-section-header">
+        <h2 className="profile-section-card__title" style={{ margin: 0 }}>Аналитика</h2>
         {onNavigateToSubscription && (
           <div className="dashboard-hero-subscription">
             {subscriptionActive && subscriptionExpiresAt ? (
               <>
                 <span className="dashboard-hero-subscription-status">Подписка до {new Date(subscriptionExpiresAt).toLocaleDateString("ru-RU")}</span>
-                <button type="button" className="profile-link-btn" onClick={onNavigateToSubscription}>
+                <Button variant="ghost" onClick={onNavigateToSubscription}>
                   Управление →
-                </button>
+                </Button>
               </>
             ) : !subscriptionActive && subscription !== null ? (
               <>
                 <span className="dashboard-hero-subscription-status">Без подписки</span>
-                <button type="button" className="profile-link-btn" onClick={onNavigateToSubscription}>
+                <Button variant="ghost" onClick={onNavigateToSubscription}>
                   Узнать о подписке →
-                </button>
+                </Button>
               </>
             ) : null}
           </div>
         )}
-      </header>
+      </div>
+      <p className="profile-section-desc">
+        Просмотры, отклики и динамика по вакансиям, лабораториям и запросам за последние 30 дней.
+      </p>
 
       <div className="dashboard-recommendations-card">
         <details className="dashboard-recommendations-details">
@@ -176,58 +195,21 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
         </details>
       </div>
 
-      {summary && (
+      {summary && metricItems.length > 0 && (
         <section className="dashboard-section dashboard-section--metrics">
           <h3 className="dashboard-section-title">Вакансии и отклики</h3>
-          <div className="dashboard-metrics">
-            <div className="dashboard-metric dashboard-metric--primary">
-              <span className="dashboard-metric-value">{summary.total_vacancies_published ?? 0}</span>
-              <span className="dashboard-metric-label">Опубликовано</span>
-            </div>
-            <div className="dashboard-metric dashboard-metric--primary">
-              <span className="dashboard-metric-value">{summary.total_responses ?? 0}</span>
-              <span className="dashboard-metric-label">Всего откликов</span>
-            </div>
-            <div className="dashboard-metric">
-              <span className="dashboard-metric-value">{summary.new_count ?? 0}</span>
-              <span className="dashboard-metric-label">Новых</span>
-            </div>
-            <div className="dashboard-metric">
-              <span className="dashboard-metric-value">{summary.accepted_count ?? 0}</span>
-              <span className="dashboard-metric-label">Принято</span>
-            </div>
-            <div className="dashboard-metric">
-              <span className="dashboard-metric-value">{summary.rejected_count ?? 0}</span>
-              <span className="dashboard-metric-label">Отклонено</span>
-            </div>
-            <div className="dashboard-metric">
-              <span className="dashboard-metric-value">{summary.vacancies_with_zero_responses ?? 0}</span>
-              <span className="dashboard-metric-label">Без откликов</span>
-            </div>
-            {summary.avg_responses_per_vacancy != null && (
-              <div className="dashboard-metric">
-                <span className="dashboard-metric-value">{summary.avg_responses_per_vacancy}</span>
-                <span className="dashboard-metric-label">Ср. откликов</span>
-              </div>
-            )}
-            {summary.accepted_rate != null && (
-              <div className="dashboard-metric">
-                <span className="dashboard-metric-value">{summary.accepted_rate}%</span>
-                <span className="dashboard-metric-label">Доля принятых</span>
-              </div>
-            )}
-            {summary.avg_days_to_first_response != null && (
-              <div className="dashboard-metric">
-                <span className="dashboard-metric-value">{summary.avg_days_to_first_response}</span>
-                <span className="dashboard-metric-label">Дней до 1-го отклика</span>
-              </div>
-            )}
-            {summary.avg_days_to_first_acceptance != null && (
-              <div className="dashboard-metric">
-                <span className="dashboard-metric-value">{summary.avg_days_to_first_acceptance}</span>
-                <span className="dashboard-metric-label">Дней до 1-го принятия</span>
-              </div>
-            )}
+          <div className="dashboard-metrics dashboard-metrics--section">
+            {metricItems.map((item, i) => (
+              <Card
+                key={i}
+                variant="glass"
+                padding="md"
+                className={item.primary ? "dashboard-metric dashboard-metric--primary" : "dashboard-metric"}
+              >
+                <span className="dashboard-metric-value">{item.value}</span>
+                <span className="dashboard-metric-label">{item.label}</span>
+              </Card>
+            ))}
           </div>
         </section>
       )}
@@ -395,6 +377,6 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
           )}
         </>
       )}
-    </div>
+    </Card>
   );
 }

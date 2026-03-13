@@ -1,4 +1,7 @@
 import React, { useRef, useState } from "react";
+import { Card } from "../../components/ui/Card";
+import { Input } from "../../components/ui/Input";
+import { Button } from "../../components/ui/Button";
 
 const STUDENT_STATUS_OPTIONS = [
   { value: "", label: "Не указано" },
@@ -108,9 +111,13 @@ export default function StudentProfileSection({
   };
 
   return (
-    <div className="profile-section profile-section--no-border">
-      {!hideTitle && <h3 className="profile-section-title">{title}</h3>}
-      <p className="profile-section-desc">Информация о вас как о студенте</p>
+    <Card variant="solid" padding="lg" className="profile-section-card">
+      {!hideTitle && (
+        <h2 className="profile-section-card__title">{title}</h2>
+      )}
+      <p className="profile-section-desc">
+        Информация о вас как о студенте
+      </p>
 
       <div className="profile-form profile-form--grouped">
         <div className="profile-form-group">
@@ -139,15 +146,17 @@ export default function StudentProfileSection({
               </label>
             ))}
           </div>
-          <label>
-            Описание
+          <div className="ui-input-group">
+            <label htmlFor="student-summary">Описание</label>
             <textarea
+              id="student-summary"
               rows={4}
+              className="ui-input"
               value={p.summary || ""}
               onChange={(e) => handleStudentChange("summary", e.target.value)}
               placeholder="Расскажите о себе, опыте работы (если имеется), своих целях и интересах"
             />
-          </label>
+          </div>
         </div>
 
         <div className="profile-form-group">
@@ -221,8 +230,8 @@ export default function StudentProfileSection({
 
         <div className="profile-form-group">
           <div className="profile-form-group-title">Компетенции</div>
-          <label htmlFor="skills-input">
-            Навыки
+          <div className="ui-input-group">
+            <label htmlFor="skills-input">Навыки</label>
             <TagInput
               id="skills-input"
               value={p.skills || []}
@@ -230,9 +239,9 @@ export default function StudentProfileSection({
               placeholder="Введите навык и нажмите запятую или Enter"
             />
             <span className="profile-field-hint">Python, SQL и т.д. — введите через запятую</span>
-          </label>
-          <label htmlFor="interests-input">
-            Научные интересы
+          </div>
+          <div className="ui-input-group">
+            <label htmlFor="interests-input">Научные интересы</label>
             <TagInput
               id="interests-input"
               value={p.research_interests || []}
@@ -240,21 +249,23 @@ export default function StudentProfileSection({
               placeholder="Введите интерес и нажмите запятую или Enter"
             />
             <span className="profile-field-hint">Аналогично добавить</span>
-          </label>
+          </div>
         </div>
 
         <div className="profile-form-group">
           <div className="profile-form-group-title">Резюме и документы</div>
-          <label>
-            Резюме / CV
+          <div className="ui-input-group">
+            <label htmlFor="student-resume">Резюме / CV</label>
             <input
               ref={resumeInputRef}
+              id="student-resume"
               type="file"
+              className="ui-input"
               accept=".pdf,.doc,.docx,.txt"
               onChange={(e) => uploadStudentResume?.(e.target.files?.[0])}
               disabled={uploading || saving}
             />
-          </label>
+          </div>
           {p.resume_url && (
             <div className="file-item">
               <a href={p.resume_url} target="_blank" rel="noopener noreferrer">
@@ -269,16 +280,18 @@ export default function StudentProfileSection({
               </button>
             </div>
           )}
-          <label>
-            Дополнительные документы (сертификаты, грамоты и т.д.)
+          <div className="ui-input-group">
+            <label htmlFor="student-docs">Дополнительные документы (сертификаты, грамоты и т.д.)</label>
             <input
               ref={documentInputRef}
+              id="student-docs"
               type="file"
+              className="ui-input"
               accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
               onChange={(e) => uploadStudentDocument?.(e.target.files?.[0])}
               disabled={uploading || saving}
             />
-          </label>
+          </div>
           {(p.document_urls || []).map((url, index) => (
             <div key={`doc-${index}`} className="file-item">
               <a href={url} target="_blank" rel="noopener noreferrer">
@@ -296,20 +309,20 @@ export default function StudentProfileSection({
         </div>
 
         <div className="profile-actions-wrap">
-          <button className="primary-btn" onClick={handleSave} disabled={saving}>
+          <Button variant="primary" onClick={handleSave} loading={saving} disabled={saving}>
             {saving ? "Сохраняем..." : "Сохранить"}
-          </button>
+          </Button>
           {togglePublish && (
-            <button
-              className={p.is_published ? "ghost-btn secondary" : "ghost-btn"}
+            <Button
+              variant={p.is_published ? "secondary" : "ghost"}
               onClick={() => togglePublish()}
               disabled={saving}
             >
               {p.is_published ? "Снять с публикации" : "Опубликовать"}
-            </button>
+            </Button>
           )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

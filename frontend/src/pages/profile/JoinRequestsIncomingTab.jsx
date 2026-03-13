@@ -1,10 +1,12 @@
 /**
  * Вкладка «Запросы на присоединение»: входящие заявки исследователей (lab) и лабораторий (org).
- * Стиль как у запросов/вакансий: lab-tab-header, profile-list, profile-list-card, lab-card-actions.
+ * Стиль как у запросов/вакансий: profile-section-card, dashboard-list-item.
  */
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
 import { useToast } from "../../ToastContext";
+import { Card } from "../../components/ui/Card";
+import { Button } from "../../components/ui/Button";
 
 export default function JoinRequestsIncomingTab({ roleKey, onError }) {
   const { showToast } = useToast();
@@ -103,108 +105,120 @@ export default function JoinRequestsIncomingTab({ roleKey, onError }) {
 
   if (!showLab && !showOrg) return null;
 
-  if (loading) {
-    return (
-      <div className="profile-form">
-        <div className="lab-tab-header">
-          <p className="lab-tab-desc">Заявки на присоединение к лабораториям и организации. Одобряйте или отклоняйте входящие заявки.</p>
-        </div>
-        <p className="muted">Загрузка…</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="profile-form">
-      <div className="lab-tab-header">
-        <p className="lab-tab-desc">Заявки на присоединение к лабораториям и организации. Одобряйте или отклоняйте входящие заявки.</p>
+    <Card variant="solid" padding="lg" className="profile-section-card">
+      <div className="profile-section-header">
+        <h2 className="profile-section-card__title" style={{ margin: 0 }}>
+          Запросы на присоединение
+        </h2>
       </div>
+      <p className="profile-section-desc">
+        Заявки на присоединение к лабораториям и организации. Одобряйте или отклоняйте входящие заявки.
+      </p>
 
-      {showLab && (
-        <div className="profile-form-group join-requests-section">
-          <div className="profile-form-group-title">Заявки исследователей в лабораторию</div>
-          <p className="profile-field-hint join-requests-hint">Исследователи просят присоединиться к вашим лабораториям.</p>
-          <div className="profile-list">
-            {labRequests.length === 0 ? (
-              <p className="muted">Нет входящих заявок</p>
-            ) : (
-              labRequests.map((r) => (
-                <div key={r.id} className="profile-list-card">
-                  <div className="profile-list-content">
-                    <div className="profile-list-title">
-                      {r.researcher?.full_name || "Исследователь"} → {r.laboratory?.name || "Лаборатория"}
-                    </div>
-                    {r.researcher?.email && (
-                      <div className="profile-list-text small muted">{r.researcher.email}</div>
-                    )}
-                  </div>
-                  <div className="lab-card-actions">
-                    <button
-                      type="button"
-                      className="primary-btn lab-btn-edit"
-                      onClick={() => approveLab(r.id)}
-                      disabled={actionId === r.id}
-                    >
-                      {actionId === r.id ? "Обработка…" : "Принять"}
-                    </button>
-                    <button
-                      type="button"
-                      className="ghost-btn lab-btn-delete"
-                      onClick={() => rejectLab(r.id)}
-                      disabled={actionId === r.id}
-                    >
-                      Отклонить
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+      {loading ? (
+        <div className="profile-empty-state">
+          <p className="muted">Загрузка…</p>
         </div>
-      )}
+      ) : (
+        <>
+          {showLab && (
+            <div className="profile-form-group join-requests-section">
+              <div className="profile-form-group-title">Заявки исследователей в лабораторию</div>
+              <p className="profile-field-hint join-requests-hint">
+                Исследователи просят присоединиться к вашим лабораториям.
+              </p>
+              <div className="profile-list">
+                {labRequests.length === 0 ? (
+                  <div className="profile-empty-state">Нет входящих заявок</div>
+                ) : (
+                  labRequests.map((r) => (
+                    <Card key={r.id} variant="elevated" padding="md" className="dashboard-list-item">
+                      <div className="dashboard-list-item__title-row">
+                        <h4 className="dashboard-list-item__title">
+                          {r.researcher?.full_name || "Исследователь"} → {r.laboratory?.name || "Лаборатория"}
+                        </h4>
+                      </div>
+                      {r.researcher?.email && (
+                        <div className="text-sm text-muted" style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
+                          {r.researcher.email}
+                        </div>
+                      )}
+                      <div className="dashboard-list-item__actions">
+                        <Button
+                          variant="primary"
+                          size="small"
+                          onClick={() => approveLab(r.id)}
+                          disabled={actionId === r.id}
+                          loading={actionId === r.id}
+                        >
+                          Принять
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="small"
+                          onClick={() => rejectLab(r.id)}
+                          disabled={actionId === r.id}
+                        >
+                          Отклонить
+                        </Button>
+                      </div>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
 
-      {showOrg && (
-        <div className="profile-form-group join-requests-section">
-          <div className="profile-form-group-title">Заявки лабораторий в организацию</div>
-          <p className="profile-field-hint join-requests-hint">Лаборатории просят войти в состав вашей организации.</p>
-          <div className="profile-list">
-            {orgRequests.length === 0 ? (
-              <p className="muted">Нет входящих заявок</p>
-            ) : (
-              orgRequests.map((r) => (
-                <div key={r.id} className="profile-list-card">
-                  <div className="profile-list-content">
-                    <div className="profile-list-title">
-                      {r.laboratory?.name || "Лаборатория"} → {r.organization?.name || "Организация"}
-                    </div>
-                    {r.laboratory?.description && (
-                      <div className="profile-list-text small muted">{r.laboratory.description}</div>
-                    )}
-                  </div>
-                  <div className="lab-card-actions">
-                    <button
-                      type="button"
-                      className="primary-btn lab-btn-edit"
-                      onClick={() => approveOrg(r.id)}
-                      disabled={actionId === r.id}
-                    >
-                      {actionId === r.id ? "Обработка…" : "Принять"}
-                    </button>
-                    <button
-                      type="button"
-                      className="ghost-btn lab-btn-delete"
-                      onClick={() => rejectOrg(r.id)}
-                      disabled={actionId === r.id}
-                    >
-                      Отклонить
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+          {showOrg && (
+            <div className="profile-form-group join-requests-section">
+              <div className="profile-form-group-title">Заявки лабораторий в организацию</div>
+              <p className="profile-field-hint join-requests-hint">
+                Лаборатории просят войти в состав вашей организации.
+              </p>
+              <div className="profile-list">
+                {orgRequests.length === 0 ? (
+                  <div className="profile-empty-state">Нет входящих заявок</div>
+                ) : (
+                  orgRequests.map((r) => (
+                    <Card key={r.id} variant="elevated" padding="md" className="dashboard-list-item">
+                      <div className="dashboard-list-item__title-row">
+                        <h4 className="dashboard-list-item__title">
+                          {r.laboratory?.name || "Лаборатория"} → {r.organization?.name || "Организация"}
+                        </h4>
+                      </div>
+                      {r.laboratory?.description && (
+                        <div style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
+                          {r.laboratory.description}
+                        </div>
+                      )}
+                      <div className="dashboard-list-item__actions">
+                        <Button
+                          variant="primary"
+                          size="small"
+                          onClick={() => approveOrg(r.id)}
+                          disabled={actionId === r.id}
+                          loading={actionId === r.id}
+                        >
+                          Принять
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="small"
+                          onClick={() => rejectOrg(r.id)}
+                          disabled={actionId === r.id}
+                        >
+                          Отклонить
+                        </Button>
+                      </div>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </>
       )}
-    </div>
+    </Card>
   );
 }

@@ -4,6 +4,7 @@ import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../ToastContext";
 import ProfileSummary from "./profile/ProfileSummary";
+import SummaryTabContent from "./profile/SummaryTabContent";
 import SubscriptionTab from "./profile/SubscriptionTab";
 import StudentProfileSection from "./profile/StudentProfileSection";
 import ResearcherProfileSection from "./profile/ResearcherProfileSection";
@@ -2111,21 +2112,30 @@ export default function Profile() {
           <button type="button" onClick={clearError} aria-label="Закрыть">×</button>
         </div>
       )}
-      <div className="profile-layout">
-        <aside className="profile-sidebar-wrap">
+      <div className="profile-page__layout">
+        <aside className="profile-page__sidebar">
           {profile && roleKey && (
-            <ProfileSidebar
-              roleKey={roleKey}
-              currentSection={profileSection}
-              onSectionChange={setProfileSection}
-              orgTab={orgTab}
-              onOrgTabChange={(tabId) => {
-                setProfileSection("organization");
-                setOrgTab(tabId);
-              }}
-              showProfileTab={roleKey === "lab_admin"}
-              emailVerified={emailVerified}
-            />
+            <>
+              <ProfileSummary
+                profile={profile}
+                roleName={roleName}
+                onAvatarUpload={uploadUserAvatar}
+                uploading={uploading}
+                loading={loading}
+              />
+              <ProfileSidebar
+                roleKey={roleKey}
+                currentSection={profileSection}
+                onSectionChange={setProfileSection}
+                orgTab={orgTab}
+                onOrgTabChange={(tabId) => {
+                  setProfileSection("organization");
+                  setOrgTab(tabId);
+                }}
+                showProfileTab={roleKey === "lab_admin"}
+                emailVerified={emailVerified}
+              />
+            </>
           )}
           <div className="profile-actions profile-actions--sidebar">
             <button type="button" className="ghost-btn" onClick={() => navigate("/")}>
@@ -2136,14 +2146,14 @@ export default function Profile() {
             </button>
           </div>
         </aside>
-        <div className="profile-content" ref={profileContentRef}>
+        <div className="profile-page__content profile-content" ref={profileContentRef}>
           <div className="profile-content-inner">
             {loading && !profile && <p className="muted">Загрузка…</p>}
             {!loading && profile && !roleKey && profileSection !== "summary" && (
               <p className="muted">Выберите роль в разделе «Обзор».</p>
             )}
             {profileSection === "summary" && (
-              <ProfileSummary
+              <SummaryTabContent
                 loading={loading}
                 error={error}
                 profile={profile}
@@ -2170,8 +2180,6 @@ export default function Profile() {
                     }
                   }
                 }}
-                onAvatarUpload={uploadUserAvatar}
-                uploading={uploading}
               />
             )}
             {profileSection === "subscription" && profile && isOrgRole && (

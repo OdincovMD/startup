@@ -4,11 +4,14 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiRequest } from "../../api/client";
+import { Card } from "../../components/ui/Card";
+import { Badge } from "../../components/ui/Badge";
+import { Button } from "../../components/ui/Button";
 
 const STATUS_CONFIG = {
-  new: { label: "На рассмотрении", className: "status-badge--pending" },
-  accepted: { label: "Приглашение", className: "status-badge--success" },
-  rejected: { label: "Отклонён", className: "status-badge--rejected" },
+  new: { label: "На рассмотрении", variant: "accent" },
+  accepted: { label: "Приглашение", variant: "success" },
+  rejected: { label: "Отклонён", variant: "rejected" },
 };
 
 function formatDate(dateStr) {
@@ -17,11 +20,11 @@ function formatDate(dateStr) {
   const now = new Date();
   const diffMs = now - date;
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays === 0) return "Сегодня";
   if (diffDays === 1) return "Вчера";
   if (diffDays < 7) return `${diffDays} дн. назад`;
-  
+
   return date.toLocaleDateString("ru-RU", {
     day: "numeric",
     month: "short",
@@ -31,37 +34,47 @@ function formatDate(dateStr) {
 
 function ResponseCard({ item }) {
   const status = STATUS_CONFIG[item.status] || STATUS_CONFIG.new;
-  const vacancyUrl = item.vacancy_public_id ? `/vacancies/${item.vacancy_public_id}` : "/vacancies";
+  const vacancyUrl = item.vacancy_public_id
+    ? `/vacancies/${item.vacancy_public_id}`
+    : "/vacancies";
 
   return (
-    <Link to={vacancyUrl} className={`response-card response-card--${item.status || "new"}`}>
-      <div className="response-card__main">
-        <div className="response-card__title-row">
-          <span className="response-card__title">{item.vacancy_name || "Вакансия"}</span>
-          <span className={`status-badge ${status.className}`}>{status.label}</span>
+    <Link to={vacancyUrl} className="response-card-link">
+      <Card variant="elevated" padding="md" className="dashboard-list-item">
+        <div className="profile-list-content">
+          <div className="profile-list-title">
+            <span>{item.vacancy_name || "Вакансия"}</span>
+            <Badge variant={status.variant}>{status.label}</Badge>
+          </div>
+          {item.organization_name && (
+            <div className="profile-list-text small muted">
+              {item.organization_name}
+            </div>
+          )}
+          {item.created_at && (
+            <div className="profile-list-text small muted">
+              {formatDate(item.created_at)}
+            </div>
+          )}
         </div>
-        {item.organization_name && (
-          <div className="response-card__org">{item.organization_name}</div>
-        )}
-      </div>
-      <div className="response-card__meta">
-        <span className="response-card__date">{formatDate(item.created_at)}</span>
-        <span className="response-card__arrow">→</span>
-      </div>
+      </Card>
     </Link>
   );
 }
 
 function EmptyState() {
   return (
-    <div className="responses-empty">
-      <h4 className="responses-empty__title">У вас пока нет откликов</h4>
-      <p className="responses-empty__text">
-        Найдите интересную вакансию и откликнитесь — работодатель получит уведомление и сможет связаться с вами.
+    <div className="profile-empty-state">
+      <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "1rem" }}>
+        У вас пока нет откликов
+      </h4>
+      <p className="profile-list-text small muted" style={{ marginBottom: "1rem" }}>
+        Найдите интересную вакансию и откликнитесь — работодатель получит уведомление и
+        сможет связаться с вами.
       </p>
-      <Link to="/vacancies" className="primary-btn responses-empty__btn">
+      <Button to="/vacancies" variant="primary">
         Перейти к вакансиям
-      </Link>
+      </Button>
     </div>
   );
 }
@@ -70,16 +83,12 @@ function LoadingSkeleton() {
   return (
     <div className="responses-loading">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="response-card response-card--skeleton">
-          <div className="response-card__header">
+        <Card key={i} variant="elevated" padding="md" className="dashboard-list-item">
+          <div className="profile-list-content">
             <div className="skeleton" style={{ width: 100, height: 24 }} />
-            <div className="skeleton" style={{ width: 60, height: 16 }} />
+            <div className="skeleton" style={{ width: 60, height: 16, marginTop: 6 }} />
           </div>
-          <div className="response-card__body">
-            <div className="skeleton" style={{ width: "70%", height: 20, marginBottom: 8 }} />
-            <div className="skeleton" style={{ width: "40%", height: 16 }} />
-          </div>
-        </div>
+        </Card>
       ))}
     </div>
   );
@@ -111,8 +120,14 @@ export default function MyVacancyResponsesSection({ hideTitle = false, onError }
   });
 
   return (
-    <div className="profile-section profile-section--no-border">
-      {!hideTitle && <h3 className="profile-section-title">Мои отклики</h3>}
+    <Card variant="solid" padding="lg" className="profile-section-card">
+      {!hideTitle && (
+        <div className="profile-section-header">
+          <h2 className="profile-section-card__title" style={{ margin: 0 }}>
+            Мои отклики
+          </h2>
+        </div>
+      )}
       <p className="profile-section-desc">
         История ваших откликов на вакансии
       </p>
@@ -136,13 +151,13 @@ export default function MyVacancyResponsesSection({ hideTitle = false, onError }
               </span>
             )}
           </div>
-          <div className="responses-items">
+          <div className="profile-list responses-items">
             {sortedList.map((item) => (
               <ResponseCard key={item.id} item={item} />
             ))}
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

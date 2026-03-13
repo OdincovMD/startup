@@ -1,4 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
+import { Card } from "../../../components/ui/Card";
+import { Button } from "../../../components/ui/Button";
+import { Input } from "../../../components/ui/Input";
 
 /**
  * Общий модуль «Оборудование»: создание/редактирование оборудования, привязка к лабораториям.
@@ -73,25 +76,34 @@ export default function EquipmentTab({
   };
 
   return (
-    <div className="profile-form">
-      <div className="lab-tab-header">
-        <p className="lab-tab-desc">Добавляйте единицы оборудования, указывайте характеристики и привязывайте к лабораториям.</p>
-        <button
-          type="button"
-          className="primary-btn lab-btn-add"
-          onClick={handleAddEquipmentClick}
-        >
+    <Card variant="solid" padding="lg" className="profile-section-card">
+      <div className="profile-section-header">
+        <h2 className="profile-section-card__title" style={{ margin: 0 }}>Оборудование</h2>
+        <Button variant="primary" onClick={handleAddEquipmentClick}>
           + Добавить оборудование
-        </button>
+        </Button>
       </div>
+      <p className="profile-section-desc" style={{ marginBottom: "1.5rem" }}>
+        Добавляйте единицы оборудования, указывайте характеристики и привязывайте к лабораториям.
+      </p>
       <div className="profile-list" ref={listRef}>
-        {orgEquipment.length === 0 && <p className="muted">Оборудование пока не добавлено.</p>}
+        {orgEquipment.length === 0 && (
+          <div className="profile-empty-state">
+            Оборудование пока не добавлено.
+          </div>
+        )}
         {orgEquipment.map((item) => (
-          <div key={item.id} className="profile-list-card">
-            <div className="profile-list-content">
-              <div className="profile-list-title">{item.name}</div>
-              {item.characteristics && <div className="profile-list-text">{item.characteristics}</div>}
-              {item.description && <div className="profile-list-text">{item.description}</div>}
+          <Card key={item.id} variant="elevated" padding="md" className="dashboard-list-item">
+            <div className="dashboard-list-item__title-row">
+              <h4 className="dashboard-list-item__title">{item.name}</h4>
+            </div>
+            {(item.laboratories || []).length > 0 && (
+              <div className="profile-list-text muted">
+                Лаборатории: {(item.laboratories || []).map((l) => l.name).join(", ")}
+              </div>
+            )}
+            {item.characteristics && <p className="profile-list-text" style={{ margin: 0 }}>{item.characteristics}</p>}
+            {item.description && <p className="profile-list-text" style={{ margin: 0 }}>{item.description}</p>}
               {(item.laboratories || []).length > 0 && (
                 <div className="chip-row">
                   {(item.laboratories || []).map((lab) => (
@@ -99,7 +111,7 @@ export default function EquipmentTab({
                   ))}
                 </div>
               )}
-              {splitMedia(item.image_urls).images.length > 0 && (
+            {splitMedia(item.image_urls).images.length > 0 && (
                 <button
                   type="button"
                   className="gallery-preview"
@@ -122,37 +134,39 @@ export default function EquipmentTab({
                   ))}
                 </div>
               )}
-            </div>
             {editingEquipmentId === item.id && equipmentEdit ? (
-              <div className="profile-edit lab-form-grouped">
+              <div className="profile-edit lab-form-grouped profile-form">
                 <div className="profile-form-group">
                   <div className="profile-form-group-title">Основная информация</div>
-                  <label>
-                    Название
-                    <input
-                      value={equipmentEdit.name}
-                      onChange={(e) => handleEquipmentEditChange("name", e.target.value)}
-                      placeholder="Название оборудования"
-                    />
-                  </label>
-                  <label>
-                    Характеристики
+                  <Input
+                    id={`equipment-edit-name-${item.id}`}
+                    label="Название"
+                    value={equipmentEdit.name}
+                    onChange={(e) => handleEquipmentEditChange("name", e.target.value)}
+                    placeholder="Название оборудования"
+                  />
+                  <div className="ui-input-group">
+                    <label htmlFor={`equipment-edit-characteristics-${item.id}`}>Характеристики</label>
                     <textarea
+                      id={`equipment-edit-characteristics-${item.id}`}
                       rows={2}
+                      className="ui-input"
                       value={equipmentEdit.characteristics}
                       onChange={(e) => handleEquipmentEditChange("characteristics", e.target.value)}
                       placeholder="Параметры, точность"
                     />
-                  </label>
-                  <label>
-                    Описание
+                  </div>
+                  <div className="ui-input-group">
+                    <label htmlFor={`equipment-edit-description-${item.id}`}>Описание</label>
                     <textarea
+                      id={`equipment-edit-description-${item.id}`}
                       rows={2}
+                      className="ui-input"
                       value={equipmentEdit.description}
                       onChange={(e) => handleEquipmentEditChange("description", e.target.value)}
                       placeholder="Краткое описание"
                     />
-                  </label>
+                  </div>
                 </div>
                 <div className="profile-form-group">
                   <div className="profile-form-group-title">Лаборатории</div>
@@ -177,17 +191,19 @@ export default function EquipmentTab({
                 </div>
                 <div className="profile-form-group">
                   <div className="profile-form-group-title">Медиафайлы</div>
-                  <label>
-                    Добавить файлы
+                  <div className="ui-input-group">
+                    <label htmlFor={`equipment-edit-files-${item.id}`}>Добавить файлы</label>
                     <input
                       ref={editFilesInputRef}
+                      id={`equipment-edit-files-${item.id}`}
                       type="file"
+                      className="ui-input"
                       accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
                       multiple
                       onChange={(e) => handleEquipmentEditFiles(e.target.files)}
                       disabled={uploading || saving}
                     />
-                  </label>
+                  </div>
                   {equipmentEdit.image_urls?.length > 0 && (
                     <div className="image-preview-grid">
                       {splitMedia(equipmentEdit.image_urls).images.map((url, index) => (
@@ -224,32 +240,25 @@ export default function EquipmentTab({
                   )}
                 </div>
                 <div className="lab-form-actions">
-                  <div className="lab-form-actions__primary">
-                    <button className="primary-btn lab-btn-save" onClick={updateEquipment} disabled={saving}>
-                      {saving ? "Сохранение…" : "Сохранить"}
-                    </button>
-                    <button type="button" className="ghost-btn" onClick={cancelEditEquipment} disabled={saving}>
-                      Отмена
-                    </button>
-                  </div>
+                  <Button variant="primary" onClick={updateEquipment} loading={saving} disabled={saving}>
+                    {saving ? "Сохранение…" : "Сохранить"}
+                  </Button>
+                  <Button variant="ghost" onClick={cancelEditEquipment} disabled={saving}>
+                    Отмена
+                  </Button>
                 </div>
               </div>
             ) : (
-              <div className="lab-card-actions">
-                <button className="primary-btn lab-btn-edit" onClick={() => startEditEquipment(item)} disabled={saving}>
+              <div className="dashboard-list-item__actions">
+                <Button variant="primary" size="small" onClick={() => startEditEquipment(item)} disabled={saving}>
                   Редактировать
-                </button>
-                <button
-                  type="button"
-                  className="ghost-btn lab-btn-delete"
-                  onClick={() => deleteEquipment(item.id)}
-                  disabled={saving}
-                >
+                </Button>
+                <Button variant="ghost" size="small" className="lab-btn-delete" onClick={() => deleteEquipment(item.id)} disabled={saving}>
                   Удалить
-                </button>
+                </Button>
               </div>
             )}
-          </div>
+          </Card>
         ))}
       </div>
 
@@ -265,35 +274,38 @@ export default function EquipmentTab({
         >
           Новое оборудование
         </button>
-        <div className="profile-form-collapsible-body lab-form-grouped">
+        <div className="profile-form-collapsible-body lab-form-grouped profile-form">
           <div className="profile-form-group">
             <div className="profile-form-group-title">Основная информация</div>
-            <label>
-              Название оборудования
-              <input
-                value={equipmentDraft.name}
-                onChange={(e) => handleEquipmentDraft("name", e.target.value)}
-                placeholder="Микроскоп, хроматограф..."
-              />
-            </label>
-            <label>
-              Характеристики
+            <Input
+              id="equipment-draft-name"
+              label="Название оборудования"
+              value={equipmentDraft.name}
+              onChange={(e) => handleEquipmentDraft("name", e.target.value)}
+              placeholder="Микроскоп, хроматограф..."
+            />
+            <div className="ui-input-group">
+              <label htmlFor="equipment-draft-characteristics">Характеристики</label>
               <textarea
+                id="equipment-draft-characteristics"
                 rows={2}
+                className="ui-input"
                 value={equipmentDraft.characteristics}
                 onChange={(e) => handleEquipmentDraft("characteristics", e.target.value)}
                 placeholder="Параметры, точность"
               />
-            </label>
-            <label>
-              Описание
+            </div>
+            <div className="ui-input-group">
+              <label htmlFor="equipment-draft-description">Описание</label>
               <textarea
+                id="equipment-draft-description"
                 rows={2}
+                className="ui-input"
                 value={equipmentDraft.description}
                 onChange={(e) => handleEquipmentDraft("description", e.target.value)}
                 placeholder="Краткое описание"
               />
-            </label>
+            </div>
           </div>
           <div className="profile-form-group">
             <div className="profile-form-group-title">Лаборатории</div>
@@ -318,17 +330,19 @@ export default function EquipmentTab({
           </div>
           <div className="profile-form-group">
             <div className="profile-form-group-title">Медиафайлы</div>
-            <label>
-              Файлы (изображения и документы)
+            <div className="ui-input-group">
+              <label htmlFor="equipment-draft-files">Файлы (изображения и документы)</label>
               <input
                 ref={draftFilesInputRef}
+                id="equipment-draft-files"
                 type="file"
+                className="ui-input"
                 accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
                 multiple
                 onChange={(e) => handleEquipmentFiles(e.target.files)}
                 disabled={uploading || saving}
               />
-            </label>
+            </div>
             {equipmentDraft.image_urls?.length > 0 && (
               <div className="image-preview-grid">
                 {splitMedia(equipmentDraft.image_urls).images.map((url, index) => (
@@ -394,12 +408,12 @@ export default function EquipmentTab({
             )}
           </div>
           <div className="lab-form-actions lab-form-actions--create">
-            <button className="primary-btn lab-btn-save" onClick={handleCreateEquipment} disabled={saving}>
+            <Button variant="primary" onClick={handleCreateEquipment} loading={saving} disabled={saving}>
               {saving ? "Сохранение…" : "Создать оборудование"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

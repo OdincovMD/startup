@@ -5,13 +5,16 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiRequest } from "../../api/client";
 import { useToast } from "../../ToastContext";
+import { Card } from "../../components/ui/Card";
+import { Button } from "../../components/ui/Button";
+import { Badge } from "../../components/ui/Badge";
 
 const STATUS_CONFIG = {
-  pending: { label: "На рассмотрении", className: "status-badge--pending" },
-  approved: { label: "Принято", className: "status-badge--success" },
-  rejected: { label: "Отклонено", className: "status-badge--rejected" },
-  left: { label: "Покинуто", className: "status-badge--muted" },
-  removed: { label: "Отвязан", className: "status-badge--muted" },
+  pending: { label: "На рассмотрении", variant: "accent" },
+  approved: { label: "Принято", variant: "success" },
+  rejected: { label: "Отклонено", variant: "rejected" },
+  left: { label: "Покинуто", variant: "default" },
+  removed: { label: "Отвязан", variant: "default" },
 };
 
 function formatDate(dateStr) {
@@ -35,59 +38,67 @@ function RequestCard({ item, type, onLeave }) {
   const labUrl = item.laboratory?.public_id ? `/laboratories/${item.laboratory.public_id}` : null;
   const orgUrl = item.organization?.public_id ? `/organizations/${item.organization.public_id}` : null;
 
-  const title = type === "lab"
-    ? item.laboratory?.name || "Лаборатория"
-    : `${item.laboratory?.name || "Лаборатория"} → ${item.organization?.name || "Организация"}`;
+  const title =
+    type === "lab"
+      ? item.laboratory?.name || "Лаборатория"
+      : `${item.laboratory?.name || "Лаборатория"} → ${item.organization?.name || "Организация"}`;
 
   const linkUrl = type === "lab" ? labUrl : orgUrl;
 
   return (
-    <div className={`request-card request-card--${item.status || "pending"}`}>
-      <div className="request-card__main">
-        <div className="request-card__title-row">
+    <Card variant="elevated" padding="md" className="dashboard-list-item">
+      <div className="dashboard-list-item__title-row">
+        <h4 className="dashboard-list-item__title">
           {linkUrl ? (
-            <Link to={linkUrl} className="request-card__title">{title}</Link>
+            <Link to={linkUrl} className="profile-list-title-link">
+              {title}
+            </Link>
           ) : (
-            <span className="request-card__title">{title}</span>
+            <span>{title}</span>
           )}
-          <span className={`status-badge ${status.className}`}>{status.label}</span>
-        </div>
-        {item.created_at && (
-          <div className="request-card__date">Подана: {formatDate(item.created_at)}</div>
-        )}
+        </h4>
+        <Badge variant={status.variant} className="dashboard-list-item__badge">{status.label}</Badge>
       </div>
-      {item.status === "approved" && onLeave && (
-        <button
-          className="request-card__leave"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (window.confirm("Вы уверены, что хотите покинуть?")) {
-              onLeave();
-            }
-          }}
-        >
-          Покинуть
-        </button>
+      {item.created_at && (
+        <div style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
+          Подана: {formatDate(item.created_at)}
+        </div>
       )}
-    </div>
+      {item.status === "approved" && onLeave && (
+        <div className="dashboard-list-item__actions">
+          <Button
+            variant="ghost"
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.confirm("Вы уверены, что хотите покинуть?")) {
+                onLeave();
+              }
+            }}
+          >
+            Покинуть
+          </Button>
+        </div>
+      )}
+    </Card>
   );
 }
 
 function EmptyState({ type, onAction }) {
   const isLab = type === "lab";
   return (
-    <div className="requests-empty">
-      <h4 className="requests-empty__title">
+    <div className="profile-empty-state">
+      <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "1rem" }}>
         {isLab ? "Нет заявок в лаборатории" : "Нет заявок в организации"}
       </h4>
-      <p className="requests-empty__text">
+      <p className="profile-list-text small muted" style={{ marginBottom: "1rem" }}>
         {isLab
           ? "Присоединитесь к лаборатории, чтобы стать её участником и получать уведомления о вакансиях."
           : "Привяжите вашу лабораторию к организации для совместной работы."}
       </p>
-      <button className="primary-btn requests-empty__btn" onClick={onAction}>
+      <Button variant="primary" onClick={onAction}>
         {isLab ? "Присоединиться к лаборатории" : "Привязать к организации"}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -96,12 +107,12 @@ function LoadingSkeleton() {
   return (
     <div className="requests-loading">
       {[1, 2].map((i) => (
-        <div key={i} className="request-card request-card--skeleton">
-          <div className="request-card__main">
+        <Card key={i} variant="elevated" padding="md" className="dashboard-list-item">
+          <div className="profile-list-content">
             <div className="skeleton" style={{ width: "60%", height: 18 }} />
             <div className="skeleton" style={{ width: "30%", height: 14, marginTop: 6 }} />
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   );
@@ -247,16 +258,28 @@ export default function MyJoinRequestsSection({ roleKey, onError, creatorLabs = 
   });
 
   return (
-    <div className="profile-section profile-section--no-border">
-      <h3 className="profile-section-title">Мои запросы</h3>
-      <p className="profile-section-desc">Заявки на вступление в лаборатории и организации</p>
+    <Card variant="solid" padding="lg" className="profile-section-card">
+      <div className="profile-section-header">
+        <h2 className="profile-section-card__title" style={{ margin: 0 }}>
+          Мои запросы
+        </h2>
+      </div>
+      <p className="profile-section-desc">
+        Заявки на вступление в лаборатории и организации
+      </p>
 
       {roleKey === "researcher" && (
         <div className="requests-block">
           {loading ? (
             <LoadingSkeleton />
           ) : labList.length === 0 && !showLabForm ? (
-            <EmptyState type="lab" onAction={() => { setShowLabForm(true); loadLabSuggestions(); }} />
+            <EmptyState
+              type="lab"
+              onAction={() => {
+                setShowLabForm(true);
+                loadLabSuggestions();
+              }}
+            />
           ) : (
             <div className="requests-list">
               {labList.length > 0 && (
@@ -293,34 +316,52 @@ export default function MyJoinRequestsSection({ roleKey, onError, creatorLabs = 
                     </datalist>
                   </div>
                   <div className="request-form__actions">
-                    <button className="primary-btn" onClick={joinLab} disabled={joiningLab || !labInput.trim()}>
+                    <Button
+                      variant="primary"
+                      onClick={joinLab}
+                      disabled={joiningLab || !labInput.trim()}
+                    >
                       {joiningLab ? "Отправка..." : "Отправить заявку"}
-                    </button>
-                    <button className="ghost-btn" onClick={() => { setShowLabForm(false); setLabInput(""); }}>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setShowLabForm(false);
+                        setLabInput("");
+                      }}
+                    >
                       Отмена
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
 
-              <div className="requests-items">
+              <div className="profile-list requests-items">
                 {sortedLabList.map((r) => (
                   <RequestCard
                     key={r.id}
                     item={r}
                     type="lab"
-                    onLeave={r.status === "approved" && r.laboratory?.id ? () => leaveLab(r.laboratory.id) : null}
+                    onLeave={
+                      r.status === "approved" && r.laboratory?.id
+                        ? () => leaveLab(r.laboratory.id)
+                        : null
+                    }
                   />
                 ))}
               </div>
 
               {!showLabForm && labList.length > 0 && (
-                <button
-                  className="ghost-btn requests-add-btn"
-                  onClick={() => { setShowLabForm(true); loadLabSuggestions(); }}
+                <Button
+                  variant="ghost"
+                  className="requests-add-btn"
+                  onClick={() => {
+                    setShowLabForm(true);
+                    loadLabSuggestions();
+                  }}
                 >
                   + Подать ещё заявку
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -332,7 +373,14 @@ export default function MyJoinRequestsSection({ roleKey, onError, creatorLabs = 
           {loading ? (
             <LoadingSkeleton />
           ) : orgList.length === 0 && !showOrgForm ? (
-            <EmptyState type="org" onAction={() => { setShowOrgForm(true); loadOrgSuggestions(); if (!creatorLabs?.length) loadLabSuggestions(); }} />
+            <EmptyState
+              type="org"
+              onAction={() => {
+                setShowOrgForm(true);
+                loadOrgSuggestions();
+                if (!creatorLabs?.length) loadLabSuggestions();
+              }}
+            />
           ) : (
             <div className="requests-list">
               {orgList.length > 0 && (
@@ -385,39 +433,59 @@ export default function MyJoinRequestsSection({ roleKey, onError, creatorLabs = 
                     </datalist>
                   </div>
                   <div className="request-form__actions">
-                    <button className="primary-btn" onClick={joinOrg} disabled={joiningOrg || !orgInput.trim() || !labInputForOrg.trim()}>
+                    <Button
+                      variant="primary"
+                      onClick={joinOrg}
+                      disabled={
+                        joiningOrg || !orgInput.trim() || !labInputForOrg.trim()
+                      }
+                    >
                       {joiningOrg ? "Отправка..." : "Отправить заявку"}
-                    </button>
-                    <button className="ghost-btn" onClick={() => { setShowOrgForm(false); setOrgInput(""); setLabInputForOrg(""); }}>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setShowOrgForm(false);
+                        setOrgInput("");
+                        setLabInputForOrg("");
+                      }}
+                    >
                       Отмена
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
 
-              <div className="requests-items">
+              <div className="profile-list requests-items">
                 {sortedOrgList.map((r) => (
                   <RequestCard
                     key={r.id}
                     item={r}
                     type="org"
-                    onLeave={r.status === "approved" && r.id ? () => leaveOrg(r.id) : null}
+                    onLeave={
+                      r.status === "approved" && r.id ? () => leaveOrg(r.id) : null
+                    }
                   />
                 ))}
               </div>
 
               {!showOrgForm && orgList.length > 0 && (
-                <button
-                  className="ghost-btn requests-add-btn"
-                  onClick={() => { setShowOrgForm(true); loadOrgSuggestions(); if (!creatorLabs?.length) loadLabSuggestions(); }}
+                <Button
+                  variant="ghost"
+                  className="requests-add-btn"
+                  onClick={() => {
+                    setShowOrgForm(true);
+                    loadOrgSuggestions();
+                    if (!creatorLabs?.length) loadLabSuggestions();
+                  }}
                 >
                   + Привязать ещё лабораторию
-                </button>
+                </Button>
               )}
             </div>
           )}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

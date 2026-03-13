@@ -1,4 +1,8 @@
 import React, { useRef, useEffect, useState } from "react";
+import { Card } from "../../../components/ui/Card";
+import { Button } from "../../../components/ui/Button";
+import { Input } from "../../../components/ui/Input";
+import { Badge } from "../../../components/ui/Badge";
 
 /**
  * Общий модуль «Лаборатории»: создание/редактирование лабораторий, привязка оборудования, задач, сотрудников.
@@ -67,38 +71,37 @@ export default function LaboratoriesTab({
   };
 
   return (
-    <div className="profile-form">
-      <div className="lab-tab-header">
-        <p className="lab-tab-desc">Создавайте лаборатории, назначайте руководителей и участников, привязывайте оборудование и задачи.</p>
-        <button
-          type="button"
-          className="primary-btn lab-btn-add"
-          onClick={handleAddLabClick}
-        >
+    <Card variant="solid" padding="lg" className="profile-section-card">
+      <div className="profile-section-header">
+        <h2 className="profile-section-card__title" style={{ margin: 0 }}>Лаборатории</h2>
+        <Button variant="primary" onClick={handleAddLabClick}>
           + Добавить лабораторию
-        </button>
+        </Button>
       </div>
+      <p className="profile-section-desc" style={{ marginBottom: "1.5rem" }}>
+        Создавайте лаборатории, назначайте руководителей и участников, привязывайте оборудование и задачи.
+      </p>
       <div className="profile-list" ref={listRef}>
-        {orgLabs.length === 0 && <p className="muted">Лаборатории пока не добавлены.</p>}
+        {orgLabs.length === 0 && (
+          <div className="profile-empty-state">
+            Лаборатории пока не добавлены.
+          </div>
+        )}
         {orgLabs.map((lab) => (
-          <div key={lab.id} className="profile-list-card">
-            <div className="profile-list-content">
-              <div className="profile-list-title">
-                {lab.name}
-                <span
-                  className={`org-detail-chip org-detail-chip--status ${lab.is_published ? "org-detail-chip--published" : "org-detail-chip--draft"}`}
-                  title={lab.is_published ? "Лаборатория опубликована" : "Черновик — видно только вам"}
-                >
-                  {lab.is_published ? "Опубликовано" : "Черновик"}
-                </span>
+          <Card key={lab.id} variant="elevated" padding="md" className="dashboard-list-item">
+            <div className="dashboard-list-item__title-row">
+              <h4 className="dashboard-list-item__title">{lab.name}</h4>
+              <Badge variant={lab.is_published ? "published" : "draft"} className="dashboard-list-item__badge">
+                {lab.is_published ? "Опубликовано" : "Черновик"}
+              </Badge>
+            </div>
+            {lab.head_employee && (
+              <div className="profile-list-text muted">
+                Руководитель: {lab.head_employee.full_name}
               </div>
-              {lab.head_employee && (
-                <div className="lab-head-badge">
-                  Руководитель: {lab.head_employee.full_name}
-                </div>
-              )}
-              {lab.activities && <div className="profile-list-text">{lab.activities}</div>}
-              {lab.description && <div className="profile-list-text">{lab.description}</div>}
+            )}
+            {lab.activities && <p className="profile-list-text" style={{ margin: 0 }}>{lab.activities}</p>}
+            {lab.description && <p className="profile-list-text" style={{ margin: 0 }}>{lab.description}</p>}
               {((lab.employees || []).length > 0 || (lab.researchers || []).length > 0) && (
                 <div className="chip-row">
                   {(lab.employees || []).map((employee) => (
@@ -156,37 +159,39 @@ export default function LaboratoriesTab({
                   ))}
                 </div>
               )}
-            </div>
             {editingLabId === lab.id && labEdit ? (
-              <div className="profile-edit lab-form-grouped">
+              <div className="profile-edit lab-form-grouped profile-form mt-auto">
                 <div className="profile-form-group">
                   <div className="profile-form-group-title">Основная информация</div>
-                  <label>
-                    Название
-                    <input
-                      value={labEdit.name}
-                      onChange={(e) => handleLabEditChange("name", e.target.value)}
-                      placeholder="Название лаборатории"
-                    />
-                  </label>
-                  <label>
-                    Чем занимается
+                  <Input
+                    id={`lab-name-edit-${lab.id}`}
+                    label="Название"
+                    value={labEdit.name}
+                    onChange={(e) => handleLabEditChange("name", e.target.value)}
+                    placeholder="Название лаборатории"
+                  />
+                  <div className="ui-input-group">
+                    <label htmlFor={`lab-activities-edit-${lab.id}`}>Чем занимается</label>
                     <textarea
+                      id={`lab-activities-edit-${lab.id}`}
                       rows={2}
+                      className="ui-input"
                       value={labEdit.activities}
                       onChange={(e) => handleLabEditChange("activities", e.target.value)}
                       placeholder="Направления работы"
                     />
-                  </label>
-                  <label>
-                    Описание
+                  </div>
+                  <div className="ui-input-group">
+                    <label htmlFor={`lab-description-edit-${lab.id}`}>Описание</label>
                     <textarea
+                      id={`lab-description-edit-${lab.id}`}
                       rows={2}
+                      className="ui-input"
                       value={labEdit.description}
                       onChange={(e) => handleLabEditChange("description", e.target.value)}
                       placeholder="Краткое описание"
                     />
-                  </label>
+                  </div>
                 </div>
                 <div className="profile-form-group">
                   <div className="profile-form-group-title">Сотрудники и руководитель</div>
@@ -269,17 +274,19 @@ export default function LaboratoriesTab({
                 </div>
                 <div className="profile-form-group">
                   <div className="profile-form-group-title">Медиафайлы</div>
-                  <label>
-                    Добавить файлы
+                  <div className="ui-input-group">
+                    <label htmlFor={`lab-edit-files-${lab.id}`}>Добавить файлы</label>
                     <input
                       ref={editFilesInputRef}
+                      id={`lab-edit-files-${lab.id}`}
                       type="file"
+                      className="ui-input"
                       accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
                       multiple
                       onChange={(e) => handleLabEditFiles(e.target.files)}
                       disabled={uploading || saving}
                     />
-                  </label>
+                  </div>
                 {labEdit.image_urls?.length > 0 && (
                   <div className="image-preview-grid">
                     {splitMedia(labEdit.image_urls).images.map((url, index) => (
@@ -316,50 +323,35 @@ export default function LaboratoriesTab({
                 )}
                 </div>
                 <div className="lab-form-actions">
-                  <div className="lab-form-actions__primary">
-                    <button className="primary-btn lab-btn-save" onClick={updateLab} disabled={saving}>
-                      {saving ? "Сохранение…" : "Сохранить"}
-                    </button>
-                    <button type="button" className="ghost-btn" onClick={cancelEditLab} disabled={saving}>
-                      Отмена
-                    </button>
-                  </div>
-                  <div className="lab-form-actions__secondary">
-                    <button
-                      type="button"
-                      className="ghost-btn"
-                      onClick={() => toggleLabPublish(lab.id, !lab.is_published)}
-                      disabled={saving}
-                    >
-                      {lab.is_published ? "Снять с публикации" : "Опубликовать"}
-                    </button>
-                  </div>
+                  <Button variant="primary" onClick={updateLab} loading={saving} disabled={saving}>
+                    {saving ? "Сохранение…" : "Сохранить"}
+                  </Button>
+                  <Button variant="ghost" onClick={cancelEditLab} disabled={saving}>
+                    Отмена
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => toggleLabPublish(lab.id, !lab.is_published)}
+                    disabled={saving}
+                  >
+                    {lab.is_published ? "Снять с публикации" : "Опубликовать"}
+                  </Button>
                 </div>
               </div>
             ) : (
-              <div className="lab-card-actions">
-                <button className="primary-btn lab-btn-edit" onClick={() => startEditLab(lab)} disabled={saving}>
+              <div className="dashboard-list-item__actions">
+                <Button variant="primary" size="small" onClick={() => startEditLab(lab)} disabled={saving}>
                   Редактировать
-                </button>
-                <button
-                  type="button"
-                  className="ghost-btn"
-                  onClick={() => toggleLabPublish(lab.id, !lab.is_published)}
-                  disabled={saving}
-                >
+                </Button>
+                <Button variant="ghost" size="small" onClick={() => toggleLabPublish(lab.id, !lab.is_published)} disabled={saving}>
                   {lab.is_published ? "Снять с публикации" : "Опубликовать"}
-                </button>
-                <button
-                  type="button"
-                  className="ghost-btn lab-btn-delete"
-                  onClick={() => deleteLab(lab.id)}
-                  disabled={saving}
-                >
+                </Button>
+                <Button variant="ghost" size="small" className="lab-btn-delete" onClick={() => deleteLab(lab.id)} disabled={saving}>
                   Удалить
-                </button>
+                </Button>
               </div>
             )}
-          </div>
+          </Card>
         ))}
       </div>
 
@@ -375,35 +367,38 @@ export default function LaboratoriesTab({
         >
           Новая лаборатория
         </button>
-        <div className="profile-form-collapsible-body lab-form-grouped">
+        <div className="profile-form-collapsible-body lab-form-grouped profile-form">
           <div className="profile-form-group">
             <div className="profile-form-group-title">Основная информация</div>
-            <label>
-              Название лаборатории
-              <input
-                value={labDraft.name}
-                onChange={(e) => handleLabDraft("name", e.target.value)}
-                placeholder="Лаборатория материаловедения"
-              />
-            </label>
-            <label>
-              Чем занимается
+            <Input
+              id="lab-draft-name"
+              label="Название лаборатории"
+              value={labDraft.name}
+              onChange={(e) => handleLabDraft("name", e.target.value)}
+              placeholder="Лаборатория материаловедения"
+            />
+            <div className="ui-input-group">
+              <label htmlFor="lab-draft-activities">Чем занимается</label>
               <textarea
+                id="lab-draft-activities"
                 rows={3}
+                className="ui-input"
                 value={labDraft.activities}
                 onChange={(e) => handleLabDraft("activities", e.target.value)}
                 placeholder="Наноматериалы, биосенсоры, моделирование"
               />
-            </label>
-            <label>
-              Описание
+            </div>
+            <div className="ui-input-group">
+              <label htmlFor="lab-draft-description">Описание</label>
               <textarea
+                id="lab-draft-description"
                 rows={3}
+                className="ui-input"
                 value={labDraft.description}
                 onChange={(e) => handleLabDraft("description", e.target.value)}
                 placeholder="Короткое описание направления и компетенций"
               />
-            </label>
+            </div>
           </div>
           <div className="profile-form-group">
             <div className="profile-form-group-title">Сотрудники и руководитель</div>
@@ -486,17 +481,19 @@ export default function LaboratoriesTab({
           </div>
           <div className="profile-form-group">
             <div className="profile-form-group-title">Медиафайлы</div>
-            <label>
-              Файлы (изображения и документы)
+            <div className="ui-input-group">
+              <label htmlFor="lab-draft-files">Файлы (изображения и документы)</label>
               <input
                 ref={draftFilesInputRef}
+                id="lab-draft-files"
                 type="file"
+                className="ui-input"
                 accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
                 multiple
                 onChange={(e) => handleLabFiles(e.target.files)}
                 disabled={uploading || saving}
               />
-            </label>
+            </div>
             {labDraft.image_urls?.length > 0 && (
               <div className="image-preview-grid">
                 {splitMedia(labDraft.image_urls).images.map((url, index) => (
@@ -584,12 +581,12 @@ export default function LaboratoriesTab({
         )}
       </div>
       <div className="lab-form-actions lab-form-actions--create">
-        <button className="primary-btn lab-btn-save" onClick={handleCreateLab} disabled={saving}>
+        <Button variant="primary" onClick={handleCreateLab} loading={saving} disabled={saving}>
           {saving ? "Сохранение…" : "Создать лабораторию"}
-        </button>
+        </Button>
       </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
