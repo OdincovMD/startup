@@ -2,6 +2,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { 
+  SpinnerIcon, 
+  CheckCircleIcon, 
+  AlertCircleIcon 
+} from "../components/auth";
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
@@ -59,14 +64,14 @@ export default function VerifyEmail() {
 
   if (status === "loading") {
     return (
-      <div className="main auth-page">
-        <div className="auth-wrapper">
-          <div className="auth-card-modern auth-card-modern--loading">
-            <h1>Подтверждение email</h1>
-            <p className="auth-subtitle">Проверяем ссылку…</p>
-            <div className="auth-loading-dots" aria-hidden="true">
-              <span /><span /><span />
-            </div>
+      <div className="auth-page auth-page--centered">
+        <div className="auth-icon-card">
+          <div className="auth-icon-card__icon auth-icon-card__icon--loading">
+            <SpinnerIcon />
+          </div>
+          <div className="auth-icon-card__body">
+            <h1 className="auth-icon-card__title">Подтверждение email</h1>
+            <p className="auth-subtitle auth-subtitle--center">Проверяем ссылку…</p>
           </div>
         </div>
       </div>
@@ -75,11 +80,14 @@ export default function VerifyEmail() {
 
   if (status === "success") {
     return (
-      <div className="main auth-page">
-        <div className="auth-wrapper">
-          <div className="auth-card-modern">
-            <h1>Email подтверждён</h1>
-            <p className="auth-subtitle">
+      <div className="auth-page auth-page--centered">
+        <div className="auth-icon-card">
+          <div className="auth-icon-card__icon auth-icon-card__icon--success">
+            <CheckCircleIcon />
+          </div>
+          <div className="auth-icon-card__body">
+            <h1 className="auth-icon-card__title">Email подтверждён</h1>
+            <p className="auth-subtitle auth-subtitle--center">
               Теперь вам доступен полный функционал. Можете перейти в профиль или на главную.
             </p>
             <div className="auth-actions">
@@ -97,11 +105,14 @@ export default function VerifyEmail() {
   }
 
   return (
-    <div className="main auth-page">
-      <div className="auth-wrapper">
-        <div className="auth-card-modern">
-          <h1>Ошибка подтверждения</h1>
-          <p className="auth-subtitle">{errorMessage}</p>
+    <div className="auth-page auth-page--centered">
+      <div className="auth-icon-card">
+        <div className="auth-icon-card__icon">
+          <AlertCircleIcon />
+        </div>
+        <div className="auth-icon-card__body">
+          <h1 className="auth-icon-card__title">Ошибка подтверждения</h1>
+          <p className="auth-subtitle auth-subtitle--center">{errorMessage}</p>
           <div className="auth-actions">
             <Link to="/profile" className="primary-btn auth-btn-primary auth-actions__primary">
               В профиль

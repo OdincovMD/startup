@@ -14,7 +14,8 @@ import {
   LabGalleryGrid,
 } from "../components/lab";
 import { ListingSearchBar } from "../components/listing";
-import { Drawer, Button, Card } from "../components/ui";
+import { Drawer, Button, Card, Badge } from "../components/ui";
+import { EmployeeCard } from "../components/EmployeeCard";
 import EmptySearchFallback from "../components/EmptySearchFallback";
 
 const LABORATORIES_PAGE_SIZE = 20;
@@ -533,48 +534,16 @@ export default function Laboratories() {
                       empty={details.employees.length === 0}
                     >
                       <div className="org-detail-grid org-detail-grid--employees">
-                        {details.employees.map((employee) => {
-                          const position = [employee.academic_degree, (employee.positions || []).join(", ")]
-                            .filter(Boolean)
-                            .join(" · ");
-                          return (
-                            <Card
-                              key={employee.id}
-                              variant="glass"
-                              padding="sm"
-                              className="employee-mini-card"
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => {
-                                setEmployeePreview(employee);
-                                setShowEmployeePublications(false);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  setEmployeePreview(employee);
-                                  setShowEmployeePublications(false);
-                                }
-                              }}
-                            >
-                              <div className="employee-mini-card__avatar">
-                                {employee.photo_url ? (
-                                  <img src={employee.photo_url} alt="" />
-                                ) : (
-                                  <span className="employee-mini-card__avatar-fallback">
-                                    {employee.full_name ? employee.full_name.charAt(0).toUpperCase() : "?"}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="employee-mini-card__info">
-                                <span className="employee-mini-card__name">{employee.full_name}</span>
-                                {position && (
-                                  <span className="employee-mini-card__meta">{position}</span>
-                                )}
-                              </div>
-                            </Card>
-                          );
-                        })}
+                        {details.employees.map((employee) => (
+                          <EmployeeCard
+                            key={employee.id}
+                            employee={employee}
+                            onClick={() => {
+                              setEmployeePreview(employee);
+                              setShowEmployeePublications(false);
+                            }}
+                          />
+                        ))}
                       </div>
                     </LabSection>
                     <LabSection

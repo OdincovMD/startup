@@ -5,7 +5,8 @@ import { useQuerySearch } from "../hooks";
 import EmployeeModal from "./profile/EmployeeModal";
 import EmptySearchFallback from "../components/EmptySearchFallback";
 import { QueryCard, QueryFilters, QuerySearchBar, QueryDetailSidebar } from "../components/queries";
-import { Drawer, Button, Card } from "../components/ui";
+import { Drawer, Button, Card, Badge } from "../components/ui";
+import { EmployeeCard } from "../components/EmployeeCard";
 
 export default function Queries() {
   const navigate = useNavigate();
@@ -312,43 +313,16 @@ export default function Queries() {
                   )}
                   <div className="query-contacts">
                     {(details.employees || []).map((employee) => (
-                      <button
+                      <EmployeeCard
                         key={employee.id}
-                        type="button"
+                        employee={employee}
+                        variant="list"
                         className="query-contact__card"
                         onClick={() => {
                           setEmployeePreview(employee);
                           setShowEmployeePublications(false);
                         }}
-                      >
-                        <span className="query-contact__avatar-wrap">
-                          {employee.photo_url ? (
-                            <img
-                              className="query-contact__avatar"
-                              src={employee.photo_url}
-                              alt=""
-                            />
-                          ) : (
-                            <span className="query-contact__avatar-placeholder">
-                              {employee.full_name
-                                ? employee.full_name.charAt(0).toUpperCase()
-                                : "?"}
-                            </span>
-                          )}
-                        </span>
-                        <span className="query-contact__body">
-                          <span className="query-contact__name">{employee.full_name}</span>
-                          {employee.academic_degree && (
-                            <span className="query-contact__meta">{employee.academic_degree}</span>
-                          )}
-                          {(employee.positions || []).length > 0 && (
-                            <span className="query-contact__meta">
-                              {employee.positions.join(", ")}
-                            </span>
-                          )}
-                          <span className="query-contact__cta">Открыть профиль →</span>
-                        </span>
-                      </button>
+                      />
                     ))}
                   </div>
                 </div>

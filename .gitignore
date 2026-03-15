@@ -37,6 +37,7 @@ htmlcov/
 # Node / Frontend
 frontend/node_modules/
 frontend/dist/
+frontend/unused-css-report.txt
 frontend/.vite/
 frontend/.cache/
 *.local

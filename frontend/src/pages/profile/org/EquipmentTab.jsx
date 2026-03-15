@@ -1,7 +1,22 @@
 import React, { useRef, useEffect, useState } from "react";
+import { 
+  Wrench, 
+  Beaker, 
+  Settings, 
+  Plus, 
+  Image as ImageIcon, 
+  FileText, 
+  Edit3, 
+  Trash2, 
+  ChevronDown, 
+  ChevronUp,
+  Layout,
+  ClipboardList
+} from "lucide-react";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
+import { Badge } from "../../../components/ui/Badge";
 
 /**
  * Общий модуль «Оборудование»: создание/редактирование оборудования, привязка к лабораториям.
@@ -78,9 +93,9 @@ export default function EquipmentTab({
   return (
     <Card variant="solid" padding="lg" className="profile-section-card">
       <div className="profile-section-header">
-        <h2 className="profile-section-card__title" style={{ margin: 0 }}>Оборудование</h2>
-        <Button variant="primary" onClick={handleAddEquipmentClick}>
-          + Добавить оборудование
+        <h2 className="profile-section-card__title">Оборудование</h2>
+        <Button variant="primary" onClick={handleAddEquipmentClick} className="add-btn-mobile">
+          <Plus size={18} /> <span>Добавить оборудование</span>
         </Button>
       </div>
       <p className="profile-section-desc" style={{ marginBottom: "1.5rem" }}>
@@ -93,324 +108,305 @@ export default function EquipmentTab({
           </div>
         )}
         {orgEquipment.map((item) => (
-          <Card key={item.id} variant="elevated" padding="md" className="dashboard-list-item">
-            <div className="dashboard-list-item__title-row">
-              <h4 className="dashboard-list-item__title">{item.name}</h4>
-            </div>
-            {(item.laboratories || []).length > 0 && (
-              <div className="profile-list-text muted">
-                Лаборатории: {(item.laboratories || []).map((l) => l.name).join(", ")}
-              </div>
-            )}
-            {item.characteristics && <p className="profile-list-text" style={{ margin: 0 }}>{item.characteristics}</p>}
-            {item.description && <p className="profile-list-text" style={{ margin: 0 }}>{item.description}</p>}
-              {(item.laboratories || []).length > 0 && (
-                <div className="chip-row">
-                  {(item.laboratories || []).map((lab) => (
-                    <span key={lab.id} className="chip">{lab.name}</span>
-                  ))}
+          <Card key={item.id} variant="elevated" padding="none" className="equipment-dashboard-card">
+            <div className="equipment-dashboard-card__header">
+              <div className="equipment-dashboard-card__title-group">
+                <div className="equipment-dashboard-card__icon">
+                  <Wrench size={20} />
                 </div>
-              )}
-            {splitMedia(item.image_urls).images.length > 0 && (
-                <button
-                  type="button"
-                  className="gallery-preview"
-                  onClick={() => openGallery(splitMedia(item.image_urls).images, 0)}
+                <div>
+                  <h4 className="equipment-dashboard-card__name">{item.name}</h4>
+                  {(item.laboratories || []).length > 0 && (
+                    <Badge variant="accent">
+                      <Beaker size={12} style={{ marginRight: '4px' }} />
+                      {item.laboratories.length} лаб.
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="equipment-dashboard-card__actions-top">
+                <Button 
+                  variant="ghost" 
+                  size="small" 
+                  onClick={() => startEditEquipment(item)}
+                  className="icon-btn"
+                  title="Редактировать"
                 >
-                  <img src={splitMedia(item.image_urls).images[0]} alt={item.name} />
-                  {splitMedia(item.image_urls).images.length > 1 && (
-                    <span className="gallery-count">
-                      +{splitMedia(item.image_urls).images.length - 1}
-                    </span>
-                  )}
-                </button>
-              )}
-              {splitMedia(item.image_urls).docs.length > 0 && (
-                <div className="file-list">
-                  {splitMedia(item.image_urls).docs.map((url, index) => (
-                    <a key={`${url}-${index}`} href={url} target="_blank" rel="noreferrer">
-                      {fileNameFromUrl(url)}
-                    </a>
-                  ))}
-                </div>
-              )}
-            {editingEquipmentId === item.id && equipmentEdit ? (
-              <div className="profile-edit lab-form-grouped profile-form">
-                <div className="profile-form-group">
-                  <div className="profile-form-group-title">Основная информация</div>
-                  <Input
-                    id={`equipment-edit-name-${item.id}`}
-                    label="Название"
-                    value={equipmentEdit.name}
-                    onChange={(e) => handleEquipmentEditChange("name", e.target.value)}
-                    placeholder="Название оборудования"
-                  />
-                  <div className="ui-input-group">
-                    <label htmlFor={`equipment-edit-characteristics-${item.id}`}>Характеристики</label>
-                    <textarea
-                      id={`equipment-edit-characteristics-${item.id}`}
-                      rows={2}
-                      className="ui-input"
-                      value={equipmentEdit.characteristics}
-                      onChange={(e) => handleEquipmentEditChange("characteristics", e.target.value)}
-                      placeholder="Параметры, точность"
-                    />
-                  </div>
-                  <div className="ui-input-group">
-                    <label htmlFor={`equipment-edit-description-${item.id}`}>Описание</label>
-                    <textarea
-                      id={`equipment-edit-description-${item.id}`}
-                      rows={2}
-                      className="ui-input"
-                      value={equipmentEdit.description}
-                      onChange={(e) => handleEquipmentEditChange("description", e.target.value)}
-                      placeholder="Краткое описание"
-                    />
-                  </div>
-                </div>
-                <div className="profile-form-group">
-                  <div className="profile-form-group-title">Лаборатории</div>
-                  {orgLabs.length === 0 && (
-                    <p className="muted">Лабораторий пока нет — создайте в разделе «Лаборатории».</p>
-                  )}
-                  {orgLabs.length > 0 && (
-                    <div className="lab-employees-list equipment-labs-list">
-                      <span className="lab-employees-list-title">Где установлено</span>
-                      {orgLabs.map((lab) => (
-                        <label key={lab.id} className="lab-employee-chip">
-                          <input
-                            type="checkbox"
-                            checked={(equipmentEdit.laboratory_ids || []).includes(lab.id)}
-                            onChange={() => toggleEditLab(lab.id, true)}
-                          />
-                          <span className="lab-employee-chip-name">{lab.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="profile-form-group">
-                  <div className="profile-form-group-title">Медиафайлы</div>
-                  <div className="ui-input-group">
-                    <label htmlFor={`equipment-edit-files-${item.id}`}>Добавить файлы</label>
-                    <input
-                      ref={editFilesInputRef}
-                      id={`equipment-edit-files-${item.id}`}
-                      type="file"
-                      className="ui-input"
-                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
-                      multiple
-                      onChange={(e) => handleEquipmentEditFiles(e.target.files)}
-                      disabled={uploading || saving}
-                    />
-                  </div>
-                  {equipmentEdit.image_urls?.length > 0 && (
-                    <div className="image-preview-grid">
-                      {splitMedia(equipmentEdit.image_urls).images.map((url, index) => (
-                        <div key={`${url}-${index}`} className="image-preview">
-                          <img src={url} alt="Оборудование" />
-                          <button
-                            type="button"
-                            className="image-remove"
-                            onClick={() => removeEditImage("equipment", index)}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {splitMedia(equipmentEdit.image_urls).docs.length > 0 && (
-                    <div className="file-list">
-                      {splitMedia(equipmentEdit.image_urls).docs.map((url, index) => (
-                        <div key={`${url}-${index}`} className="file-item">
-                          <a href={url} target="_blank" rel="noreferrer" className="file-link">
-                            {fileNameFromUrl(url)}
-                          </a>
-                          <button
-                            type="button"
-                            className="file-remove"
-                            onClick={() => removeEditImage("equipment", index)}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="lab-form-actions">
-                  <Button variant="primary" onClick={updateEquipment} loading={saving} disabled={saving}>
-                    {saving ? "Сохранение…" : "Сохранить"}
-                  </Button>
-                  <Button variant="ghost" onClick={cancelEditEquipment} disabled={saving}>
-                    Отмена
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="dashboard-list-item__actions">
-                <Button variant="primary" size="small" onClick={() => startEditEquipment(item)} disabled={saving}>
-                  Редактировать
-                </Button>
-                <Button variant="ghost" size="small" className="lab-btn-delete" onClick={() => deleteEquipment(item.id)} disabled={saving}>
-                  Удалить
+                  <Edit3 size={16} />
                 </Button>
               </div>
-            )}
+            </div>
+
+            <div className="equipment-dashboard-card__body">
+              {item.characteristics && (
+                <div className="equipment-meta-item">
+                  <Settings size={14} className="equipment-meta-item__icon" />
+                  <span className="equipment-meta-item__label">Характеристики:</span>
+                  <span className="equipment-meta-item__value">{item.characteristics}</span>
+                </div>
+              )}
+
+              {item.description && (
+                <div className="equipment-meta-item equipment-meta-item--column">
+                  <div className="equipment-meta-item__header">
+                    <ClipboardList size={14} />
+                    <span>Описание</span>
+                  </div>
+                  <p className="equipment-meta-item__text">
+                    {item.description}
+                  </p>
+                </div>
+              )}
+
+              {(item.laboratories || []).length > 0 && (
+                <div className="equipment-labs-preview">
+                  <span className="equipment-labs-preview__label">Установлено в:</span>
+                  <div className="chip-row">
+                    {item.laboratories.map((lab) => (
+                      <span key={lab.id} className="chip chip--lab">
+                        {lab.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(splitMedia(item.image_urls).images.length > 0 || splitMedia(item.image_urls).docs.length > 0) && (
+                <div className="equipment-media-preview">
+                  {splitMedia(item.image_urls).images.length > 0 && (
+                    <button
+                      type="button"
+                      className="equipment-gallery-btn"
+                      onClick={() => openGallery(splitMedia(item.image_urls).images, 0)}
+                    >
+                      <ImageIcon size={14} />
+                      Галерея ({splitMedia(item.image_urls).images.length})
+                    </button>
+                  )}
+                  {splitMedia(item.image_urls).docs.length > 0 && (
+                    <div className="equipment-docs-preview">
+                      <FileText size={14} />
+                      Документы ({splitMedia(item.image_urls).docs.length})
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="equipment-dashboard-card__footer">
+              <Button 
+                variant="ghost" 
+                size="small" 
+                className="equipment-btn-delete" 
+                onClick={() => deleteEquipment(item.id)}
+              >
+                <Trash2 size={14} /> Удалить
+              </Button>
+            </div>
           </Card>
         ))}
       </div>
 
+      {editingEquipmentId && equipmentEdit && (
+        <div className="equipment-edit-overlay">
+          <div className="equipment-edit-form">
+            <div className="equipment-edit-form__header">
+              <h5>Редактирование: {equipmentEdit.name || "оборудования"}</h5>
+              <Button variant="ghost" size="small" onClick={cancelEditEquipment}>×</Button>
+            </div>
+            <div className="equipment-edit-form__scroll">
+              <div className="profile-form-group">
+                <div className="profile-form-group-title">
+                  <Layout size={16} /> Основная информация
+                </div>
+                <Input
+                  id="equipment-edit-name"
+                  label="Название"
+                  value={equipmentEdit.name}
+                  onChange={(e) => handleEquipmentEditChange("name", e.target.value)}
+                  placeholder="Название оборудования"
+                />
+                <div className="ui-input-group">
+                  <label htmlFor="equipment-edit-characteristics">Характеристики</label>
+                  <textarea
+                    id="equipment-edit-characteristics"
+                    rows={2}
+                    className="ui-input"
+                    value={equipmentEdit.characteristics}
+                    onChange={(e) => handleEquipmentEditChange("characteristics", e.target.value)}
+                    placeholder="Параметры, точность"
+                  />
+                </div>
+                <div className="ui-input-group">
+                  <label htmlFor="equipment-edit-description">Описание</label>
+                  <textarea
+                    id="equipment-edit-description"
+                    rows={2}
+                    className="ui-input"
+                    value={equipmentEdit.description}
+                    onChange={(e) => handleEquipmentEditChange("description", e.target.value)}
+                    placeholder="Краткое описание"
+                  />
+                </div>
+              </div>
+
+              <div className="profile-form-group">
+                <div className="profile-form-group-title">
+                  <Beaker size={16} /> Размещение
+                </div>
+                <div className="equipment-checkbox-list">
+                  <label className="equipment-checkbox-list__label">Где установлено (лаборатории)</label>
+                  <div className="equipment-checkbox-grid">
+                    {orgLabs.map((lab) => (
+                      <label key={lab.id} className="equipment-selection-item">
+                        <input
+                          type="checkbox"
+                          checked={(equipmentEdit.laboratory_ids || []).includes(lab.id)}
+                          onChange={() => toggleEditLab(lab.id, true)}
+                        />
+                        <span>{lab.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="profile-form-group">
+                <div className="profile-form-group-title">
+                  <ImageIcon size={16} /> Медиа
+                </div>
+                <input
+                  type="file"
+                  className="ui-input"
+                  multiple
+                  onChange={(e) => handleEquipmentEditFiles(e.target.files)}
+                  disabled={uploading || saving}
+                />
+                {equipmentEdit.image_urls?.length > 0 && (
+                  <div className="image-preview-grid">
+                    {splitMedia(equipmentEdit.image_urls).images.map((url, index) => (
+                      <div key={index} className="image-preview">
+                        <img src={url} alt="" />
+                        <button type="button" onClick={() => removeEditImage("equipment", index)}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="equipment-edit-form__footer">
+              <Button variant="primary" onClick={updateEquipment} loading={saving}>Сохранить</Button>
+              <Button variant="ghost" onClick={cancelEditEquipment}>Отмена</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         ref={newEquipmentRef}
-        className={`profile-form-collapsible ${expandedNewEquipment ? "expanded" : ""}`}
+        className={`equipment-collapsible-form ${expandedNewEquipment ? "expanded" : ""}`}
       >
         <button
           type="button"
-          className="profile-form-collapsible-header"
+          className="equipment-collapsible-form__header"
           onClick={() => setExpandedNewEquipment((prev) => !prev)}
           aria-expanded={expandedNewEquipment}
         >
-          Новое оборудование
+          <div className="equipment-collapsible-form__header-content">
+            <Plus size={18} />
+            <span>Новое оборудование</span>
+          </div>
+          {expandedNewEquipment ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </button>
-        <div className="profile-form-collapsible-body lab-form-grouped profile-form">
-          <div className="profile-form-group">
-            <div className="profile-form-group-title">Основная информация</div>
-            <Input
-              id="equipment-draft-name"
-              label="Название оборудования"
-              value={equipmentDraft.name}
-              onChange={(e) => handleEquipmentDraft("name", e.target.value)}
-              placeholder="Микроскоп, хроматограф..."
-            />
-            <div className="ui-input-group">
-              <label htmlFor="equipment-draft-characteristics">Характеристики</label>
-              <textarea
-                id="equipment-draft-characteristics"
-                rows={2}
-                className="ui-input"
-                value={equipmentDraft.characteristics}
-                onChange={(e) => handleEquipmentDraft("characteristics", e.target.value)}
-                placeholder="Параметры, точность"
-              />
-            </div>
-            <div className="ui-input-group">
-              <label htmlFor="equipment-draft-description">Описание</label>
-              <textarea
-                id="equipment-draft-description"
-                rows={2}
-                className="ui-input"
-                value={equipmentDraft.description}
-                onChange={(e) => handleEquipmentDraft("description", e.target.value)}
-                placeholder="Краткое описание"
-              />
-            </div>
-          </div>
-          <div className="profile-form-group">
-            <div className="profile-form-group-title">Лаборатории</div>
-            {orgLabs.length === 0 && (
-              <p className="muted">Лабораторий пока нет — создайте в разделе «Лаборатории».</p>
-            )}
-            {orgLabs.length > 0 && (
-              <div className="lab-employees-list equipment-labs-list">
-                <span className="lab-employees-list-title">Где установлено</span>
-                {orgLabs.map((lab) => (
-                  <label key={lab.id} className="lab-employee-chip">
-                    <input
-                      type="checkbox"
-                      checked={(equipmentDraft.laboratory_ids || []).includes(lab.id)}
-                      onChange={() => toggleEquipmentLab(lab.id, false)}
-                    />
-                    <span className="lab-employee-chip-name">{lab.name}</span>
-                  </label>
-                ))}
+
+        <div className="equipment-collapsible-form__body">
+          <div className="equipment-edit-form__scroll">
+            <div className="profile-form-group">
+              <div className="profile-form-group-title">
+                <Layout size={16} /> Основная информация
               </div>
-            )}
-          </div>
-          <div className="profile-form-group">
-            <div className="profile-form-group-title">Медиафайлы</div>
-            <div className="ui-input-group">
-              <label htmlFor="equipment-draft-files">Файлы (изображения и документы)</label>
+              <Input
+                id="equipment-draft-name"
+                label="Название оборудования"
+                value={equipmentDraft.name}
+                onChange={(e) => handleEquipmentDraft("name", e.target.value)}
+                placeholder="Микроскоп, хроматограф..."
+              />
+              <div className="ui-input-group">
+                <label htmlFor="equipment-draft-characteristics">Характеристики</label>
+                <textarea
+                  id="equipment-draft-characteristics"
+                  rows={2}
+                  className="ui-input"
+                  value={equipmentDraft.characteristics}
+                  onChange={(e) => handleEquipmentDraft("characteristics", e.target.value)}
+                  placeholder="Параметры, точность"
+                />
+              </div>
+              <div className="ui-input-group">
+                <label htmlFor="equipment-draft-description">Описание</label>
+                <textarea
+                  id="equipment-draft-description"
+                  rows={2}
+                  className="ui-input"
+                  value={equipmentDraft.description}
+                  onChange={(e) => handleEquipmentDraft("description", e.target.value)}
+                  placeholder="Краткое описание"
+                />
+              </div>
+            </div>
+
+            <div className="profile-form-group">
+              <div className="profile-form-group-title">
+                <Beaker size={16} /> Размещение
+              </div>
+              <div className="equipment-checkbox-list">
+                <label className="equipment-checkbox-list__label">Где установлено (лаборатории)</label>
+                <div className="equipment-checkbox-grid">
+                  {orgLabs.map((lab) => (
+                    <label key={lab.id} className="equipment-selection-item">
+                      <input
+                        type="checkbox"
+                        checked={(equipmentDraft.laboratory_ids || []).includes(lab.id)}
+                        onChange={() => toggleEquipmentLab(lab.id, false)}
+                      />
+                      <span>{lab.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="profile-form-group">
+              <div className="profile-form-group-title">
+                <ImageIcon size={16} /> Медиа
+              </div>
               <input
                 ref={draftFilesInputRef}
-                id="equipment-draft-files"
                 type="file"
                 className="ui-input"
-                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
                 multiple
                 onChange={(e) => handleEquipmentFiles(e.target.files)}
                 disabled={uploading || saving}
               />
-            </div>
-            {equipmentDraft.image_urls?.length > 0 && (
-              <div className="image-preview-grid">
-                {splitMedia(equipmentDraft.image_urls).images.map((url, index) => (
-                  <div key={`${url}-${index}`} className="image-preview">
-                    <img src={url} alt="Предпросмотр" />
-                    <button
-                      type="button"
-                      className="image-remove"
-                      onClick={() => removeDraftImage("equipment", index)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {splitMedia(equipmentDraft.image_urls).docs.length > 0 && (
-              <div className="file-list">
-                {splitMedia(equipmentDraft.image_urls).docs.map((url, index) => (
-                  <div key={`${url}-${index}`} className="file-item">
-                    <a href={url} target="_blank" rel="noreferrer" className="file-link">
-                      {fileNameFromUrl(url)}
-                    </a>
-                    <button
-                      type="button"
-                      className="file-remove"
-                      onClick={() => removeDraftImage("equipment", index)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="preview-card">
-            <div className="preview-title">Предпросмотр карточки</div>
-            <div className="org-item-title">{equipmentDraft.name || "Название оборудования"}</div>
-            {equipmentDraft.characteristics && (
-              <div className="org-item-text">{equipmentDraft.characteristics}</div>
-            )}
-            {equipmentDraft.description && <div className="org-item-text">{equipmentDraft.description}</div>}
-            {(equipmentDraft.laboratory_ids || []).length > 0 && (
-              <div className="chip-row">
-                {orgLabs
-                  .filter((l) => (equipmentDraft.laboratory_ids || []).includes(l.id))
-                  .map((l) => (
-                    <span key={l.id} className="chip">{l.name}</span>
+              {equipmentDraft.image_urls?.length > 0 && (
+                <div className="image-preview-grid">
+                  {splitMedia(equipmentDraft.image_urls).images.map((url, index) => (
+                    <div key={index} className="image-preview">
+                      <img src={url} alt="" />
+                      <button type="button" onClick={() => removeDraftImage("equipment", index)}>×</button>
+                    </div>
                   ))}
-              </div>
-            )}
-            {splitMedia(equipmentDraft.image_urls).images.length > 0 && (
-              <button
-                type="button"
-                className="gallery-preview"
-                onClick={() => openGallery(splitMedia(equipmentDraft.image_urls).images, 0)}
-              >
-                <img src={splitMedia(equipmentDraft.image_urls).images[0]} alt="Фото" />
-                {splitMedia(equipmentDraft.image_urls).images.length > 1 && (
-                  <span className="gallery-count">+{splitMedia(equipmentDraft.image_urls).images.length - 1}</span>
-                )}
-              </button>
-            )}
+                </div>
+              )}
+            </div>
           </div>
+
           <div className="lab-form-actions lab-form-actions--create">
-            <Button variant="primary" onClick={handleCreateEquipment} loading={saving} disabled={saving}>
-              {saving ? "Сохранение…" : "Создать оборудование"}
+            <Button variant="primary" onClick={handleCreateEquipment} loading={saving}>
+              Создать оборудование
             </Button>
+            <Button variant="ghost" onClick={() => setExpandedNewEquipment(false)}>Отмена</Button>
           </div>
         </div>
       </div>

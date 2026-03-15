@@ -2183,7 +2183,13 @@ export default function Profile() {
               />
             )}
             {profileSection === "subscription" && profile && isOrgRole && (
-              <SubscriptionTab onError={setError} />
+              <SubscriptionTab
+                onError={setError}
+                orgProfile={orgProfile}
+                orgLabs={orgLabs}
+                orgVacancies={orgVacancies}
+                orgQueries={orgQueries}
+              />
             )}
             {profileSection === "personal" && profile && (
               <PersonalProfileSection

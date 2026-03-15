@@ -1,7 +1,7 @@
 import React from "react";
 
 export const Input = React.forwardRef(function Input(
-  { id, label, error, hint, className = "", ...rest },
+  { id, label, error, hint, icon, className = "", ...rest },
   ref
 ) {
   const errorId = id ? `${id}-error` : undefined;
@@ -13,14 +13,17 @@ export const Input = React.forwardRef(function Input(
   return (
     <div className={`ui-input-group ${className}`.trim()}>
       {label && <label htmlFor={id}>{label}</label>}
-      <input
-        ref={ref}
-        id={id}
-        className={`ui-input ${error ? "error" : ""}`.trim()}
-        aria-invalid={!!error}
-        aria-describedby={describedBy}
-        {...rest}
-      />
+      <div className={`ui-input-wrapper ${icon ? "with-icon" : ""}`.trim()}>
+        {icon && <span className="ui-input-icon">{icon}</span>}
+        <input
+          ref={ref}
+          id={id}
+          className={`ui-input ${error ? "error" : ""}`.trim()}
+          aria-invalid={!!error}
+          aria-describedby={describedBy}
+          {...rest}
+        />
+      </div>
       {error && (
         <span id={errorId} className="ui-input-error">
           {error}

@@ -1,8 +1,28 @@
 import React, { useRef, useEffect, useState } from "react";
+import { 
+  User, 
+  Users, 
+  GraduationCap, 
+  TrendingUp, 
+  Mail, 
+  Phone, 
+  Plus, 
+  Edit3, 
+  Trash2, 
+  Beaker, 
+  ChevronDown, 
+  ChevronUp, 
+  Layout,
+  ExternalLink,
+  BookOpen,
+  Send,
+  Globe
+} from "lucide-react";
 import { formatPhoneRU, normalizeWebsiteInput } from "../../../utils/validation";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
+import { Badge } from "../../../components/ui/Badge";
 
 function TagInput({ value = [], onChange, placeholder, id }) {
   const [inputValue, setInputValue] = useState("");
@@ -179,347 +199,456 @@ export default function StaffTab({
         {orgEmployees.length === 0 && (
           <div className="profile-empty-state">Сотрудники пока не добавлены.</div>
         )}
-        {orgEmployees.map((employee) => (
-          <Card key={employee.id} variant="elevated" padding="md" className="dashboard-list-item employee-card">
-            <div className="profile-list-content">
-              <div className="employee-photo employee-photo-small">
-                {employee.photo_url ? (
-                  <img src={employee.photo_url} alt={employee.full_name} />
-                ) : (
-                  <div className="employee-photo-placeholder" aria-hidden="true">
-                    {employee.full_name ? employee.full_name.charAt(0).toUpperCase() : "?"}
+        {orgEmployees.map((employee) => {
+          const initials = employee.full_name
+            ? employee.full_name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+            : "?";
+          
+          const hasHIndex = employee.hindex_wos != null || employee.hindex_scopus != null || employee.hindex_rsci != null || employee.hindex_openalex != null;
+          const interests = interestsList(employee);
+
+          return (
+            <Card key={employee.id} variant="elevated" padding="none" className="employee-dashboard-card">
+              <div className="employee-dashboard-card__header">
+                <div className="employee-dashboard-card__avatar-section">
+                  <div className="employee-dashboard-card__avatar">
+                    {employee.photo_url ? (
+                      <img src={employee.photo_url} alt="" />
+                    ) : (
+                      <span className="employee-dashboard-card__initials">{initials}</span>
+                    )}
                   </div>
-                )}
+                  <div className="employee-dashboard-card__title-group">
+                    <h4 className="employee-dashboard-card__name">{employee.full_name}</h4>
+                    {employee.academic_degree && (
+                      <span className="employee-dashboard-card__degree">{employee.academic_degree}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="employee-dashboard-card__actions-top">
+                  <Button 
+                    variant="ghost" 
+                    size="small" 
+                    onClick={() => startEditEmployee(employee)}
+                    className="icon-btn"
+                    title="Редактировать"
+                  >
+                    <Edit3 size={16} />
+                  </Button>
+                </div>
               </div>
-              <div className="profile-list-main">
-                <div className="profile-list-title">{employee.full_name}</div>
-                {employee.academic_degree && <div className="profile-list-text">{employee.academic_degree}</div>}
-                {(employee.positions || []).length > 0 && <div className="profile-list-text">{employee.positions.join(", ")}</div>}
-                {interestsList(employee).length > 0 && (
-                  <div className="chip-row">
-                    {interestsList(employee).slice(0, 5).map((interest) => <span key={interest} className="chip">{interest}</span>)}
-                    {interestsList(employee).length > 5 && <span className="chip muted">+{interestsList(employee).length - 5}</span>}
+
+              <div className="employee-dashboard-card__body">
+                {(employee.positions || []).length > 0 && (
+                  <div className="employee-meta-item">
+                    <Layout size={14} className="employee-meta-item__icon" />
+                    <span className="employee-meta-item__value">{(employee.positions || []).join(", ")}</span>
                   </div>
                 )}
-                {(employee.education || []).length > 0 && (
-                  <div className="profile-list-text small muted">
-                    Образование: {(employee.education || []).slice(0, 2).join("; ")}
-                    {(employee.education || []).length > 2 && " …"}
-                  </div>
-                )}
+
                 {(employee.laboratories || []).length > 0 && (
-                  <div className="chip-row">
-                    {employee.laboratories.map((lab) => <span key={lab.id} className="chip">{lab.name}</span>)}
+                  <div className="employee-meta-item">
+                    <Beaker size={14} className="employee-meta-item__icon" />
+                    <div className="chip-row">
+                      {employee.laboratories.map((lab) => (
+                        <span key={lab.id} className="chip chip--outline">{lab.name}</span>
+                      ))}
+                    </div>
                   </div>
                 )}
-                {(employee.hindex_wos != null || employee.hindex_scopus != null || employee.hindex_rsci != null || employee.hindex_openalex != null) && (
-                  <div className="profile-list-text small muted">
-                    h-index: WoS {employee.hindex_wos ?? "—"} / Scopus {employee.hindex_scopus ?? "—"} / РИНЦ {employee.hindex_rsci ?? "—"} / OpenAlex {employee.hindex_openalex ?? "—"}
+
+                {hasHIndex && (
+                  <div className="employee-stats-grid">
+                    <div className="employee-stat-box">
+                      <div className="employee-stat-box__header">
+                        <TrendingUp size={12} />
+                        <span>h-index</span>
+                      </div>
+                      <div className="employee-stat-box__values">
+                        {employee.hindex_wos != null && <span>WoS: <b>{employee.hindex_wos}</b></span>}
+                        {employee.hindex_scopus != null && <span>Scopus: <b>{employee.hindex_scopus}</b></span>}
+                      </div>
+                    </div>
                   </div>
                 )}
-                {employee.contacts && (employee.contacts.email || employee.contacts.phone) && (
-                  <div className="profile-list-text small muted">
-                    {employee.contacts.email || ""}{(employee.contacts.email && employee.contacts.phone) ? " • " : ""}{employee.contacts.phone || ""}
+
+                {interests.length > 0 && (
+                  <div className="employee-meta-item employee-meta-item--column">
+                    <div className="employee-meta-item__header">
+                      <BookOpen size={14} />
+                      <span>Интересы</span>
+                    </div>
+                    <div className="chip-row">
+                      {interests.slice(0, 4).map((interest) => (
+                        <span key={interest} className="chip">{interest}</span>
+                      ))}
+                      {interests.length > 4 && <span className="chip muted">+{interests.length - 4}</span>}
+                    </div>
+                  </div>
+                )}
+
+                {(employee.contacts?.email || employee.contacts?.phone) && (
+                  <div className="employee-contacts-preview">
+                    {employee.contacts.email && (
+                      <div className="employee-contact-pill">
+                        <Mail size={12} />
+                        <span>{employee.contacts.email}</span>
+                      </div>
+                    )}
+                    {employee.contacts.phone && (
+                      <div className="employee-contact-pill">
+                        <Phone size={12} />
+                        <span>{employee.contacts.phone}</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            </div>
-            <div className="dashboard-list-item__actions">
-              <Button variant="primary" size="small" onClick={() => startEditEmployee(employee)} disabled={saving}>
-                Редактировать
-              </Button>
-              <Button variant="ghost" size="small" onClick={() => { setEmployeePreview(employee); setShowEmployeePublications(false); }} disabled={saving}>
-                Профиль
-              </Button>
-              <Button variant="ghost" size="small" onClick={() => deleteEmployee(employee.id)} disabled={saving}>
-                Удалить
-              </Button>
-            </div>
-          </Card>
-        ))}
+
+              <div className="employee-dashboard-card__footer">
+                <Button 
+                  variant="ghost" 
+                  size="small" 
+                  onClick={() => { setEmployeePreview(employee); setShowEmployeePublications(false); }}
+                >
+                  <User size={14} /> Профиль
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="small" 
+                  className="employee-btn-delete" 
+                  onClick={() => deleteEmployee(employee.id)}
+                >
+                  <Trash2 size={14} /> Удалить
+                </Button>
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
       {employeeEditId && employeeEdit && (
-        <div ref={editFormRef} className="profile-edit lab-form-grouped profile-form">
-          <h4 className="profile-form-group-title">Редактирование: {employeeEdit.full_name || "Сотрудник"}</h4>
-          <div className="profile-form-group">
-            <div className="profile-form-group-title">Импорт из OpenAlex</div>
-            <div className="orcid-status orcid-status--disconnected openalex-status">
-              <p className="profile-field-hint" style={{ margin: 0 }}>Введите ORCID или OpenAlex ID для подтягивания ФИО, интересов, образования, публикаций и h-индекса</p>
-              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-                <input
-                  type="text"
-                  value={employeeImportInput}
-                  onChange={(e) => setEmployeeImportInput(e.target.value)}
-                  placeholder="ORCID (0000-0001-6187-6610) или OpenAlex ID (A5023888391)"
-                  className="profile-input"
+        <div className="employee-edit-overlay">
+          <div className="employee-edit-form">
+            <div className="employee-edit-form__header">
+              <h5>Редактирование: {employeeEdit.full_name}</h5>
+              <Button variant="ghost" size="small" onClick={cancelEditEmployee}>×</Button>
+            </div>
+            <div className="employee-edit-form__scroll">
+              <div className="profile-form-group">
+                <div className="profile-form-group-title">
+                  <ExternalLink size={16} /> Импорт из OpenAlex
+                </div>
+                <div className="lab-import-box">
+                  <p className="profile-field-hint">Введите ORCID или OpenAlex ID для подтягивания данных</p>
+                  <div className="lab-import-input-group">
+                    <input
+                      type="text"
+                      value={employeeImportInput}
+                      onChange={(e) => setEmployeeImportInput(e.target.value)}
+                      placeholder="ORCID или OpenAlex ID"
+                      className="ui-input"
+                    />
+                    <Button
+                      variant="primary"
+                      onClick={handleEmployeeImport}
+                      disabled={saving || employeeImporting || !employeeImportInput?.trim()}
+                    >
+                      {employeeImporting ? "Импорт…" : "Импортировать"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="profile-form-group">
+                <div className="profile-form-group-title">
+                  <User size={16} /> Основная информация
+                </div>
+                <div className="employee-photo-edit">
+                  <div className="employee-photo-edit__avatar">
+                    {employeeEdit.photo_url ? (
+                      <img src={employeeEdit.photo_url} alt="" />
+                    ) : (
+                      <span className="employee-dashboard-card__initials">
+                        {employeeEdit.full_name?.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                    <button 
+                      type="button" 
+                      className="employee-photo-edit__remove"
+                      onClick={() => handleEmployeeEditChange("photo_url", "")}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="employee-photo-edit__actions">
+                    <label className="file-upload-label">
+                      <Plus size={14} /> Изменить фото
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => uploadEmployeePhoto(e.target.files?.[0], true)} 
+                        disabled={uploading || saving} 
+                      />
+                    </label>
+                  </div>
+                </div>
+                <Input
+                  label="ФИО"
+                  value={employeeEdit.full_name}
+                  onChange={(e) => handleEmployeeEditChange("full_name", e.target.value)}
+                  placeholder="Иванов Иван Иванович"
                 />
-                <button
-                  type="button"
-                  className="profile-btn-integration profile-btn-integration--openalex"
-                  onClick={handleEmployeeImport}
-                  disabled={saving || employeeImporting || !employeeImportInput?.trim()}
-                >
-                  {employeeImporting ? "Импорт…" : "Импорт из OpenAlex"}
-                </button>
+                <Input
+                  label="Учёная степень"
+                  value={employeeEdit.academic_degree}
+                  onChange={(e) => handleEmployeeEditChange("academic_degree", e.target.value)}
+                  placeholder="Доктор наук"
+                />
+                <Input
+                  label="Должность"
+                  value={employeeEditPositionInput}
+                  onChange={(e) => setEmployeeEditPositionInput(e.target.value)}
+                  placeholder="Ведущий сотрудник"
+                />
               </div>
-            </div>
-          </div>
-          <div className="profile-form-group">
-            <div className="profile-form-group-title">Основная информация</div>
-            <div className="profile-form__row">
-              <Input
-                label="ФИО"
-                value={employeeEdit.full_name}
-                onChange={(e) => handleEmployeeEditChange("full_name", e.target.value)}
-                onBlur={(e) => { const v = capitalizeEachWord(e.target.value); if (v !== e.target.value) handleEmployeeEditChange("full_name", v); }}
-                placeholder="Иванов Иван Иванович"
-              />
-            </div>
-            <label>
-              Фото
-              <input ref={editPhotoInputRef} type="file" accept="image/*" onChange={(e) => uploadEmployeePhoto(e.target.files?.[0], true)} disabled={uploading || saving} />
-            </label>
-            {employeeEdit.photo_url && (
-              <div className="employee-photo">
-                <img src={employeeEdit.photo_url} alt="Фото" />
-                <button type="button" className="file-remove" onClick={() => handleEmployeeEditChange("photo_url", "")}>×</button>
-              </div>
-            )}
-            <div className="profile-form__row">
-              <Input
-                label="Учёная степень / звание"
-                value={employeeEdit.academic_degree}
-                onChange={(e) => handleEmployeeEditChange("academic_degree", e.target.value)}
-                placeholder="Доктор химических наук"
-              />
-            </div>
-            <div className="profile-form__row">
-              <Input
-                label="Должность"
-                value={employeeEditPositionInput}
-                onChange={(e) => setEmployeeEditPositionInput(e.target.value)}
-                placeholder="Ведущий научный сотрудник, постдок"
-              />
-            </div>
-            <label htmlFor="employee-edit-interests">
-              Научные интересы
-              <TagInput
-                id="employee-edit-interests"
-                value={employeeEdit.research_interests || []}
-                onChange={(v) => handleEmployeeEditChange("research_interests", v)}
-                placeholder="Введите интерес и нажмите запятую или Enter"
-              />
-            </label>
-          </div>
-          <div className="profile-form-group">
-            <div className="profile-form-group-title">Лаборатории</div>
-            {orgLabs.length === 0 && <p className="muted">Лабораторий пока нет — создайте в разделе «Лаборатории».</p>}
-            {orgLabs.length > 0 && (
-              <div className="lab-employees-list">
-                {orgLabs.map((lab) => (
-                  <label key={lab.id} className="lab-employee-chip">
-                    <input type="checkbox" checked={(employeeEdit.laboratory_ids || []).includes(lab.id)} onChange={() => toggleEmployeeLab(lab.id, true)} />
-                    <span className="lab-employee-chip-name">{lab.name}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="profile-form-group">
-            <button type="button" className="collapsible-header" onClick={() => setExpandedEditEducation((prev) => !prev)} aria-expanded={expandedEditEducation}>
-              <span>Образование ({(employeeEdit.education || []).length})</span>
-              <span className={`collapsible-arrow ${expandedEditEducation ? "expanded" : ""}`}>▼</span>
-            </button>
-            {expandedEditEducation && (
-              <div className="collapsible-content">
-                <div className="inline-form">
-                  <input ref={editEducationInputRef} className="ui-input" placeholder="Университет, факультет, год" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEducation(e.currentTarget.value, true); e.currentTarget.value = ""; } }} style={{ flex: 1, minWidth: 0 }} />
-                  <button type="button" className="ghost-btn" onClick={() => { const input = editEducationInputRef.current; if (input) { addEducation(input.value, true); input.value = ""; } }}>Добавить</button>
+
+              <div className="profile-form-group">
+                <div className="profile-form-group-title">
+                  <BookOpen size={16} /> Научные интересы
                 </div>
-                <span className="profile-field-hint">Введите и нажмите Enter или «Добавить»</span>
-                {(employeeEdit.education || []).length > 0 && (
-                  <div className="education-list">
-                    {(employeeEdit.education || []).map((item, index) => (
-                      <div key={`edu-${index}`} className="education-item">
-                        <span>{item}</span>
-                        <button type="button" className="file-remove" onClick={() => removeEducation(index, true)} aria-label="Удалить">×</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <TagInput
+                  value={employeeEdit.research_interests || []}
+                  onChange={(v) => handleEmployeeEditChange("research_interests", v)}
+                  placeholder="Введите интерес и нажмите Enter"
+                />
               </div>
-            )}
-          </div>
-          <div className="profile-form-group">
-            <button type="button" className="collapsible-header" onClick={() => setExpandedEditPublications((prev) => !prev)} aria-expanded={expandedEditPublications}>
-              <span>Публикации ({(employeeEdit.publications || []).length})</span>
-              <span className={`collapsible-arrow ${expandedEditPublications ? "expanded" : ""}`}>▼</span>
-            </button>
-            {expandedEditPublications && (
-              <div className="collapsible-content">
-                <div className="publications-actions">
-                  <button type="button" className="ghost-btn" onClick={() => addPublication(true)}>+ Добавить публикацию</button>
+
+              <div className="profile-form-group">
+                <div className="profile-form-group-title">
+                  <Beaker size={16} /> Лаборатории
                 </div>
-                {(employeeEdit.publications || []).length === 0 && <p className="profile-field-hint">Нет добавленных публикаций</p>}
-                {(employeeEdit.publications || []).map((pub, index) => (
-                  <div key={`pub-${index}`} className="publication-card">
-                    <div className="publication-card-fields">
-                      <input value={pub.title || ""} onChange={(e) => updatePublication(index, "title", e.target.value, true)} placeholder="Название статьи" className="publication-title-input" />
-                      <input type="url" value={pub.link || ""} onChange={(e) => updatePublication(index, "link", e.target.value, true)} onBlur={(e) => { const v = (e.target.value || "").trim(); if (v) updatePublication(index, "link", normalizeWebsiteInput(v), true); }} placeholder="Ссылка (DOI, URL)" className="publication-link-input" />
-                    </div>
-                    <button type="button" className="publication-remove" onClick={() => removePublication(index, true)} aria-label="Удалить публикацию">×</button>
-                  </div>
-                ))}
+                <div className="lab-checkbox-grid">
+                  {orgLabs.map((lab) => (
+                    <label key={lab.id} className="lab-selection-item">
+                      <input
+                        type="checkbox"
+                        checked={(employeeEdit.laboratory_ids || []).includes(lab.id)}
+                        onChange={() => toggleEmployeeLab(lab.id, true)}
+                      />
+                      <span>{lab.name}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-            )}
-          </div>
-          <div className="profile-form-group">
-            <div className="profile-form-group-title">Индексы цитирования</div>
-            <div className="researcher-hindex-grid">
-              <label>h-index WoS <input type="number" value={employeeEdit.hindex_wos ?? ""} onChange={(e) => handleEmployeeEditChange("hindex_wos", e.target.value ? Number(e.target.value) : null)} placeholder="—" min="0" /></label>
-              <label>h-index Scopus <input type="number" value={employeeEdit.hindex_scopus ?? ""} onChange={(e) => handleEmployeeEditChange("hindex_scopus", e.target.value ? Number(e.target.value) : null)} placeholder="—" min="0" /></label>
-              <label>h-index РИНЦ <input type="number" value={employeeEdit.hindex_rsci ?? ""} onChange={(e) => handleEmployeeEditChange("hindex_rsci", e.target.value ? Number(e.target.value) : null)} placeholder="—" min="0" /></label>
-              <label>h-index OpenAlex <input type="number" value={employeeEdit.hindex_openalex ?? ""} onChange={(e) => handleEmployeeEditChange("hindex_openalex", e.target.value ? Number(e.target.value) : null)} placeholder="—" min="0" /></label>
+
+              <div className="profile-form-group">
+                <div className="profile-form-group-title">
+                  <TrendingUp size={16} /> Индексы Хирша
+                </div>
+                <div className="employee-hindex-form-grid">
+                  <label>WoS <input type="number" value={employeeEdit.hindex_wos ?? ""} onChange={(e) => handleEmployeeEditChange("hindex_wos", e.target.value ? Number(e.target.value) : null)} placeholder="—" /></label>
+                  <label>Scopus <input type="number" value={employeeEdit.hindex_scopus ?? ""} onChange={(e) => handleEmployeeEditChange("hindex_scopus", e.target.value ? Number(e.target.value) : null)} placeholder="—" /></label>
+                  <label>РИНЦ <input type="number" value={employeeEdit.hindex_rsci ?? ""} onChange={(e) => handleEmployeeEditChange("hindex_rsci", e.target.value ? Number(e.target.value) : null)} placeholder="—" /></label>
+                </div>
+              </div>
+
+              <div className="profile-form-group">
+                <div className="profile-form-group-title">
+                  <Mail size={16} /> Контакты
+                </div>
+                <div className="employee-contacts-form-grid">
+                  <Input 
+                    label="Email" 
+                    type="email" 
+                    value={employeeEdit.contacts?.email || ""} 
+                    onChange={(e) => handleEmployeeContacts("email", e.target.value, true)} 
+                    placeholder="email@example.com" 
+                  />
+                  <Input 
+                    label="Телефон" 
+                    type="tel" 
+                    value={employeeEdit.contacts?.phone ? formatPhoneRU(employeeEdit.contacts.phone) : ""} 
+                    onChange={(e) => handleEmployeeContacts("phone", formatPhoneRU(e.target.value), true)} 
+                    placeholder="+7 (999) 123-45-67" 
+                  />
+                  <Input 
+                    label="Telegram" 
+                    value={employeeEdit.contacts?.telegram || ""} 
+                    onChange={(e) => handleEmployeeContacts("telegram", e.target.value, true)} 
+                    placeholder="@username" 
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="profile-form-group">
-            <div className="profile-form-group-title">Контакты</div>
-            <label>Email <input type="email" value={employeeEdit.contacts?.email || ""} onChange={(e) => handleEmployeeContacts("email", e.target.value, true)} placeholder="email@example.com" autoComplete="email" /></label>
-            <label>Телефон <input type="tel" value={employeeEdit.contacts?.phone ? formatPhoneRU(employeeEdit.contacts.phone) : ""} onChange={(e) => handleEmployeeContacts("phone", formatPhoneRU(e.target.value), true)} placeholder="+7 (999) 123-45-67" autoComplete="tel" maxLength={18} /><span className="profile-field-hint">Формат: +7 (999) 123-45-67</span></label>
-            <label>Сайт <input type="url" value={employeeEdit.contacts?.website || ""} onChange={(e) => handleEmployeeContacts("website", e.target.value, true)} onBlur={(e) => { const v = (e.target.value || "").trim(); if (v) handleEmployeeContacts("website", normalizeWebsiteInput(v), true); }} placeholder="example.com или https://..." /><span className="profile-field-hint">Будет отображаться как ссылка</span></label>
-            <label>Telegram <input value={employeeEdit.contacts?.telegram || ""} onChange={(e) => handleEmployeeContacts("telegram", e.target.value, true)} placeholder="@username" /></label>
-          </div>
-          <div className="lab-form-actions">
-            <Button variant="primary" onClick={updateEmployee} disabled={saving}>
-              {saving ? "Сохранение…" : "Сохранить"}
-            </Button>
-            <Button variant="ghost" onClick={cancelEditEmployee} disabled={saving}>Отмена</Button>
+            <div className="employee-edit-form__footer">
+              <Button variant="primary" onClick={updateEmployee} disabled={saving}>
+                {saving ? "Сохранение…" : "Сохранить изменения"}
+              </Button>
+              <Button variant="ghost" onClick={cancelEditEmployee}>Отмена</Button>
+            </div>
           </div>
         </div>
       )}
 
       <div
         ref={newEmployeeRef}
-        className={`profile-form-collapsible ${expandedNewEmployee ? "expanded" : ""}`}
+        className={`lab-collapsible-form ${expandedNewEmployee ? "expanded" : ""}`}
       >
-        <button type="button" className="profile-form-collapsible-header" onClick={() => setExpandedNewEmployee((prev) => !prev)} aria-expanded={expandedNewEmployee}>
-          Новый сотрудник
+        <button 
+          type="button" 
+          className="lab-collapsible-form__header" 
+          onClick={() => setExpandedNewEmployee((prev) => !prev)} 
+          aria-expanded={expandedNewEmployee}
+        >
+          <div className="lab-collapsible-form__header-content">
+            <Plus size={18} />
+            <span>Новый сотрудник</span>
+          </div>
+          {expandedNewEmployee ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </button>
-        <div className="profile-form-collapsible-body lab-form-grouped profile-form">
-          <div className="profile-form-group">
-            <div className="profile-form-group-title">Импорт из OpenAlex</div>
-            <div className="orcid-status orcid-status--disconnected openalex-status">
-              <p className="profile-field-hint" style={{ margin: 0 }}>Введите ORCID или OpenAlex ID для подтягивания ФИО, интересов, образования, публикаций и h-индекса</p>
-              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-                <input type="text" value={employeeDraftImportInput} onChange={(e) => setEmployeeDraftImportInput(e.target.value)} placeholder="ORCID (0000-0001-6187-6610) или OpenAlex ID (A5023888391)" className="profile-input" />
-                <button type="button" className="profile-btn-integration profile-btn-integration--openalex" onClick={handleDraftImport} disabled={saving || employeeDraftImporting || !employeeDraftImportInput?.trim()}>
-                  {employeeDraftImporting ? "Импорт…" : "Импорт из OpenAlex"}
-                </button>
+
+        <div className="lab-collapsible-form__body">
+          <div className="employee-edit-form__scroll">
+            <div className="profile-form-group">
+              <div className="profile-form-group-title">
+                <ExternalLink size={16} /> Импорт из OpenAlex
+              </div>
+              <div className="lab-import-box">
+                <p className="profile-field-hint">Введите ORCID или OpenAlex ID для подтягивания данных</p>
+                <div className="lab-import-input-group">
+                  <input 
+                    type="text" 
+                    value={employeeDraftImportInput} 
+                    onChange={(e) => setEmployeeDraftImportInput(e.target.value)} 
+                    placeholder="ORCID или OpenAlex ID" 
+                    className="ui-input" 
+                  />
+                  <Button 
+                    variant="primary" 
+                    onClick={handleDraftImport} 
+                    disabled={saving || employeeDraftImporting || !employeeDraftImportInput?.trim()}
+                  >
+                    {employeeDraftImporting ? "Импорт…" : "Импортировать"}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="profile-form-group">
-            <div className="profile-form-group-title">Основная информация</div>
-            <div className="profile-form__row">
+
+            <div className="profile-form-group">
+              <div className="profile-form-group-title">
+                <User size={16} /> Основная информация
+              </div>
+              <div className="employee-photo-edit">
+                <div className="employee-photo-edit__avatar">
+                  {employeeDraft.photo_url ? (
+                    <img src={employeeDraft.photo_url} alt="" />
+                  ) : (
+                    <div className="employee-dashboard-card__avatar-fallback-large">
+                      {employeeDraft.full_name?.charAt(0).toUpperCase() || "?"}
+                    </div>
+                  )}
+                </div>
+                <div className="employee-photo-edit__actions">
+                  <label className="file-upload-label">
+                    <Plus size={14} /> {employeeDraft.photo_url ? "Изменить фото" : "Загрузить фото"}
+                    <input 
+                      ref={draftPhotoInputRef} 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={(e) => uploadEmployeePhoto(e.target.files?.[0], false)} 
+                      disabled={uploading || saving} 
+                    />
+                  </label>
+                  {employeeDraft.photo_url && (
+                    <button 
+                      type="button" 
+                      className="text-btn-danger"
+                      onClick={() => handleEmployeeDraftChange("photo_url", "")}
+                    >
+                      Удалить
+                    </button>
+                  )}
+                </div>
+              </div>
               <Input
                 label="ФИО"
                 value={employeeDraft.full_name}
                 onChange={(e) => handleEmployeeDraftChange("full_name", e.target.value)}
-                onBlur={(e) => { const v = capitalizeEachWord(e.target.value); if (v !== e.target.value) handleEmployeeDraftChange("full_name", v); }}
                 placeholder="Иванов Иван Иванович"
               />
+              <Input 
+                label="Учёная степень" 
+                value={employeeDraft.academic_degree} 
+                onChange={(e) => handleEmployeeDraftChange("academic_degree", e.target.value)} 
+                placeholder="Кандидат наук" 
+              />
+              <Input 
+                label="Должность" 
+                value={employeeDraftPositionInput} 
+                onChange={(e) => setEmployeeDraftPositionInput(e.target.value)} 
+                placeholder="Научный сотрудник" 
+              />
             </div>
-            <label>Фото <input ref={draftPhotoInputRef} type="file" accept="image/*" onChange={(e) => uploadEmployeePhoto(e.target.files?.[0], false)} disabled={uploading || saving} /></label>
-            {employeeDraft.photo_url && <div className="employee-photo"><img src={employeeDraft.photo_url} alt="Фото" /><button type="button" className="file-remove" onClick={() => handleEmployeeDraftChange("photo_url", "")}>×</button></div>}
-            <div className="profile-form__row">
-              <Input label="Учёная степень / звание" value={employeeDraft.academic_degree} onChange={(e) => handleEmployeeDraftChange("academic_degree", e.target.value)} placeholder="Доктор химических наук" />
+
+            <div className="profile-form-group">
+              <div className="profile-form-group-title">
+                <BookOpen size={16} /> Научные интересы
+              </div>
+              <TagInput 
+                value={employeeDraft.research_interests || []} 
+                onChange={(v) => handleEmployeeDraftChange("research_interests", v)} 
+                placeholder="Введите интерес и нажмите Enter" 
+              />
             </div>
-            <div className="profile-form__row">
-              <Input label="Должность" value={employeeDraftPositionInput} onChange={(e) => setEmployeeDraftPositionInput(e.target.value)} placeholder="Ведущий научный сотрудник, постдок" />
-            </div>
-            <label htmlFor="employee-draft-interests">Научные интересы <TagInput id="employee-draft-interests" value={employeeDraft.research_interests || []} onChange={(v) => handleEmployeeDraftChange("research_interests", v)} placeholder="Введите интерес и нажмите запятую или Enter" /></label>
-          </div>
-          <div className="profile-form-group">
-            <div className="profile-form-group-title">Лаборатории</div>
-            {orgLabs.length === 0 && <p className="muted">Лабораторий пока нет — создайте в разделе «Лаборатории».</p>}
-            {orgLabs.length > 0 && (
-              <div className="lab-employees-list">
+
+            <div className="profile-form-group">
+              <div className="profile-form-group-title">
+                <Beaker size={16} /> Лаборатории
+              </div>
+              <div className="lab-checkbox-grid">
                 {orgLabs.map((lab) => (
-                  <label key={lab.id} className="lab-employee-chip">
-                    <input type="checkbox" checked={(employeeDraft.laboratory_ids || []).includes(lab.id)} onChange={() => toggleEmployeeLab(lab.id, false)} />
-                    <span className="lab-employee-chip-name">{lab.name}</span>
+                  <label key={lab.id} className="lab-selection-item">
+                    <input 
+                      type="checkbox" 
+                      checked={(employeeDraft.laboratory_ids || []).includes(lab.id)} 
+                      onChange={() => toggleEmployeeLab(lab.id, false)} 
+                    />
+                    <span>{lab.name}</span>
                   </label>
                 ))}
               </div>
-            )}
-          </div>
-          <div className="profile-form-group">
-            <button type="button" className="collapsible-header" onClick={() => setExpandedDraftEducation((prev) => !prev)} aria-expanded={expandedDraftEducation}>
-              <span>Образование ({(employeeDraft.education || []).length})</span>
-              <span className={`collapsible-arrow ${expandedDraftEducation ? "expanded" : ""}`}>▼</span>
-            </button>
-            {expandedDraftEducation && (
-              <div className="collapsible-content">
-                <div className="inline-form">
-                  <input ref={draftEducationInputRef} className="ui-input" placeholder="Университет, факультет, год" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEducation(e.currentTarget.value, false); e.currentTarget.value = ""; } }} style={{ flex: 1, minWidth: 0 }} />
-                  <button type="button" className="ghost-btn" onClick={() => { const input = draftEducationInputRef.current; if (input) { addEducation(input.value, false); input.value = ""; } }}>Добавить</button>
-                </div>
-                <span className="profile-field-hint">Введите и нажмите Enter или «Добавить»</span>
-                {(employeeDraft.education || []).length > 0 && (
-                  <div className="education-list">
-                    {(employeeDraft.education || []).map((item, index) => (
-                      <div key={`edu-${index}`} className="education-item">
-                        <span>{item}</span>
-                        <button type="button" className="file-remove" onClick={() => removeEducation(index, false)} aria-label="Удалить">×</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+            </div>
+
+            {/* Contacts for draft */}
+            <div className="profile-form-group">
+              <div className="profile-form-group-title">
+                <Mail size={16} /> Контакты
               </div>
-            )}
-          </div>
-          <div className="profile-form-group">
-            <button type="button" className="collapsible-header" onClick={() => setExpandedDraftPublications((prev) => !prev)} aria-expanded={expandedDraftPublications}>
-              <span>Публикации ({(employeeDraft.publications || []).length})</span>
-              <span className={`collapsible-arrow ${expandedDraftPublications ? "expanded" : ""}`}>▼</span>
-            </button>
-            {expandedDraftPublications && (
-              <div className="collapsible-content">
-                <div className="publications-actions"><button type="button" className="ghost-btn" onClick={() => addPublication(false)}>+ Добавить публикацию</button></div>
-                {(employeeDraft.publications || []).length === 0 && <p className="profile-field-hint">Нет добавленных публикаций</p>}
-                {(employeeDraft.publications || []).map((pub, index) => (
-                  <div key={`pub-${index}`} className="publication-card">
-                    <div className="publication-card-fields">
-                      <input value={pub.title || ""} onChange={(e) => updatePublication(index, "title", e.target.value, false)} placeholder="Название статьи" className="publication-title-input" />
-                      <input type="url" value={pub.link || ""} onChange={(e) => updatePublication(index, "link", e.target.value, false)} onBlur={(e) => { const v = (e.target.value || "").trim(); if (v) updatePublication(index, "link", normalizeWebsiteInput(v), false); }} placeholder="Ссылка (DOI, URL)" className="publication-link-input" />
-                    </div>
-                    <button type="button" className="publication-remove" onClick={() => removePublication(index, false)} aria-label="Удалить публикацию">×</button>
-                  </div>
-                ))}
+              <div className="employee-contacts-form-grid">
+                <Input 
+                  label="Email" 
+                  type="email" 
+                  value={employeeDraft.contacts?.email || ""} 
+                  onChange={(e) => handleEmployeeContacts("email", e.target.value, false)} 
+                  placeholder="email@example.com" 
+                />
+                <Input 
+                  label="Телефон" 
+                  type="tel" 
+                  value={employeeDraft.contacts?.phone ? formatPhoneRU(employeeDraft.contacts.phone) : ""} 
+                  onChange={(e) => handleEmployeeContacts("phone", formatPhoneRU(e.target.value), false)} 
+                  placeholder="+7 (999) 123-45-67" 
+                />
               </div>
-            )}
-          </div>
-          <div className="profile-form-group">
-            <div className="profile-form-group-title">Индексы цитирования</div>
-            <div className="researcher-hindex-grid">
-              <label>h-index WoS <input type="number" value={employeeDraft.hindex_wos ?? ""} onChange={(e) => handleEmployeeDraftChange("hindex_wos", e.target.value ? Number(e.target.value) : null)} placeholder="—" min="0" /></label>
-              <label>h-index Scopus <input type="number" value={employeeDraft.hindex_scopus ?? ""} onChange={(e) => handleEmployeeDraftChange("hindex_scopus", e.target.value ? Number(e.target.value) : null)} placeholder="—" min="0" /></label>
-              <label>h-index РИНЦ <input type="number" value={employeeDraft.hindex_rsci ?? ""} onChange={(e) => handleEmployeeDraftChange("hindex_rsci", e.target.value ? Number(e.target.value) : null)} placeholder="—" min="0" /></label>
-              <label>h-index OpenAlex <input type="number" value={employeeDraft.hindex_openalex ?? ""} onChange={(e) => handleEmployeeDraftChange("hindex_openalex", e.target.value ? Number(e.target.value) : null)} placeholder="—" min="0" /></label>
             </div>
           </div>
-          <div className="profile-form-group">
-            <div className="profile-form-group-title">Контакты</div>
-            <label>Email <input type="email" value={employeeDraft.contacts?.email || ""} onChange={(e) => handleEmployeeContacts("email", e.target.value, false)} placeholder="email@example.com" autoComplete="email" /></label>
-            <label>Телефон <input type="tel" value={employeeDraft.contacts?.phone ? formatPhoneRU(employeeDraft.contacts.phone) : ""} onChange={(e) => handleEmployeeContacts("phone", formatPhoneRU(e.target.value), false)} placeholder="+7 (999) 123-45-67" autoComplete="tel" maxLength={18} /><span className="profile-field-hint">Формат: +7 (999) 123-45-67</span></label>
-            <label>Сайт <input type="url" value={employeeDraft.contacts?.website || ""} onChange={(e) => handleEmployeeContacts("website", e.target.value, false)} onBlur={(e) => { const v = (e.target.value || "").trim(); if (v) handleEmployeeContacts("website", normalizeWebsiteInput(v), false); }} placeholder="example.com или https://..." /><span className="profile-field-hint">Будет отображаться как ссылка</span></label>
-            <label>Telegram <input value={employeeDraft.contacts?.telegram || ""} onChange={(e) => handleEmployeeContacts("telegram", e.target.value, false)} placeholder="@username" /></label>
-          </div>
+
           <div className="lab-form-actions lab-form-actions--create">
             <Button variant="primary" onClick={handleCreateEmployee} disabled={saving}>
               {saving ? "Сохранение…" : "Создать сотрудника"}
             </Button>
+            <Button variant="ghost" onClick={() => setExpandedNewEmployee(false)}>Отмена</Button>
           </div>
         </div>
       </div>

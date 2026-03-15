@@ -39,11 +39,6 @@ export default function OrganizationDetailHero({ details }) {
             </span>
           )}
         </div>
-        <div className="org-detail-hero__summary">
-          <span>Лабораторий: {details.laboratories.length}</span>
-          <span>Сотрудников: {details.employees.length}</span>
-          <span>Вакансий: {details.vacancies.length}</span>
-        </div>
         {details.description && (
           <p className="org-detail-hero__description">{details.description}</p>
         )}

@@ -19,6 +19,23 @@ import {
   Area,
   ReferenceLine,
 } from "recharts";
+import { 
+  TrendingUp, 
+  Users, 
+  Briefcase, 
+  MessageSquare, 
+  CheckCircle, 
+  XCircle, 
+  Clock, 
+  Target, 
+  Activity, 
+  Calendar,
+  Zap,
+  Info,
+  ChevronRight,
+  PieChart as PieChartIcon,
+  BarChart2
+} from "lucide-react";
 import { apiRequest } from "../../api/client";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
@@ -136,16 +153,16 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
   const showSubLineOnResponses = subscriptionStartDate && responses_over_time.some((d) => d.date === subscriptionStartDate);
 
   const metricItems = [
-    summary && { value: summary.total_vacancies_published ?? 0, label: "Опубликовано", primary: true },
-    summary && { value: summary.total_responses ?? 0, label: "Всего откликов", primary: true },
-    summary && { value: summary.new_count ?? 0, label: "Новых" },
-    summary && { value: summary.accepted_count ?? 0, label: "Принято" },
-    summary && { value: summary.rejected_count ?? 0, label: "Отклонено" },
-    summary && { value: summary.vacancies_with_zero_responses ?? 0, label: "Без откликов" },
-    summary?.avg_responses_per_vacancy != null && { value: summary.avg_responses_per_vacancy, label: "Ср. откликов" },
-    summary?.accepted_rate != null && { value: `${summary.accepted_rate}%`, label: "Доля принятых" },
-    summary?.avg_days_to_first_response != null && { value: summary.avg_days_to_first_response, label: "Дней до 1-го отклика" },
-    summary?.avg_days_to_first_acceptance != null && { value: summary.avg_days_to_first_acceptance, label: "Дней до 1-го принятия" },
+    summary && { value: summary.total_vacancies_published ?? 0, label: "Опубликовано", primary: true, icon: <Briefcase size={20} /> },
+    summary && { value: summary.total_responses ?? 0, label: "Всего откликов", primary: true, icon: <MessageSquare size={20} /> },
+    summary && { value: summary.new_count ?? 0, label: "Новых", icon: <Zap size={18} /> },
+    summary && { value: summary.accepted_count ?? 0, label: "Принято", icon: <CheckCircle size={18} /> },
+    summary && { value: summary.rejected_count ?? 0, label: "Отклонено", icon: <XCircle size={18} /> },
+    summary && { value: summary.vacancies_with_zero_responses ?? 0, label: "Без откликов", icon: <Info size={18} /> },
+    summary?.avg_responses_per_vacancy != null && { value: summary.avg_responses_per_vacancy, label: "Ср. откликов", icon: <Activity size={18} /> },
+    summary?.accepted_rate != null && { value: `${summary.accepted_rate}%`, label: "Доля принятых", icon: <Target size={18} /> },
+    summary?.avg_days_to_first_response != null && { value: summary.avg_days_to_first_response, label: "Дней до 1-го отклика", icon: <Clock size={18} /> },
+    summary?.avg_days_to_first_acceptance != null && { value: summary.avg_days_to_first_acceptance, label: "Дней до 1-го принятия", icon: <Calendar size={18} /> },
   ].filter(Boolean);
 
   return (
@@ -197,15 +214,18 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
 
       {summary && metricItems.length > 0 && (
         <section className="dashboard-section dashboard-section--metrics">
-          <h3 className="dashboard-section-title">Вакансии и отклики</h3>
+          <div className="dashboard-section-header">
+            <h3 className="dashboard-section-title">Вакансии и отклики</h3>
+          </div>
           <div className="dashboard-metrics dashboard-metrics--section">
             {metricItems.map((item, i) => (
               <Card
                 key={i}
-                variant="glass"
-                padding="md"
+                variant="elevated"
+                padding="none"
                 className={item.primary ? "dashboard-metric dashboard-metric--primary" : "dashboard-metric"}
               >
+                {item.icon && <div className="dashboard-metric-icon">{item.icon}</div>}
                 <span className="dashboard-metric-value">{item.value}</span>
                 <span className="dashboard-metric-label">{item.label}</span>
               </Card>
@@ -216,67 +236,106 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
 
       {hasCharts && (
         <section className="dashboard-section dashboard-section--charts">
-          <h3 className="dashboard-section-title">Динамика за 30 дней</h3>
-          {viewsChartData.length > 0 && (
-            <div className="dashboard-chart-wrap">
-              <h4 className="dashboard-chart-title">Просмотры по дням</h4>
-              <ResponsiveContainer width="100%" height={chartHeight}>
-                <AreaChart data={viewsChartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip labelFormatter={(v) => v} />
-                  <Legend />
-                  {showSubLineOnViews && (
-                    <ReferenceLine x={subscriptionStartDate} stroke="#b85c38" strokeDasharray="4 4" label={{ value: "Подписка", fill: "#b85c38", fontSize: 10 }} />
-                  )}
-                  <Area type="monotone" dataKey="vacancy" name="Вакансии" stroke={COLORS.vacancy} fill={COLORS.vacancy} fillOpacity={0.4} stackId="1" />
-                  <Area type="monotone" dataKey="laboratory" name="Лаборатории" stroke={COLORS.laboratory} fill={COLORS.laboratory} fillOpacity={0.4} stackId="1" />
-                  <Area type="monotone" dataKey="query" name="Запросы" stroke={COLORS.query} fill={COLORS.query} fillOpacity={0.4} stackId="1" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-          {responses_over_time.length > 0 && (
-            <div className="dashboard-chart-wrap">
-              <h4 className="dashboard-chart-title">Отклики по дням</h4>
-              <ResponsiveContainer width="100%" height={chartHeightSmall}>
-                <BarChart data={responses_over_time} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip labelFormatter={(v) => v} />
-                  {showSubLineOnResponses && (
-                    <ReferenceLine x={subscriptionStartDate} stroke="#b85c38" strokeDasharray="4 4" label={{ value: "Подписка", fill: "#b85c38", fontSize: 10 }} />
-                  )}
-                  <Bar dataKey="count" name="Откликов" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-          {pieData.length > 0 && (
-            <div className="dashboard-chart-wrap dashboard-chart-wrap--pie">
-              <h4 className="dashboard-chart-title">Просмотры по типу</h4>
-              <ResponsiveContainer width="100%" height={chartHeightSmall}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    label={({ name, value }) => `${name}: ${value}`}
-                  >
-                    {pieData.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          <div className="dashboard-section-header">
+            <h3 className="dashboard-section-title">Динамика за 30 дней</h3>
+          </div>
+          <div className="dashboard-charts-grid">
+            {viewsChartData.length > 0 && (
+              <Card variant="elevated" padding="md" className="dashboard-chart-wrap">
+                <div className="dashboard-chart-header">
+                  <TrendingUp size={16} className="text-accent" />
+                  <h4 className="dashboard-chart-title">Просмотры по дням</h4>
+                </div>
+                <ResponsiveContainer width="100%" height={chartHeight}>
+                  <AreaChart data={viewsChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fontSize: 10, fill: "var(--text-muted)" }} 
+                      axisLine={{ stroke: "var(--border-light)" }}
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 10, fill: "var(--text-muted)" }} 
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-md)' }}
+                      labelFormatter={(v) => new Date(v).toLocaleDateString("ru-RU", { day: 'numeric', month: 'short' })} 
+                    />
+                    <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px' }} />
+                    {showSubLineOnViews && (
+                      <ReferenceLine x={subscriptionStartDate} stroke="var(--accent)" strokeDasharray="4 4" label={{ value: "Подписка", fill: "var(--accent)", fontSize: 10, position: 'insideTopLeft' }} />
+                    )}
+                    <Area type="monotone" dataKey="vacancy" name="Вакансии" stroke={COLORS.vacancy} fill={COLORS.vacancy} fillOpacity={0.15} strokeWidth={2} stackId="1" />
+                    <Area type="monotone" dataKey="laboratory" name="Лаборатории" stroke={COLORS.laboratory} fill={COLORS.laboratory} fillOpacity={0.15} strokeWidth={2} stackId="1" />
+                    <Area type="monotone" dataKey="query" name="Запросы" stroke={COLORS.query} fill={COLORS.query} fillOpacity={0.15} strokeWidth={2} stackId="1" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </Card>
+            )}
+            {responses_over_time.length > 0 && (
+              <Card variant="elevated" padding="md" className="dashboard-chart-wrap">
+                <div className="dashboard-chart-header">
+                  <BarChart2 size={16} className="text-accent" />
+                  <h4 className="dashboard-chart-title">Отклики по дням</h4>
+                </div>
+                <ResponsiveContainer width="100%" height={chartHeightSmall}>
+                  <BarChart data={responses_over_time} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fontSize: 10, fill: "var(--text-muted)" }} 
+                      axisLine={{ stroke: "var(--border-light)" }}
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 10, fill: "var(--text-muted)" }} 
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-md)' }}
+                      labelFormatter={(v) => new Date(v).toLocaleDateString("ru-RU", { day: 'numeric', month: 'short' })} 
+                    />
+                    {showSubLineOnResponses && (
+                      <ReferenceLine x={subscriptionStartDate} stroke="var(--accent)" strokeDasharray="4 4" />
+                    )}
+                    <Bar dataKey="count" name="Откликов" fill="var(--accent)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+            )}
+            {pieData.length > 0 && (
+              <Card variant="elevated" padding="md" className="dashboard-chart-wrap dashboard-chart-wrap--pie">
+                <div className="dashboard-chart-header">
+                  <PieChartIcon size={16} className="text-accent" />
+                  <h4 className="dashboard-chart-title">Просмотры по типу</h4>
+                </div>
+                <ResponsiveContainer width="100%" height={chartHeightSmall}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={70}
+                      paddingAngle={5}
+                    >
+                      {pieData.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid var(--border-light)' }} />
+                    <Legend verticalAlign="bottom" height={36} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Card>
+            )}
+          </div>
         </section>
       )}
 
@@ -289,93 +348,109 @@ export default function EmployerDashboard({ onError, onNavigateToSubscription })
       )}
 
       {hasAnyContent && (
-        <>
+        <div className="dashboard-details-grid">
           {by_vacancy.length > 0 && (
             <section className="dashboard-section dashboard-section--table">
-              <h3 className="dashboard-section-title">Вакансии</h3>
-              <div className="dashboard-table-wrap">
-                <table className="dashboard-table">
-                  <thead>
-                    <tr>
-                      <th>Название</th>
-                      <th>Просмотры</th>
-                      <th>Зрители</th>
-                      <th>Отклики</th>
-                      <th>Конверсия</th>
-                      <th>Ср. время</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {by_vacancy.map((v) => (
-                      <tr key={v.vacancy_id}>
-                        <td className="dashboard-table-name">{v.name || "—"}</td>
-                        <td>{v.view_count ?? 0}</td>
-                        <td>{v.unique_viewers ?? 0}</td>
-                        <td>{v.response_count ?? 0}</td>
-                        <td>{v.conversion_rate != null ? `${(v.conversion_rate * 100).toFixed(1)}%` : "—"}</td>
-                        <td>{v.avg_time_on_page_sec != null ? `${v.avg_time_on_page_sec} с` : "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="dashboard-section-header">
+                <h3 className="dashboard-section-title">Детализация: Вакансии</h3>
               </div>
+              <Card variant="elevated" padding="none" className="dashboard-table-card">
+                <div className="dashboard-table-wrap">
+                  <table className="dashboard-table">
+                    <thead>
+                      <tr>
+                        <th>Название</th>
+                        <th>Просмотры</th>
+                        <th>Зрители</th>
+                        <th>Отклики</th>
+                        <th>Конверсия</th>
+                        <th>Ср. время</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {by_vacancy.map((v) => (
+                        <tr key={v.vacancy_id}>
+                          <td className="dashboard-table-name">{v.name || "—"}</td>
+                          <td>{v.view_count ?? 0}</td>
+                          <td>{v.unique_viewers ?? 0}</td>
+                          <td>{v.response_count ?? 0}</td>
+                          <td className="text-accent font-semibold">{v.conversion_rate != null ? `${(v.conversion_rate * 100).toFixed(1)}%` : "—"}</td>
+                          <td className="muted">{v.avg_time_on_page_sec != null ? `${v.avg_time_on_page_sec} с` : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
             </section>
           )}
-          {by_laboratory.length > 0 && (
-            <section className="dashboard-section dashboard-section--table">
-              <h3 className="dashboard-section-title">Лаборатории</h3>
-              <div className="dashboard-table-wrap">
-                <table className="dashboard-table">
-                  <thead>
-                    <tr>
-                      <th>Название</th>
-                      <th>Просмотры</th>
-                      <th>Зрители</th>
-                      <th>Ср. время</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {by_laboratory.map((lab) => (
-                      <tr key={lab.laboratory_id}>
-                        <td className="dashboard-table-name">{lab.name || "—"}</td>
-                        <td>{lab.view_count ?? 0}</td>
-                        <td>{lab.unique_viewers ?? 0}</td>
-                        <td>{lab.avg_time_on_page_sec != null ? `${lab.avg_time_on_page_sec} с` : "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
-          {by_query.length > 0 && (
-            <section className="dashboard-section dashboard-section--table">
-              <h3 className="dashboard-section-title">Запросы</h3>
-              <div className="dashboard-table-wrap">
-                <table className="dashboard-table">
-                  <thead>
-                    <tr>
-                      <th>Название</th>
-                      <th>Просмотры</th>
-                      <th>Зрители</th>
-                      <th>Ср. время</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {by_query.map((q) => (
-                      <tr key={q.query_id}>
-                        <td className="dashboard-table-name">{q.title || "—"}</td>
-                        <td>{q.view_count ?? 0}</td>
-                        <td>{q.unique_viewers ?? 0}</td>
-                        <td>{q.avg_time_on_page_sec != null ? `${q.avg_time_on_page_sec} с` : "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
-        </>
+          
+          <div className="dashboard-details-row">
+            {by_laboratory.length > 0 && (
+              <section className="dashboard-section dashboard-section--table">
+                <div className="dashboard-section-header">
+                  <h3 className="dashboard-section-title">Лаборатории</h3>
+                </div>
+                <Card variant="elevated" padding="none" className="dashboard-table-card">
+                  <div className="dashboard-table-wrap">
+                    <table className="dashboard-table">
+                      <thead>
+                        <tr>
+                          <th>Название</th>
+                          <th>Просмотры</th>
+                          <th>Зрители</th>
+                          <th>Ср. время</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {by_laboratory.map((lab) => (
+                          <tr key={lab.laboratory_id}>
+                            <td className="dashboard-table-name">{lab.name || "—"}</td>
+                            <td>{lab.view_count ?? 0}</td>
+                            <td>{lab.unique_viewers ?? 0}</td>
+                            <td className="muted">{lab.avg_time_on_page_sec != null ? `${lab.avg_time_on_page_sec} с` : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </section>
+            )}
+
+            {by_query.length > 0 && (
+              <section className="dashboard-section dashboard-section--table">
+                <div className="dashboard-section-header">
+                  <h3 className="dashboard-section-title">Запросы</h3>
+                </div>
+                <Card variant="elevated" padding="none" className="dashboard-table-card">
+                  <div className="dashboard-table-wrap">
+                    <table className="dashboard-table">
+                      <thead>
+                        <tr>
+                          <th>Название</th>
+                          <th>Просмотры</th>
+                          <th>Зрители</th>
+                          <th>Ср. время</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {by_query.map((q) => (
+                          <tr key={q.query_id}>
+                            <td className="dashboard-table-name">{q.title || "—"}</td>
+                            <td>{q.view_count ?? 0}</td>
+                            <td>{q.unique_viewers ?? 0}</td>
+                            <td className="muted">{q.avg_time_on_page_sec != null ? `${q.avg_time_on_page_sec} с` : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </section>
+            )}
+          </div>
+        </div>
       )}
     </Card>
   );

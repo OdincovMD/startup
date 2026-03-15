@@ -27,12 +27,12 @@ const TIER_CARDS = [
     id: "basic",
     name: "Basic",
     tagline: "Для малых команд",
-    description: "1 организация или до 3 лабораторий, до 15 вакансий и 15 запросов",
+    description: "1 организация или до 3 лабораторий",
     features: [
       "Приоритет в поиске",
       "Участие на главной",
-      "Каталог соискателей",
       "До 15 вакансий и 15 запросов",
+      "Каталог соискателей",
     ],
     cta: "Подключить",
     accent: false,
@@ -41,12 +41,12 @@ const TIER_CARDS = [
     id: "pro",
     name: "Pro",
     tagline: "Для крупных структур",
-    description: "Без лимитов",
+    description: "Без лимитов и ограничений",
     features: [
       "Всё из Basic",
-      "Подписка на всю организацию",
-      "Каталог соискателей",
+      "Статус на всю организацию",
       "Расширенная аналитика",
+      "Безлимитные вакансии/запросы",
     ],
     cta: "Подключить",
     accent: true,
@@ -56,7 +56,11 @@ const TIER_CARDS = [
 const FAQ_ITEMS = [
   {
     q: "Что даёт подписка?",
-    a: "Приоритет в поиске и на главной, больше просмотров и откликов.",
+    a: "Приоритет в поиске и на главной (верхний блок), больше просмотров и откликов. Платные карточки всегда отображаются выше бесплатных.",
+  },
+  {
+    q: "Как подписка влияет на позицию в поиске?",
+    a: "Для платных аккаунтов применяется дополнительный множитель (boost), зависящий от качества заполнения профиля (rank score). Чем лучше заполнен профиль, тем выше позиция.",
   },
   {
     q: "Как оформляется подписка?",
@@ -64,19 +68,19 @@ const FAQ_ITEMS = [
   },
   {
     q: "Лаборатория в организации — нужна отдельная подписка?",
-    a: "На Pro — нет, подписка распространяется на всю организацию. На Basic каждая лаборатория считается отдельно.",
+    a: "На Pro — нет, подписка распространяется на всю организацию (Org-wide). На Basic каждая лаборатория считается отдельно.",
+  },
+  {
+    q: "Что такое Grace Period?",
+    a: "Это 7 дней бесплатного приоритетного размещения для новых пользователей (после создания первой организации или лаборатории).",
   },
   {
     q: "Есть пробный период?",
-    a: "Да. Запросите Trial у администратора платформы.",
-  },
-  {
-    q: "Нужна ли подписка для каталога соискателей?",
-    a: "Да. Каталог соискателей доступен при активной подписке Basic или Pro.",
+    a: "Да. Вы можете запросить Trial у администратора платформы для тестирования возможностей тарифов.",
   },
   {
     q: "Как улучшить позицию?",
-    a: "Заполняйте описания, логотипы, сайты, контакты. Рекомендации по каждой карточке — в разделе «Аналитика».",
+    a: "Заполняйте описания (от 300 симв.), добавляйте фото, логотипы, сайты и контакты. Также учитывается «возраст» карточки — за каждые 6 месяцев активности начисляется бонус.",
   },
 ];
 
@@ -106,7 +110,7 @@ function daysUntil(iso) {
   }
 }
 
-export default function SubscriptionTab({ onError }) {
+export default function SubscriptionTab({ onError, orgProfile, orgLabs, orgVacancies, orgQueries }) {
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -140,7 +144,7 @@ export default function SubscriptionTab({ onError }) {
   }
 
   const active = subscription?.active === true;
-  const tier = subscription?.tier || "pro";
+  const tier = subscription?.tier || "basic";
   const expiresAt = subscription?.expires_at;
   const trialEndsAt = subscription?.trial_ends_at;
   const startedAt = subscription?.started_at;
@@ -148,6 +152,23 @@ export default function SubscriptionTab({ onError }) {
   const trialDaysLeft = daysUntil(trialEndsAt);
   const expiresSoon = daysLeft != null && daysLeft >= 0 && daysLeft < 30;
   const isTrial = trialEndsAt && trialDaysLeft != null && trialDaysLeft >= 0;
+
+  // Grace period logic (7 days from creation)
+  const createdDate = orgProfile?.created_at ? new Date(orgProfile.created_at) : null;
+  const graceDaysLeft = createdDate ? 7 - Math.floor((new Date() - createdDate) / (24 * 60 * 60 * 1000)) : 0;
+  const isGracePeriod = !active && graceDaysLeft > 0;
+
+  // Usage stats
+  const labsCount = orgLabs?.length || 0;
+  const vacanciesCount = orgVacancies?.length || 0;
+  const queriesCount = orgQueries?.length || 0;
+
+  const limits = {
+    basic: { labs: 3, vacancies: 15, queries: 15 },
+    pro: { labs: Infinity, vacancies: Infinity, queries: Infinity },
+  };
+
+  const currentTierLimits = tier === "pro" && active ? limits.pro : limits.basic;
 
   return (
     <div className="profile-form-section subscription-tab">
@@ -158,19 +179,27 @@ export default function SubscriptionTab({ onError }) {
 
       <section className="subscription-section" aria-labelledby="subscription-status-heading">
         <span id="subscription-status-heading" className="profile-summary-block-label">Ваш статус</span>
-        <div className={`subscription-status-card ${active ? "subscription-status-card--active" : "subscription-status-card--inactive"}`}>
-          {active ? (
+        <div className={`subscription-status-card ${active || isGracePeriod ? "subscription-status-card--active" : "subscription-status-card--inactive"}`}>
+          {(active || isGracePeriod) ? (
             <>
               <div className="subscription-status-body">
                 <div className="subscription-status-header">
-                  <strong className="subscription-status-title">Подписка активна</strong>
+                  <strong className="subscription-status-title">
+                    {isGracePeriod ? "Пробный доступ (Grace Period)" : "Подписка активна"}
+                  </strong>
                   <Badge variant="success">Активна</Badge>
                 </div>
-                {tier && (
+                {tier && !isGracePeriod && (
                   <span className="subscription-status-tier">
                     Тариф: {tier === "basic" ? "Basic" : "Pro"}
                     {isTrial && " (Trial)"}
                   </span>
+                )}
+                {isGracePeriod && (
+                  <p className="subscription-status-meta">
+                    У вас есть 7 дней бесплатного приоритетного размещения.
+                    <span className="subscription-status-days"> (осталось {graceDaysLeft} дн.)</span>
+                  </p>
                 )}
                 {isTrial && (
                   <p className="subscription-status-meta">
@@ -180,7 +209,7 @@ export default function SubscriptionTab({ onError }) {
                     )}
                   </p>
                 )}
-                {startedAt && !isTrial && (
+                {startedAt && !isTrial && !isGracePeriod && (
                   <p className="subscription-status-meta">Подключена {formatDate(startedAt)}</p>
                 )}
                 {expiresAt && (
@@ -192,13 +221,13 @@ export default function SubscriptionTab({ onError }) {
                   </p>
                 )}
               </div>
-              {expiresSoon && (
+              {(expiresSoon || isGracePeriod) && (
                 <a
-                  href="mailto:?subject=Продление подписки"
+                  href={`mailto:?subject=${isGracePeriod ? "Подключение подписки" : "Продление подписки"}`}
                   className="secondary-btn subscription-cta-btn"
-                  aria-label="Обратиться о продлении"
+                  aria-label={isGracePeriod ? "Подключить подписку" : "Обратиться о продлении"}
                 >
-                  Обратиться о продлении
+                  {isGracePeriod ? "Подключить подписку" : "Обратиться о продлении"}
                 </a>
               )}
             </>
@@ -219,6 +248,48 @@ export default function SubscriptionTab({ onError }) {
               </a>
             </>
           )}
+        </div>
+      </section>
+
+      <section className="subscription-section" aria-labelledby="subscription-usage-heading">
+        <span id="subscription-usage-heading" className="profile-summary-block-label">Использование лимитов</span>
+        <div className="subscription-usage-grid">
+          <div className="subscription-usage-item">
+            <div className="subscription-usage-info">
+              <span>Лаборатории</span>
+              <span>{labsCount} / {currentTierLimits.labs === Infinity ? "∞" : currentTierLimits.labs}</span>
+            </div>
+            <div className="subscription-usage-bar">
+              <div
+                className={`subscription-usage-progress ${currentTierLimits.labs !== Infinity && labsCount >= currentTierLimits.labs ? "subscription-usage-progress--full" : ""}`}
+                style={{ width: `${currentTierLimits.labs === Infinity ? 0 : Math.min(100, (labsCount / currentTierLimits.labs) * 100)}%` }}
+              />
+            </div>
+          </div>
+          <div className="subscription-usage-item">
+            <div className="subscription-usage-info">
+              <span>Вакансии</span>
+              <span>{vacanciesCount} / {currentTierLimits.vacancies === Infinity ? "∞" : currentTierLimits.vacancies}</span>
+            </div>
+            <div className="subscription-usage-bar">
+              <div
+                className={`subscription-usage-progress ${currentTierLimits.vacancies !== Infinity && vacanciesCount >= currentTierLimits.vacancies ? "subscription-usage-progress--full" : ""}`}
+                style={{ width: `${currentTierLimits.vacancies === Infinity ? 0 : Math.min(100, (vacanciesCount / currentTierLimits.vacancies) * 100)}%` }}
+              />
+            </div>
+          </div>
+          <div className="subscription-usage-item">
+            <div className="subscription-usage-info">
+              <span>Запросы</span>
+              <span>{queriesCount} / {currentTierLimits.queries === Infinity ? "∞" : currentTierLimits.queries}</span>
+            </div>
+            <div className="subscription-usage-bar">
+              <div
+                className={`subscription-usage-progress ${currentTierLimits.queries !== Infinity && queriesCount >= currentTierLimits.queries ? "subscription-usage-progress--full" : ""}`}
+                style={{ width: `${currentTierLimits.queries === Infinity ? 0 : Math.min(100, (queriesCount / currentTierLimits.queries) * 100)}%` }}
+              />
+            </div>
+          </div>
         </div>
       </section>
 

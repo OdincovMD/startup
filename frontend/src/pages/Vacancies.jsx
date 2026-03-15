@@ -7,6 +7,7 @@ import { useVacancySearch, useVacancyFilters } from "../hooks";
 import { VacancyCard, VacancySearchBar, VacancyFilters } from "../components/vacancies";
 import { Drawer, Button, Card } from "../components/ui";
 import EmployeeModal from "./profile/EmployeeModal";
+import { EmployeeCard } from "../components/EmployeeCard";
 import EmptySearchFallback from "../components/EmptySearchFallback";
 
 const RESPONSE_STATUS_LABELS = { new: "Новый", accepted: "Принят", rejected: "Отклонен" };
@@ -430,41 +431,14 @@ export default function Vacancies() {
                       <h2 className="vacancy-contacts-card__title">Контакты</h2>
                       <div className="vacancy-contacts-card__content">
                         {details.contact_employee && (
-                          <button
-                            type="button"
-                            className="vacancy-contact"
+                          <EmployeeCard
+                            variant="list"
+                            employee={details.contact_employee}
                             onClick={() => {
                               setEmployeePreview(details.contact_employee);
                               setShowEmployeePublications(false);
                             }}
-                          >
-                            <span className="vacancy-contact__avatar-wrap">
-                              {details.contact_employee.photo_url ? (
-                                <img
-                                  className="vacancy-contact__avatar"
-                                  src={details.contact_employee.photo_url}
-                                  alt=""
-                                />
-                              ) : (
-                                <span className="vacancy-contact__avatar-placeholder">
-                                  {details.contact_employee.full_name
-                                    ? details.contact_employee.full_name.charAt(0).toUpperCase()
-                                    : "?"}
-                                </span>
-                              )}
-                            </span>
-                            <span className="vacancy-contact__body">
-                              <span className="vacancy-contact__label">Контактное лицо</span>
-                              <span className="vacancy-contact__name">{details.contact_employee.full_name}</span>
-                              {details.contact_employee.academic_degree && (
-                                <span className="vacancy-contact__meta">{details.contact_employee.academic_degree}</span>
-                              )}
-                              {(details.contact_employee.positions || []).length > 0 && (
-                                <span className="vacancy-contact__meta">{details.contact_employee.positions.join(", ")}</span>
-                              )}
-                              <span className="vacancy-contact__cta">Открыть профиль →</span>
-                            </span>
-                          </button>
+                          />
                         )}
                         {(details.contact_email || details.contact_phone) && (
                           <div className="vacancy-contacts-card__data">

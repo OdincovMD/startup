@@ -2,6 +2,14 @@ import React, { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { 
+  LockIcon, 
+  CheckCircleIcon, 
+  AlertCircleIcon, 
+  AuthAlert, 
+  AuthButton, 
+  PasswordField 
+} from "../components/auth";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -11,6 +19,8 @@ export default function ResetPassword() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [status, setStatus] = useState("idle"); // idle | sending | success | error
   const [errorMessage, setErrorMessage] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,11 +53,14 @@ export default function ResetPassword() {
 
   if (!token) {
     return (
-      <div className="main auth-page">
-        <div className="auth-wrapper">
-          <div className="auth-card-modern">
-            <h1>Недействительная ссылка</h1>
-            <p className="auth-subtitle">
+      <div className="auth-page auth-page--centered">
+        <div className="auth-icon-card">
+          <div className="auth-icon-card__icon">
+            <AlertCircleIcon />
+          </div>
+          <div className="auth-icon-card__body">
+            <h1 className="auth-icon-card__title">Недействительная ссылка</h1>
+            <p className="auth-subtitle auth-subtitle--center">
               В ссылке отсутствует токен. Запросите сброс пароля на странице входа.
             </p>
             <div className="auth-actions">
@@ -66,11 +79,14 @@ export default function ResetPassword() {
 
   if (status === "success") {
     return (
-      <div className="main auth-page">
-        <div className="auth-wrapper">
-          <div className="auth-card-modern">
-            <h1>Пароль изменён</h1>
-            <p className="auth-subtitle">
+      <div className="auth-page auth-page--centered">
+        <div className="auth-icon-card">
+          <div className="auth-icon-card__icon auth-icon-card__icon--success">
+            <CheckCircleIcon />
+          </div>
+          <div className="auth-icon-card__body">
+            <h1 className="auth-icon-card__title">Пароль изменён</h1>
+            <p className="auth-subtitle auth-subtitle--center">
               Теперь вы можете войти с новым паролем.
             </p>
             <div className="auth-actions">
@@ -85,51 +101,51 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="main auth-page">
-      <div className="auth-wrapper">
-        <div className="auth-card-modern">
-          <h1>Новый пароль</h1>
-          <p className="auth-subtitle">
+    <div className="auth-page auth-page--centered">
+      <div className="auth-icon-card">
+        <div className="auth-icon-card__icon">
+          <LockIcon />
+        </div>
+        <div className="auth-icon-card__body">
+          <h1 className="auth-icon-card__title">Новый пароль</h1>
+          <p className="auth-subtitle auth-subtitle--center">
             Введите новый пароль (не менее 8 символов).
           </p>
 
           <form className="auth-form-modern" onSubmit={handleSubmit}>
-            {status === "error" && errorMessage && (
-              <div className="auth-alert auth-alert-error" role="alert">
-                {errorMessage}
-              </div>
-            )}
-            <div className="field-group">
-              <label htmlFor="reset-password">Новый пароль</label>
-              <input
-                id="reset-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                minLength={8}
-                required
-                autoComplete="new-password"
-              />
-              <span className="auth-hint-inline">Не менее 8 символов</span>
-            </div>
-            <div className="field-group">
-              <label htmlFor="reset-password-confirm">Повторите пароль</label>
-              <input
-                id="reset-password-confirm"
-                type="password"
-                value={passwordConfirm}
-                onChange={(e) => setPasswordConfirm(e.target.value)}
-                placeholder="••••••••"
-                minLength={8}
-                required
-                autoComplete="new-password"
-              />
-            </div>
+            <AuthAlert message={errorMessage} />
+            
+            <PasswordField
+              id="reset-password"
+              label="Новый пароль"
+              value={password}
+              onChange={(v) => { setPassword(v); setErrorMessage(null); }}
+              showPassword={showPassword}
+              onToggleShow={() => setShowPassword(!showPassword)}
+              placeholder="••••••••"
+              minLength={8}
+              required
+              autoComplete="new-password"
+              hint="Не менее 8 символов"
+            />
+
+            <PasswordField
+              id="reset-password-confirm"
+              label="Повторите пароль"
+              value={passwordConfirm}
+              onChange={(v) => { setPasswordConfirm(v); setErrorMessage(null); }}
+              showPassword={showPasswordConfirm}
+              onToggleShow={() => setShowPasswordConfirm(!showPasswordConfirm)}
+              placeholder="••••••••"
+              minLength={8}
+              required
+              autoComplete="new-password"
+            />
+
             <div className="auth-actions">
-              <button type="submit" className="primary-btn auth-btn-primary auth-actions__primary" disabled={status === "sending"}>
-                {status === "sending" ? "Сохранение…" : "Сохранить пароль"}
-              </button>
+              <AuthButton loading={status === "sending"} className="primary-btn auth-btn-primary auth-actions__primary">
+                Сохранить пароль
+              </AuthButton>
               <div className="auth-actions__secondary">
                 <Link to="/login">Вернуться к входу</Link>
               </div>
