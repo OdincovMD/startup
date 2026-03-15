@@ -1,12 +1,14 @@
 import React, { useState } from "react";
+import { User, Mail, Phone } from "lucide-react";
 import { isValidEmail, formatPhoneRU } from "../../utils/validation";
+import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
-import { 
-  UserIcon, 
-  MailIcon, 
-  PhoneIcon, 
-  TelegramIcon 
+import {
+  UserIcon,
+  MailIcon,
+  PhoneIcon,
+  TelegramIcon,
 } from "../../components/auth";
 
 export default function PersonalProfileSection({
@@ -52,19 +54,38 @@ export default function PersonalProfileSection({
   };
 
   return (
-    <div className="profile-form-section">
-      {!hideTitle && (
-        <h2 className="profile-section-card__title">Личные данные</h2>
-      )}
+    <Card variant="solid" padding="lg" className="profile-section-card">
+      <div className="profile-section-header" style={{ marginBottom: "1.5rem" }}>
+        <div className="section-title-with-icon" style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <User size={24} color="var(--accent)" />
+          <div>
+            {!hideTitle && (
+              <h2 className="profile-section-card__title" style={{ margin: 0, fontSize: "1.5rem" }}>
+                Личные данные
+              </h2>
+            )}
+            <p className="profile-section-desc" style={{ margin: "0.25rem 0 0 0", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+              Ваша контактная и основная информация
+            </p>
+          </div>
+        </div>
+      </div>
+
       <form
         className="profile-form profile-form--grouped"
         onSubmit={(e) => {
           e.preventDefault();
           handleSave();
         }}
+        style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}
       >
         <div className="profile-form-group">
-          <div className="profile-form-group-title">Основная информация</div>
+          <div className="section-title-with-icon" style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.25rem" }}>
+            <User size={20} color="var(--accent)" />
+            <span style={{ fontWeight: 700, fontSize: "0.875rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)" }}>
+              Основная информация
+            </span>
+          </div>
           <Input
             id="full_name"
             label="ФИО"
@@ -76,7 +97,12 @@ export default function PersonalProfileSection({
         </div>
 
         <div className="profile-form-group">
-          <div className="profile-form-group-title">Контактные данные</div>
+          <div className="section-title-with-icon" style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.25rem" }}>
+            <Mail size={20} color="var(--accent)" />
+            <span style={{ fontWeight: 700, fontSize: "0.875rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)" }}>
+              Контактные данные
+            </span>
+          </div>
           <div className="profile-form__row">
             <Input
               id="contact_email"
@@ -103,23 +129,24 @@ export default function PersonalProfileSection({
               icon={<PhoneIcon />}
             />
           </div>
-          <Input
-            id="contact_telegram"
-            label="Telegram"
-            value={contacts.telegram || ""}
-            onChange={(e) => onContactsChange("telegram", e.target.value)}
-            placeholder="@username"
-            icon={<TelegramIcon />}
-            className="mt-4"
-          />
+          <div style={{ marginTop: "1.5rem" }}>
+            <Input
+              id="contact_telegram"
+              label="Telegram"
+              value={contacts.telegram || ""}
+              onChange={(e) => onContactsChange("telegram", e.target.value)}
+              placeholder="@username"
+              icon={<TelegramIcon />}
+            />
+          </div>
         </div>
 
-        <div className="profile-actions-wrap">
-          <Button variant="primary" type="submit" loading={saving}>
+        <div className="profile-actions-wrap-modern" style={{ display: "flex", gap: "1rem", borderTop: "1px solid var(--border-light)", paddingTop: "2rem", marginTop: "0" }}>
+          <Button variant="primary" type="submit" loading={saving} disabled={saving} style={{ padding: "0.75rem 2.5rem" }}>
             {saving ? "Сохраняем..." : "Сохранить изменения"}
           </Button>
         </div>
       </form>
-    </div>
+    </Card>
   );
 }

@@ -16,6 +16,7 @@ import {
 import { ListingSearchBar } from "../components/listing";
 import { Drawer, Button, Card, Badge } from "../components/ui";
 import { EmployeeCard } from "../components/EmployeeCard";
+import EquipmentModal from "./profile/EquipmentModal";
 import EmptySearchFallback from "../components/EmptySearchFallback";
 
 const LABORATORIES_PAGE_SIZE = 20;
@@ -38,6 +39,7 @@ export default function Laboratories() {
   const [gallery, setGallery] = useState({ open: false, images: [], index: 0 });
   const [galleryZoom, setGalleryZoom] = useState(1);
   const [employeePreview, setEmployeePreview] = useState(null);
+  const [equipmentPreview, setEquipmentPreview] = useState(null);
   const [showEmployeePublications, setShowEmployeePublications] = useState(false);
   const [emptySuggestions, setEmptySuggestions] = useState([]);
   const [emptySuggestionsLoading, setEmptySuggestionsLoading] = useState(false);
@@ -559,25 +561,29 @@ export default function Laboratories() {
                         <LabDetailCard
                           key={item.id}
                           media={itemImages[0]}
-                          onMediaClick={itemImages.length > 0 ? () => openGallery(itemImages, 0) : undefined}
                           mediaBadge={itemImages.length > 1 ? itemImages.length - 1 : 0}
+                          clickable
+                          variant="equipment"
+                          onClick={() => setEquipmentPreview(item)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setEquipmentPreview(item);
+                            }
+                          }}
                         >
                           <h3 className="org-detail-card__title">{item.name}</h3>
                           {item.characteristics && (
-                            <p className="org-detail-card__text">{item.characteristics}</p>
+                            <p className="org-detail-card__text" style={{ fontWeight: 500, color: 'var(--text-primary-alt)' }}>
+                              {item.characteristics}
+                            </p>
                           )}
                           {item.description && (
-                            <p className="org-detail-card__text">{item.description}</p>
+                            <p className="org-detail-card__text org-detail-card__text--truncated">
+                              {item.description}
+                            </p>
                           )}
-                          {splitMedia(item.image_urls).docs.length > 0 && (
-                            <div className="org-detail-card__files">
-                              {splitMedia(item.image_urls).docs.map((url, i) => (
-                                <a key={i} href={url} target="_blank" rel="noreferrer">
-                                  {fileNameFromUrl(url)}
-                                </a>
-                              ))}
-                            </div>
-                          )}
+                          <span className="org-detail-card__cta">Подробнее →</span>
                         </LabDetailCard>
                       );
                     })}
@@ -591,27 +597,42 @@ export default function Laboratories() {
                     >
                       <div className="org-detail-grid">
                     {(details.task_solutions || []).map((task) => (
-                      <LabDetailCard key={task.id}>
+                      <LabDetailCard key={task.id} variant="task">
                         <h3 className="org-detail-card__title">{task.title}</h3>
                         {(task.task_description || task.solution_description) && (
                           <p className="org-detail-card__text" title={task.task_description || task.solution_description}>
-                            {(task.task_description || task.solution_description || "").length > 120
-                              ? `${(task.task_description || task.solution_description || "").slice(0, 120)}…`
+                            {(task.task_description || task.solution_description || "").length > 160
+                              ? `${(task.task_description || task.solution_description || "").slice(0, 160)}…`
                               : (task.task_description || task.solution_description || "")}
                           </p>
                         )}
-                        <div className="org-detail-card__meta">
-                          {task.solution_deadline && <span>Сроки: {task.solution_deadline}</span>}
-                          {task.grant_info && <span>Грант: {task.grant_info}</span>}
-                          {task.cost && <span>Стоимость: {task.cost}</span>}
+                        <div className="org-detail-card__meta-grid">
+                          {task.solution_deadline && (
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Сроки</span>
+                              <span className="org-detail-card__meta-value">{task.solution_deadline}</span>
+                            </div>
+                          )}
+                          {task.grant_info && (
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Грант</span>
+                              <span className="org-detail-card__meta-value">{task.grant_info}</span>
+                            </div>
+                          )}
+                          {task.cost && (
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Стоимость</span>
+                              <span className="org-detail-card__meta-value">{task.cost}</span>
+                            </div>
+                          )}
                         </div>
                         {(task.laboratories || []).length > 0 && (
                           <div className="org-detail-card__chips">
-                            {(task.laboratories || []).slice(0, 3).map((lab) => (
+                            {(task.laboratories || []).slice(0, 2).map((lab) => (
                               <span key={lab.id} className="org-detail-chip">{lab.name}</span>
                             ))}
-                            {(task.laboratories || []).length > 3 && (
-                              <span className="org-detail-chip">+{(task.laboratories || []).length - 3}</span>
+                            {(task.laboratories || []).length > 2 && (
+                              <span className="org-detail-chip">+{(task.laboratories || []).length - 2}</span>
                             )}
                           </div>
                         )}
@@ -630,6 +651,7 @@ export default function Laboratories() {
                       <LabDetailCard
                         key={query.id}
                         clickable={!!query.public_id}
+                        variant="query"
                         onClick={() => query.public_id && openQuery(query.public_id)}
                         onKeyDown={(e) => {
                           if (query.public_id && (e.key === "Enter" || e.key === " ")) {
@@ -647,24 +669,31 @@ export default function Laboratories() {
                           </span>
                         )}
                         {query.task_description && (
-                          <p className="org-detail-card__text" title={query.task_description}>
-                            {query.task_description.length > 120
-                              ? `${query.task_description.slice(0, 120)}…`
-                              : query.task_description}
+                          <p className="org-detail-card__text org-detail-card__text--truncated" title={query.task_description}>
+                            {query.task_description}
                           </p>
                         )}
-                        <div className="org-detail-card__meta">
-                          {query.grant_info && <span>Грант: {query.grant_info}</span>}
-                          {query.budget && <span>Бюджет: {query.budget}</span>}
-                          {query.deadline && <span>Дедлайн: {query.deadline}</span>}
+                        <div className="org-detail-card__meta-grid">
+                          {query.budget && (
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Бюджет</span>
+                              <span className="org-detail-card__meta-value">{query.budget}</span>
+                            </div>
+                          )}
+                          {query.deadline && (
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Дедлайн</span>
+                              <span className="org-detail-card__meta-value">{query.deadline}</span>
+                            </div>
+                          )}
                         </div>
                         {(query.employees || []).length > 0 && (
                           <div className="org-detail-card__chips">
-                            {(query.employees || []).slice(0, 3).map((emp) => (
+                            {(query.employees || []).slice(0, 2).map((emp) => (
                               <span key={emp.id} className="org-detail-chip">{emp.full_name}</span>
                             ))}
-                            {(query.employees || []).length > 3 && (
-                              <span className="org-detail-chip">+{(query.employees || []).length - 3}</span>
+                            {(query.employees || []).length > 2 && (
+                              <span className="org-detail-chip">+{(query.employees || []).length - 2}</span>
                             )}
                           </div>
                         )}
@@ -683,22 +712,24 @@ export default function Laboratories() {
                     >
                       <div className="org-detail-grid">
                     {(details.vacancies || []).map((vacancy) => (
-                      <LabDetailCard key={vacancy.id}>
+                      <LabDetailCard key={vacancy.id} variant="vacancy">
                         <h3 className="org-detail-card__title">{vacancy.name}</h3>
                         {vacancy.employment_type && (
-                          <p className="org-detail-card__text org-detail-card__text--muted">
+                          <span className="org-detail-chip org-detail-chip--status" style={{ marginBottom: '0.5rem' }}>
                             {vacancy.employment_type}
-                          </p>
-                        )}
-                        {vacancy.requirements && (
-                          <p className="org-detail-card__text">{vacancy.requirements}</p>
+                          </span>
                         )}
                         {vacancy.description && (
-                          <p className="org-detail-card__text">{vacancy.description}</p>
+                          <p className="org-detail-card__text org-detail-card__text--truncated">
+                            {vacancy.description}
+                          </p>
                         )}
                         {vacancy.contact_employee && (
-                          <div className="org-detail-card__meta">
-                            <span>Контакт: {vacancy.contact_employee.full_name}</span>
+                          <div className="org-detail-card__meta-grid">
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Контакт</span>
+                              <span className="org-detail-card__meta-value">{vacancy.contact_employee.full_name}</span>
+                            </div>
                           </div>
                         )}
                         {vacancy.public_id && (
@@ -762,6 +793,11 @@ export default function Laboratories() {
           setEmployeePreview(null);
           setShowEmployeePublications(false);
         }}
+      />
+      <EquipmentModal
+        equipment={equipmentPreview}
+        onClose={() => setEquipmentPreview(null)}
+        openGallery={openGallery}
       />
     </main>
   );

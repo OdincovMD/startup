@@ -233,7 +233,7 @@ export default function QueriesTab({
                 className="lab-btn-delete" 
                 onClick={() => deleteQuery(query.id)}
               >
-                <Trash2 size={14} /> Удалить
+                <Trash2 size={14} /> 
               </Button>
             </div>
           </Card>

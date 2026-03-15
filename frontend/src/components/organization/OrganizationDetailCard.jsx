@@ -14,6 +14,9 @@ export default function OrganizationDetailCard({
   if (clickable) classNames.push("org-detail-card--clickable");
   if (variant === "employee") classNames.push("org-detail-card--employee");
   if (variant === "query") classNames.push("org-detail-card--query");
+  if (variant === "equipment") classNames.push("org-detail-card--equipment");
+  if (variant === "task") classNames.push("org-detail-card--task");
+  if (variant === "vacancy") classNames.push("org-detail-card--vacancy");
 
   const wrapperProps = clickable
     ? {

@@ -4,7 +4,8 @@ import { apiRequest } from "../api/client";
 import { useQuerySearch } from "../hooks";
 import EmployeeModal from "./profile/EmployeeModal";
 import EmptySearchFallback from "../components/EmptySearchFallback";
-import { QueryCard, QueryFilters, QuerySearchBar, QueryDetailSidebar } from "../components/queries";
+import { QueryCard, QueryFilters, QuerySearchBar, QueryDetailSidebar, QueryDetailHero } from "../components/queries";
+import { OrganizationSection, OrganizationDetailCard } from "../components/organization";
 import { Drawer, Button, Card, Badge } from "../components/ui";
 import { EmployeeCard } from "../components/EmployeeCard";
 
@@ -196,128 +197,84 @@ export default function Queries() {
             <button className="org-detail-back" onClick={goBack} type="button">
               ← Назад
             </button>
-            <div className="query-detail-hero">
-              <div className="query-detail-hero__icon">
-                {details.title ? details.title.charAt(0).toUpperCase() : "Q"}
-              </div>
-              <h1 className="query-detail-hero__title">{details.title}</h1>
-            </div>
+            <QueryDetailHero details={details} />
             <div className="detail-page__layout">
               <div className="detail-page__main">
-                {details.task_description && (
-                  <Card variant="glass" padding="md">
-                    <h2 className="query-detail__block-title">Описание задачи</h2>
-                    <p className="query-detail__text">{details.task_description}</p>
-                  </Card>
-                )}
                 {details.completed_examples && (
-                  <Card variant="glass" padding="md">
-                    <h2 className="query-detail__block-title">Примеры выполнения</h2>
-                    <p className="query-detail__text query-detail__text--muted">
-                      {details.completed_examples}
-                    </p>
-                  </Card>
+                  <OrganizationSection title="Примеры выполнения">
+                    <Card variant="glass" padding="md">
+                      <p className="org-detail-card__text">{details.completed_examples}</p>
+                    </Card>
+                  </OrganizationSection>
                 )}
+                
                 {details.linked_task_solution && (
-                  <Card variant="glass" padding="md">
-                    <h2 className="query-detail__block-title">Связанная решённая задача</h2>
-                    <div className="query-detail__linked-task">
-                      <h3 className="query-detail__linked-task-title">
+                  <OrganizationSection title="Связанная решённая задача">
+                    <OrganizationDetailCard variant="task">
+                      <h3 className="org-detail-card__title">
                         {details.linked_task_solution.title}
                       </h3>
                       {(details.linked_task_solution.task_description ||
                         details.linked_task_solution.solution_description) && (
-                        <p className="query-detail__text">
-                          {(
-                            details.linked_task_solution.task_description ||
-                            details.linked_task_solution.solution_description ||
-                            ""
-                          ).length > 200
-                            ? `${(
-                                details.linked_task_solution.task_description ||
-                                details.linked_task_solution.solution_description ||
-                                ""
-                              ).slice(0, 200)}…`
-                            : details.linked_task_solution.task_description ||
-                              details.linked_task_solution.solution_description}
+                        <p className="org-detail-card__text">
+                          {details.linked_task_solution.task_description ||
+                            details.linked_task_solution.solution_description}
                         </p>
                       )}
-                      <div className="query-detail__linked-task-meta">
+                      <div className="org-detail-card__meta-grid">
                         {details.linked_task_solution.solution_deadline && (
-                          <span>Сроки: {details.linked_task_solution.solution_deadline}</span>
+                          <div className="org-detail-card__meta-item">
+                            <span className="org-detail-card__meta-label">Сроки</span>
+                            <span className="org-detail-card__meta-value">{details.linked_task_solution.solution_deadline}</span>
+                          </div>
                         )}
                         {details.linked_task_solution.grant_info && (
-                          <span>Грант: {details.linked_task_solution.grant_info}</span>
+                          <div className="org-detail-card__meta-item">
+                            <span className="org-detail-card__meta-label">Грант</span>
+                            <span className="org-detail-card__meta-value">{details.linked_task_solution.grant_info}</span>
+                          </div>
                         )}
                         {details.linked_task_solution.cost && (
-                          <span>Стоимость: {details.linked_task_solution.cost}</span>
+                          <div className="org-detail-card__meta-item">
+                            <span className="org-detail-card__meta-label">Стоимость</span>
+                            <span className="org-detail-card__meta-value">{details.linked_task_solution.cost}</span>
+                          </div>
                         )}
                       </div>
-                      {(details.linked_task_solution.laboratories || []).length > 0 && (
-                        <div className="query-detail-skills">
-                          {(details.linked_task_solution.laboratories || [])
-                            .slice(0, 3)
-                            .map((lab) => (
-                              <span key={lab.id} className="query-detail-skills__item">
-                                {lab.name}
-                              </span>
-                            ))}
-                        </div>
-                      )}
-                    </div>
-                  </Card>
+                    </OrganizationDetailCard>
+                  </OrganizationSection>
                 )}
-                <div className="org-detail-section">
-                  <h2 className="org-detail-section__title">
-                    Лаборатории
-                    <span className="org-detail-section__badge">
-                      {(details.laboratories || []).length}
-                    </span>
-                  </h2>
-                  {(details.laboratories || []).length === 0 && (
-                    <p className="org-detail-section__empty">
-                      Лаборатории не связаны с этим запросом.
-                    </p>
-                  )}
+
+                <OrganizationSection
+                  title="Лаборатории"
+                  badge={(details.laboratories || []).length}
+                  empty={(details.laboratories || []).length === 0}
+                  emptyMessage="Лаборатории не связаны с этим запросом."
+                >
                   <div className="org-detail-grid">
                     {(details.laboratories || []).map((lab) => (
-                      <div key={lab.id} className="org-detail-card">
-                        <div className="org-detail-card__body">
-                          <h3 className="org-detail-card__title">{lab.name}</h3>
-                          {lab.activities && (
-                            <p className="org-detail-card__text">{lab.activities}</p>
-                          )}
-                          {lab.public_id && (
-                            <button
-                              className="org-detail-card__cta"
-                              type="button"
-                              onClick={() => openLab(lab.public_id)}
-                            >
-                              Открыть лабораторию →
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                      <OrganizationDetailCard key={lab.id} clickable onClick={() => openLab(lab.public_id)}>
+                        <h3 className="org-detail-card__title">{lab.name}</h3>
+                        {lab.activities && (
+                          <p className="org-detail-card__text org-detail-card__text--truncated">{lab.activities}</p>
+                        )}
+                        <span className="org-detail-card__cta">В лабораторию →</span>
+                      </OrganizationDetailCard>
                     ))}
                   </div>
-                </div>
-                <div className="org-detail-section">
-                  <h2 className="org-detail-section__title">
-                    Ответственные сотрудники
-                    <span className="org-detail-section__badge">
-                      {(details.employees || []).length}
-                    </span>
-                  </h2>
-                  {(details.employees || []).length === 0 && (
-                    <p className="org-detail-section__empty">Сотрудники не указаны.</p>
-                  )}
-                  <div className="query-contacts">
+                </OrganizationSection>
+
+                <OrganizationSection
+                  title="Ответственные сотрудники"
+                  badge={(details.employees || []).length}
+                  empty={(details.employees || []).length === 0}
+                  emptyMessage="Сотрудники не указаны."
+                >
+                  <div className="org-detail-grid org-detail-grid--employees">
                     {(details.employees || []).map((employee) => (
                       <EmployeeCard
                         key={employee.id}
                         employee={employee}
-                        variant="list"
-                        className="query-contact__card"
                         onClick={() => {
                           setEmployeePreview(employee);
                           setShowEmployeePublications(false);
@@ -325,56 +282,53 @@ export default function Queries() {
                       />
                     ))}
                   </div>
-                </div>
-                <div className="org-detail-section">
-                  <h2 className="org-detail-section__title">
-                    Вакансии
-                    <span className="org-detail-section__badge">
-                      {(details.vacancies || []).length}
-                    </span>
-                  </h2>
-                  {(details.vacancies || []).length === 0 && (
-                    <p className="org-detail-section__empty">
-                      Связанных опубликованных вакансий нет.
-                    </p>
-                  )}
+                </OrganizationSection>
+
+                <OrganizationSection
+                  title="Вакансии"
+                  badge={(details.vacancies || []).length}
+                  empty={(details.vacancies || []).length === 0}
+                  emptyMessage="Связанных опубликованных вакансий нет."
+                >
                   <div className="org-detail-grid">
                     {(details.vacancies || []).map((vacancy) => (
-                      <div key={vacancy.id} className="org-detail-card">
-                        <div className="org-detail-card__body">
-                          <h3 className="org-detail-card__title">{vacancy.name}</h3>
-                          {vacancy.employment_type && (
-                            <p className="org-detail-card__text org-detail-card__text--muted">
-                              {vacancy.employment_type}
-                            </p>
+                      <OrganizationDetailCard key={vacancy.id} variant="vacancy">
+                        <h3 className="org-detail-card__title">{vacancy.name}</h3>
+                        {vacancy.employment_type && (
+                          <span className="org-detail-chip org-detail-chip--status" style={{ marginBottom: '0.5rem' }}>
+                            {vacancy.employment_type}
+                          </span>
+                        )}
+                        {vacancy.description && (
+                          <p className="org-detail-card__text org-detail-card__text--truncated">{vacancy.description}</p>
+                        )}
+                        <div className="org-detail-card__meta-grid">
+                          {vacancy.laboratory && (
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Лаборатория</span>
+                              <span className="org-detail-card__meta-value">{vacancy.laboratory.name}</span>
+                            </div>
                           )}
-                          {vacancy.description && (
-                            <p className="org-detail-card__text">{vacancy.description}</p>
-                          )}
-                          <div className="org-detail-card__meta">
-                            {vacancy.laboratory && (
-                              <span>Лаборатория: {vacancy.laboratory.name}</span>
-                            )}
-                            {vacancy.contact_employee && (
-                              <span>
-                                Контакт: {vacancy.contact_employee.full_name}
-                              </span>
-                            )}
-                          </div>
-                          {vacancy.public_id && (
-                            <button
-                              className="org-detail-card__cta"
-                              type="button"
-                              onClick={() => openVacancy(vacancy.public_id)}
-                            >
-                              Открыть вакансию →
-                            </button>
+                          {vacancy.contact_employee && (
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Контакт</span>
+                              <span className="org-detail-card__meta-value">{vacancy.contact_employee.full_name}</span>
+                            </div>
                           )}
                         </div>
-                      </div>
+                        {vacancy.public_id && (
+                          <button
+                            className="org-detail-card__cta"
+                            type="button"
+                            onClick={() => openVacancy(vacancy.public_id)}
+                          >
+                            Открыть вакансию →
+                          </button>
+                        )}
+                      </OrganizationDetailCard>
                     ))}
                   </div>
-                </div>
+                </OrganizationSection>
               </div>
               <aside className="detail-page__sidebar">
                 <QueryDetailSidebar

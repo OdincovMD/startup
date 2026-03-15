@@ -336,22 +336,6 @@ export default function SubscriptionTab({ onError, orgProfile, orgLabs, orgVacan
         </div>
       </section>
 
-      <section className="subscription-section" aria-labelledby="subscription-tips-heading">
-        <span id="subscription-tips-heading" className="profile-summary-block-label">Как улучшить видимость</span>
-        <p className="subscription-tips-lead">
-          Полнота профиля влияет на позицию. Рекомендации:
-        </p>
-        <ul className="subscription-tips-list">
-          <li>Подробные описания организаций и лабораторий</li>
-          <li>Логотип, сайт, адрес</li>
-          <li>Фото лаборатории и направления деятельности</li>
-          <li>Привязка лаборатории к организации</li>
-          <li>Регулярное обновление</li>
-        </ul>
-        <p className="subscription-tips-footnote">
-        </p>
-      </section>
-
       <section className="subscription-section subscription-faq" role="region" aria-labelledby="subscription-faq-heading">
         <span id="subscription-faq-heading" className="profile-summary-block-label">Частые вопросы</span>
         <div className="subscription-faq-list">

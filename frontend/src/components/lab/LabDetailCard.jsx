@@ -13,6 +13,10 @@ export default function LabDetailCard({
   const classNames = ["org-detail-card"];
   if (clickable) classNames.push("org-detail-card--clickable");
   if (variant === "employee") classNames.push("org-detail-card--employee");
+  if (variant === "equipment") classNames.push("org-detail-card--equipment");
+  if (variant === "task") classNames.push("org-detail-card--task");
+  if (variant === "vacancy") classNames.push("org-detail-card--vacancy");
+  if (variant === "query") classNames.push("org-detail-card--query");
 
   const wrapperProps = clickable
     ? {

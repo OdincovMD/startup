@@ -1,5 +1,5 @@
 import React from "react";
-import { Card } from "../ui";
+import { Card, Badge } from "../ui";
 
 function formatQueryDate(value) {
   if (!value) return "";
@@ -8,7 +8,7 @@ function formatQueryDate(value) {
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
 }
 
-const QUERY_STATUS_LABELS = { active: "Активный", paused: "На паузе", closed: "Закрыт" };
+const QUERY_STATUS_LABELS = { active: "Открыт", paused: "На паузе", closed: "Закрыт" };
 
 export default function QueryDetailSidebar({ details, onOrgClick }) {
   if (!details) return null;
@@ -18,6 +18,24 @@ export default function QueryDetailSidebar({ details, onOrgClick }) {
   return (
     <Card variant="elevated" padding="md">
       <div className="detail-sidebar">
+        {details.status && (
+          <div className="detail-sidebar__block">
+            <span className="detail-sidebar__label">Статус</span>
+            <Badge
+              variant={
+                details.status === "active"
+                  ? "success"
+                  : details.status === "closed"
+                    ? "default"
+                    : "default"
+              }
+              style={{ alignSelf: 'flex-start', marginTop: '0.25rem' }}
+            >
+              {QUERY_STATUS_LABELS[details.status] ?? details.status}
+            </Badge>
+          </div>
+        )}
+
         {org && (
           <div className="detail-sidebar__block">
             <span className="detail-sidebar__label">Организация</span>
@@ -41,19 +59,10 @@ export default function QueryDetailSidebar({ details, onOrgClick }) {
           </div>
         )}
 
-        {details.status && (
-          <div className="detail-sidebar__block">
-            <span className="detail-sidebar__label">Статус</span>
-            <span className="detail-sidebar__text">
-              {QUERY_STATUS_LABELS[details.status] ?? details.status}
-            </span>
-          </div>
-        )}
-
         {details.budget && (
           <div className="detail-sidebar__block">
             <span className="detail-sidebar__label">Бюджет</span>
-            <span className="detail-sidebar__text">{details.budget}</span>
+            <span className="detail-sidebar__text" style={{ fontWeight: 600 }}>{details.budget}</span>
           </div>
         )}
 

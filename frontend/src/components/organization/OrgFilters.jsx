@@ -18,12 +18,13 @@ export function OrgFilters({
           </label>
           <input
             id="org-filter-min-labs"
-            type="number"
-            min="0"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             className="vacancy-filters__select"
             placeholder="Не менее"
             value={minLaboratories}
-            onChange={(e) => onMinLaboratoriesChange(e.target.value)}
+            onChange={(e) => onMinLaboratoriesChange(e.target.value.replace(/\D/g, ""))}
             aria-label="Минимум лабораторий"
           />
         </div>
@@ -34,12 +35,13 @@ export function OrgFilters({
           </label>
           <input
             id="org-filter-min-employees"
-            type="number"
-            min="0"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             className="vacancy-filters__select"
             placeholder="Не менее"
             value={minEmployees}
-            onChange={(e) => onMinEmployeesChange(e.target.value)}
+            onChange={(e) => onMinEmployeesChange(e.target.value.replace(/\D/g, ""))}
             aria-label="Минимум сотрудников"
           />
         </div>

@@ -55,12 +55,13 @@ export function LabFilters({
           </label>
           <input
             id="lab-filter-min-employees"
-            type="number"
-            min="0"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             className="vacancy-filters__select"
             placeholder="Не менее"
             value={minEmployees}
-            onChange={(e) => onMinEmployeesChange(e.target.value)}
+            onChange={(e) => onMinEmployeesChange(e.target.value.replace(/\D/g, ""))}
             aria-label="Минимум сотрудников"
           />
         </div>

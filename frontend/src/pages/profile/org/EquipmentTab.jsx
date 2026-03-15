@@ -200,7 +200,7 @@ export default function EquipmentTab({
                 className="equipment-btn-delete" 
                 onClick={() => deleteEquipment(item.id)}
               >
-                <Trash2 size={14} /> Удалить
+                <Trash2 size={14} />
               </Button>
             </div>
           </Card>

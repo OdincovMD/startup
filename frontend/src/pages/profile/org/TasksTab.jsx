@@ -265,7 +265,7 @@ export default function TasksTab({
 
             <div className="task-dashboard-card__footer">
               <Button variant="ghost" size="small" className="lab-btn-delete" onClick={() => deleteTask(task.id)}>
-                <Trash2 size={14} /> Удалить
+                <Trash2 size={14} /> 
               </Button>
             </div>
           </Card>

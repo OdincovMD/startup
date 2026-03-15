@@ -14,6 +14,8 @@ import {
 import { ListingSearchBar } from "../components/listing";
 import { Drawer, Button, Card, Badge } from "../components/ui";
 import { EmployeeCard } from "../components/EmployeeCard";
+import EmployeeModal from "./profile/EmployeeModal";
+import EquipmentModal from "./profile/EquipmentModal";
 import EmptySearchFallback from "../components/EmptySearchFallback";
 
 const ORGANIZATIONS_PAGE_SIZE = 20;
@@ -33,6 +35,7 @@ export default function Organizations() {
   const [gallery, setGallery] = useState({ open: false, images: [], index: 0 });
   const [galleryZoom, setGalleryZoom] = useState(1);
   const [employeePreview, setEmployeePreview] = useState(null);
+  const [equipmentPreview, setEquipmentPreview] = useState(null);
   const [showEmployeePublications, setShowEmployeePublications] = useState(false);
   const [showEmployeeEducation, setShowEmployeeEducation] = useState(false);
   const [emptySuggestions, setEmptySuggestions] = useState([]);
@@ -488,11 +491,11 @@ export default function Organizations() {
                           {lab.description && <p className="org-detail-card__text">{lab.description}</p>}
                           {(lab.employees || []).length > 0 && (
                             <div className="org-detail-card__chips">
-                              {lab.employees.slice(0, 3).map((emp) => (
+                              {lab.employees.slice(0, 2).map((emp) => (
                                 <span key={emp.id} className="org-detail-chip">{emp.full_name}</span>
                               ))}
-                              {lab.employees.length > 3 && (
-                                <span className="org-detail-chip">+{lab.employees.length - 3}</span>
+                              {lab.employees.length > 2 && (
+                                <span className="org-detail-chip">+{lab.employees.length - 2}</span>
                               )}
                             </div>
                           )}
@@ -532,21 +535,29 @@ export default function Organizations() {
                         <OrganizationDetailCard
                           key={item.id}
                           media={itemMedia.images[0]}
-                          onMediaClick={itemMedia.images.length > 0 ? () => openGallery(itemMedia.images, 0) : undefined}
                           mediaBadge={itemMedia.images.length > 1 ? itemMedia.images.length - 1 : 0}
+                          clickable
+                          variant="equipment"
+                          onClick={() => setEquipmentPreview(item)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setEquipmentPreview(item);
+                            }
+                          }}
                         >
                           <h3 className="org-detail-card__title">{item.name}</h3>
-                          {item.characteristics && <p className="org-detail-card__text">{item.characteristics}</p>}
-                          {item.description && <p className="org-detail-card__text">{item.description}</p>}
-                          {itemMedia.docs.length > 0 && (
-                            <div className="org-detail-card__files">
-                              {itemMedia.docs.map((url, i) => (
-                                <a key={i} href={url} target="_blank" rel="noreferrer">
-                                  {fileNameFromUrl(url)}
-                                </a>
-                              ))}
-                            </div>
+                          {item.characteristics && (
+                            <p className="org-detail-card__text" style={{ fontWeight: 500, color: 'var(--text-primary-alt)' }}>
+                              {item.characteristics}
+                            </p>
                           )}
+                          {item.description && (
+                            <p className="org-detail-card__text org-detail-card__text--truncated">
+                              {item.description}
+                            </p>
+                          )}
+                          <span className="org-detail-card__cta">Подробнее →</span>
                         </OrganizationDetailCard>
                       );
                     })}
@@ -579,40 +590,55 @@ export default function Organizations() {
                     >
                       <div className="org-detail-grid">
                     {detailsMap[selectedId].task_solutions.map((task) => (
-                      <OrganizationDetailCard key={task.id}>
+                      <OrganizationDetailCard key={task.id} variant="task">
                         <h3 className="org-detail-card__title">{task.title}</h3>
                         {(task.task_description || task.solution_description) && (
                           <p className="org-detail-card__text" title={task.task_description || task.solution_description}>
-                            {(task.task_description || task.solution_description || "").length > 120
-                              ? `${(task.task_description || task.solution_description || "").slice(0, 120)}…`
+                            {(task.task_description || task.solution_description || "").length > 160
+                              ? `${(task.task_description || task.solution_description || "").slice(0, 160)}…`
                               : (task.task_description || task.solution_description || "")}
                           </p>
                         )}
+                        
+                        <div className="org-detail-card__meta-grid">
+                          {task.solution_deadline && (
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Сроки</span>
+                              <span className="org-detail-card__meta-value">{task.solution_deadline}</span>
+                            </div>
+                          )}
+                          {task.grant_info && (
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Грант</span>
+                              <span className="org-detail-card__meta-value">{task.grant_info}</span>
+                            </div>
+                          )}
+                          {task.cost && (
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Стоимость</span>
+                              <span className="org-detail-card__meta-value">{task.cost}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {(task.laboratories || []).length > 0 && (
+                          <div className="org-detail-card__chips">
+                            {(task.laboratories || []).slice(0, 2).map((lab) => (
+                              <span key={lab.id} className="org-detail-chip">{lab.name}</span>
+                            ))}
+                            {(task.laboratories || []).length > 2 && (
+                              <span className="org-detail-chip">+{(task.laboratories || []).length - 2}</span>
+                            )}
+                          </div>
+                        )}
+
                         {(task.article_links || []).length > 0 && (
                           <div className="org-detail-card__files">
                             {task.article_links.map((url, i) => (
-                              <a key={i} href={url} target="_blank" rel="noreferrer">
-                                {url}
+                              <a key={i} href={url} target="_blank" rel="noreferrer" className="org-detail-card__file-link">
+                                {url.length > 30 ? `${url.slice(0, 30)}…` : url}
                               </a>
                             ))}
-                          </div>
-                        )}
-                        <div className="org-detail-card__meta">
-                          {task.solution_deadline && <span>Сроки: {task.solution_deadline}</span>}
-                          {task.grant_info && <span>Грант: {task.grant_info}</span>}
-                          {task.cost && <span>Стоимость: {task.cost}</span>}
-                          {task.external_solutions && (
-                            <span>Альтернативы: {task.external_solutions}</span>
-                          )}
-                        </div>
-                        {(task.laboratories || []).length > 0 && (
-                          <div className="org-detail-card__chips">
-                            {(task.laboratories || []).slice(0, 3).map((lab) => (
-                              <span key={lab.id} className="org-detail-chip">{lab.name}</span>
-                            ))}
-                            {(task.laboratories || []).length > 3 && (
-                              <span className="org-detail-chip">+{(task.laboratories || []).length - 3}</span>
-                            )}
                           </div>
                         )}
                       </OrganizationDetailCard>
@@ -648,23 +674,30 @@ export default function Organizations() {
                           </span>
                         )}
                         {query.task_description && (
-                          <p className="org-detail-card__text" title={query.task_description}>
-                            {query.task_description.length > 120
-                              ? `${query.task_description.slice(0, 120)}…`
-                              : query.task_description}
+                          <p className="org-detail-card__text org-detail-card__text--truncated" title={query.task_description}>
+                            {query.task_description}
                           </p>
                         )}
-                        <div className="org-detail-card__meta">
-                          {query.grant_info && <span>Грант: {query.grant_info}</span>}
-                          {query.budget && <span>Бюджет: {query.budget}</span>}
-                          {query.deadline && <span>Дедлайн: {query.deadline}</span>}
+                        <div className="org-detail-card__meta-grid">
+                          {query.budget && (
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Бюджет</span>
+                              <span className="org-detail-card__meta-value">{query.budget}</span>
+                            </div>
+                          )}
+                          {query.deadline && (
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Дедлайн</span>
+                              <span className="org-detail-card__meta-value">{query.deadline}</span>
+                            </div>
+                          )}
                         </div>
                         {((query.laboratories || []).length > 0 || (query.employees || []).length > 0) && (
                           <div className="org-detail-card__chips">
                             {(query.laboratories || []).slice(0, 2).map((lab) => (
                               <span key={lab.id} className="org-detail-chip">{lab.name}</span>
                             ))}
-                            {(query.employees || []).slice(0, 2).map((emp) => (
+                            {(query.employees || []).slice(0, 1).map((emp) => (
                               <span key={emp.id} className="org-detail-chip">{emp.full_name}</span>
                             ))}
                           </div>
@@ -684,25 +717,30 @@ export default function Organizations() {
                     >
                       <div className="org-detail-grid">
                     {detailsMap[selectedId].vacancies.map((vacancy) => (
-                      <OrganizationDetailCard key={vacancy.id}>
+                      <OrganizationDetailCard key={vacancy.id} variant="vacancy">
                         <h3 className="org-detail-card__title">{vacancy.name}</h3>
                         {vacancy.employment_type && (
-                          <p className="org-detail-card__text org-detail-card__text--muted">
+                          <span className="org-detail-chip org-detail-chip--status" style={{ marginBottom: '0.5rem' }}>
                             {vacancy.employment_type}
-                          </p>
-                        )}
-                        {vacancy.requirements && (
-                          <p className="org-detail-card__text">{vacancy.requirements}</p>
+                          </span>
                         )}
                         {vacancy.description && (
-                          <p className="org-detail-card__text">{vacancy.description}</p>
+                          <p className="org-detail-card__text org-detail-card__text--truncated">
+                            {vacancy.description}
+                          </p>
                         )}
-                        <div className="org-detail-card__meta">
+                        <div className="org-detail-card__meta-grid">
                           {vacancy.laboratory && (
-                            <span>Лаборатория: {vacancy.laboratory.name}</span>
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Лаборатория</span>
+                              <span className="org-detail-card__meta-value">{vacancy.laboratory.name}</span>
+                            </div>
                           )}
                           {vacancy.contact_employee && (
-                            <span>Контакт: {vacancy.contact_employee.full_name}</span>
+                            <div className="org-detail-card__meta-item">
+                              <span className="org-detail-card__meta-label">Контакт</span>
+                              <span className="org-detail-card__meta-value">{vacancy.contact_employee.full_name}</span>
+                            </div>
                           )}
                         </div>
                         {vacancy.public_id && (
@@ -763,130 +801,20 @@ export default function Organizations() {
           </div>
         </div>
       )}
-      {employeePreview && (
-        <div
-          className="gallery-overlay"
-          onClick={() => {
-            setEmployeePreview(null);
-            setShowEmployeePublications(false);
-            setShowEmployeeEducation(false);
-          }}
-        >
-          <div className="employee-modal" onClick={(e) => e.stopPropagation()}>
-            <button
-              className="gallery-close"
-              onClick={() => {
-                setEmployeePreview(null);
-                setShowEmployeePublications(false);
-                setShowEmployeeEducation(false);
-              }}
-              aria-label="Закрыть"
-            >
-              ×
-            </button>
-            {employeePreview.photo_url && (
-              <img className="employee-avatar-lg" src={employeePreview.photo_url} alt={employeePreview.full_name} />
-            )}
-            <div className="employee-title">{employeePreview.full_name}</div>
-            {employeePreview.academic_degree && (
-              <div className="employee-subtitle">{employeePreview.academic_degree}</div>
-            )}
-            {(employeePreview.positions || []).length > 0 && (
-              <div className="employee-subtitle">{employeePreview.positions.join(", ")}</div>
-            )}
-            {(employeePreview.research_interests || []).length > 0 && (
-              <div className="employee-block">
-                <div className="profile-label">Научные интересы</div>
-                <div className="profile-list-text">
-                  {employeePreview.research_interests.join(", ")}
-                </div>
-              </div>
-            )}
-            {(employeePreview.laboratories || []).length > 0 && (
-              <div className="employee-block">
-                <div className="profile-label">Лаборатории</div>
-                <div className="chip-row">
-                  {employeePreview.laboratories.map((lab) => (
-                    <span key={lab.id} className="chip">
-                      {lab.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {(employeePreview.education || []).length > 0 && (
-              <div className="employee-block">
-                <button
-                  type="button"
-                  className="ghost-btn"
-                  onClick={() => setShowEmployeeEducation((prev) => !prev)}
-                >
-                  {showEmployeeEducation ? "Скрыть образование" : "Образование"}
-                  <span className="employee-collapse-badge">({employeePreview.education.length})</span>
-                </button>
-                {showEmployeeEducation && (
-                  <ul className="employee-list">
-                    {employeePreview.education.map((item, index) => (
-                      <li key={`${item}-${index}`}>{item}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-            <div className="employee-block">
-              <div className="profile-label">Индексы Хирша</div>
-              <div className="employee-metrics">
-                <span>WoS: {employeePreview.hindex_wos ?? "—"}</span>
-                <span>Scopus: {employeePreview.hindex_scopus ?? "—"}</span>
-                <span>РИНЦ: {employeePreview.hindex_rsci ?? "—"}</span>
-              </div>
-            </div>
-            {employeePreview.contacts && (
-              <div className="employee-block">
-                <div className="profile-label">Контакты</div>
-                <div className="employee-contacts">
-                  {employeePreview.contacts.email && <div>{employeePreview.contacts.email}</div>}
-                  {employeePreview.contacts.phone && <div>{employeePreview.contacts.phone}</div>}
-                  {employeePreview.contacts.website && (
-                    <WebsiteLink url={employeePreview.contacts.website} className="file-link" />
-                  )}
-                  {employeePreview.contacts.telegram && (
-                    <div>{employeePreview.contacts.telegram}</div>
-                  )}
-                </div>
-              </div>
-            )}
-            {(employeePreview.publications || []).length > 0 && (
-              <div className="employee-block">
-                <button
-                  className="ghost-btn"
-                  onClick={() => setShowEmployeePublications((prev) => !prev)}
-                >
-                  {showEmployeePublications ? "Скрыть публикации" : "Публикации"}
-                  <span className="employee-collapse-badge">({employeePreview.publications.length})</span>
-                </button>
-                {showEmployeePublications && (
-                  <ul className="employee-list">
-                    {employeePreview.publications.map((pub, index) => (
-                      <li key={`pub-${index}`}>
-                        {pub.link ? (
-                          <a href={pub.link} target="_blank" rel="noreferrer" className="employee-pub-link">
-                            {pub.title || "Ссылка"}
-                          </a>
-                        ) : (
-                          <div>{pub.title}</div>
-                        )}
-                        {pub.source && <div className="profile-list-text">{pub.source}</div>}
-                        {pub.notes && <div className="profile-list-text">{pub.notes}</div>}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <EmployeeModal
+        employeePreview={employeePreview}
+        showEmployeePublications={showEmployeePublications}
+        setShowEmployeePublications={setShowEmployeePublications}
+        closeEmployeePreview={() => {
+          setEmployeePreview(null);
+          setShowEmployeePublications(false);
+        }}
+      />
+      <EquipmentModal
+        equipment={equipmentPreview}
+        onClose={() => setEquipmentPreview(null)}
+        openGallery={openGallery}
+      />
     </main>
   );
 }

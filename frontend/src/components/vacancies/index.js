@@ -1,3 +1,4 @@
-export { VacancyCard } from "./VacancyCard";
-export { VacancySearchBar } from "./VacancySearchBar";
-export { VacancyFilters } from "./VacancyFilters";
+export { VacancyCard } from "./VacancyCard.jsx";
+export { VacancySearchBar } from "./VacancySearchBar.jsx";
+export { VacancyFilters } from "./VacancyFilters.jsx";
+export { default as VacancyDetailHero } from "./VacancyDetailHero.jsx";

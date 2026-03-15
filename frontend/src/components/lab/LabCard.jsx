@@ -99,16 +99,25 @@ export default function LabCard({ lab, labImages, onOpen, navigate }) {
             </p>
           )}
 
-          {(lab.employees || []).length > 0 && (
-            <div className="modern-entity-card__badges">
-              {lab.employees.slice(0, 3).map((emp) => (
-                <Badge key={emp.id} variant="default">
-                  {emp.full_name}
-                </Badge>
-              ))}
-              {lab.employees.length > 3 && <Badge variant="default">+{lab.employees.length - 3}</Badge>}
-            </div>
-          )}
+          {(() => {
+            const head = lab.head_employee;
+            const headId = head?.id;
+            const others = (lab.employees || []).filter((emp) => emp.id !== headId);
+            const all = head ? [head, ...others] : others;
+            const toShow = all.slice(0, 2);
+            const remaining = all.length - 2;
+            if (toShow.length === 0) return null;
+            return (
+              <div className="modern-entity-card__badges">
+                {toShow.map((emp) => (
+                  <Badge key={emp.id} variant="default">
+                    {emp.full_name}
+                  </Badge>
+                ))}
+                {remaining > 0 && <Badge variant="default">+{remaining}</Badge>}
+              </div>
+            );
+          })()}
         </div>
 
         {hasLink && (

@@ -162,7 +162,7 @@ export default function ResearcherProfileSection({
             </span>
           </div>
           
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.5rem", marginBottom: "1.5rem" }}>
+          <div className="researcher-activity-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.5rem", marginBottom: "1.5rem" }}>
             <Input
               id="researcher-academic_degree"
               label="Учёная степень / звание"
@@ -454,7 +454,7 @@ export default function ResearcherProfileSection({
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.5rem", marginBottom: "1.5rem" }}>
+          <div className="researcher-job-search-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.5rem", marginBottom: "1.5rem" }}>
             <Input
               id="researcher-desired_positions"
               label="Желаемые должности"
@@ -476,8 +476,8 @@ export default function ResearcherProfileSection({
               onChange={(e) => handleResearcherChange("preferred_region", e.target.value)}
               placeholder="Москва, удалённо..."
             />
-            <div style={{ display: "flex", gap: "1rem" }}>
-              <div style={{ flex: 1 }}>
+            <div className="researcher-job-search-row" style={{ display: "flex", gap: "1rem" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <Input
                   id="researcher-availability_date"
                   label="Дата выхода"
@@ -486,7 +486,7 @@ export default function ResearcherProfileSection({
                   placeholder="Сентябрь 2025"
                 />
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <Input
                   id="researcher-salary_expectation"
                   label="Ожидания по з/п"

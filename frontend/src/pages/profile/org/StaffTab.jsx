@@ -309,6 +309,7 @@ export default function StaffTab({
                 <Button 
                   variant="ghost" 
                   size="small" 
+                  className="btn-icon-text"
                   onClick={() => { setEmployeePreview(employee); setShowEmployeePublications(false); }}
                 >
                   <User size={14} /> Профиль
@@ -319,7 +320,7 @@ export default function StaffTab({
                   className="employee-btn-delete" 
                   onClick={() => deleteEmployee(employee.id)}
                 >
-                  <Trash2 size={14} /> Удалить
+                  <Trash2 size={14} />
                 </Button>
               </div>
             </Card>

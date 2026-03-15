@@ -125,7 +125,7 @@ export default function VacancyResponsesIncomingTab({ onError }) {
               Статистика по вакансиям
             </span>
           </div>
-          <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
+          <div className="stats-grid vacancy-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))", gap: "1rem" }}>
             {vacancyStats.map((v) => (
               <div key={v.vacancy_id} className="stat-card-mini" style={{ padding: "1rem", borderRadius: "12px", background: "var(--nav-active-bg)", border: "1px solid var(--border-light)" }}>
                 <div style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: "0.5rem", fontSize: "0.9375rem" }}>{v.name || "Без названия"}</div>

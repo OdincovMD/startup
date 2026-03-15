@@ -107,7 +107,7 @@ function EmptyState() {
         Найдите интересную вакансию и откликнитесь — работодатель получит уведомление и
         сможет связаться с вами.
       </p>
-      <Button to="/vacancies" variant="primary" style={{ padding: "0.75rem 2.5rem" }}>
+      <Button to="/vacancies" variant="primary" className="profile-empty-state__cta" style={{ padding: "0.75rem 2.5rem" }}>
         Перейти к вакансиям
       </Button>
     </div>

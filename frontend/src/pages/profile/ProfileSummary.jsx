@@ -3,7 +3,7 @@
  * Аватар, имя, роль/email.
  */
 import React, { useRef } from "react";
-import { Camera, Mail, ShieldCheck } from "lucide-react";
+import { Camera } from "lucide-react";
 import { Card } from "../../components/ui/Card";
 
 export default function ProfileSummary({
@@ -87,15 +87,14 @@ export default function ProfileSummary({
           )}
         </div>
         
-        <div className="profile-summary-compact__info" style={{ flex: 1, minWidth: 0 }}>
+        <div className="profile-summary-compact__info" style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
           <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {profile?.full_name?.trim() || "Пользователь"}
           </h3>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "0.125rem" }}>
+          <div style={{ marginTop: "0.125rem" }}>
             <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {roleName || "Роль не выбрана"}
             </span>
-            {profile.email_verified && <ShieldCheck size={12} color="var(--success, #22c55e)" title="Email подтверждён" />}
           </div>
         </div>
         
