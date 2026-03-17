@@ -74,7 +74,7 @@ export default function MainLayout() {
         document.body.style.removeProperty("--scroll-y");
         document.body.style.removeProperty("padding-right");
         window.removeEventListener("resize", handleResize);
-        requestAnimationFrame(() => window.scrollTo(0, scrollY));
+        window.scrollTo(0, scrollY);
       };
     }
   }, [menuOpen]);

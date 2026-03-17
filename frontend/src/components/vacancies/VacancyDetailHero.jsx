@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { Briefcase, Building2, Beaker, Calendar } from "lucide-react";
 import { Badge } from "../ui";
 
 function formatVacancyDate(iso) {
@@ -14,26 +15,29 @@ export default function VacancyDetailHero({ details }) {
   return (
     <div className="org-detail-hero">
       <div className="org-detail-hero__media">
-        <div className="org-detail-hero__avatar-placeholder vacancy-placeholder" aria-hidden="true">
-          {initial}
+        <div className="org-detail-hero__avatar-placeholder org-detail-hero__avatar-placeholder--vacancy" aria-hidden="true">
+          <Briefcase size={28} className="org-detail-hero__avatar-placeholder-icon" />
+          <span>{initial}</span>
         </div>
       </div>
       <div className="org-detail-hero__body">
         <h1 className="org-detail-hero__title">{details.name}</h1>
         <div className="org-detail-hero__meta">
           {details.organization && (
-            <Link 
+            <Link
               to={`/organizations/${details.organization.public_id}`}
-              className="org-detail-hero__link"
+              className="org-detail-hero__meta-item org-detail-hero__meta-item--with-icon org-detail-hero__link"
             >
+              <Building2 size={14} className="org-detail-hero__meta-icon" />
               {details.organization.name}
             </Link>
           )}
           {details.laboratory && (
-            <Link 
+            <Link
               to={`/laboratories/${details.laboratory.public_id}`}
-              className="org-detail-hero__link"
+              className="org-detail-hero__meta-item org-detail-hero__meta-item--with-icon org-detail-hero__link"
             >
+              <Beaker size={14} className="org-detail-hero__meta-icon" />
               {details.laboratory.name}
             </Link>
           )}
@@ -43,7 +47,8 @@ export default function VacancyDetailHero({ details }) {
             </Badge>
           )}
           {details.created_at && (
-            <span className="org-detail-hero__meta-item">
+            <span className="org-detail-hero__meta-item org-detail-hero__meta-item--with-icon">
+              <Calendar size={14} className="org-detail-hero__meta-icon" />
               Опубликовано {formatVacancyDate(details.created_at)}
             </span>
           )}

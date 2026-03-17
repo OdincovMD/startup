@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { Briefcase, Building2, Beaker, ChevronRight } from "lucide-react";
 import { Card, Badge, Button } from "../ui";
 
 const EXCERPT_LENGTH = 120;
@@ -23,6 +24,8 @@ export function VacancyCard({ vacancy, onClick, onKeyDown }) {
   const isClickable = !!vacancy.public_id;
   const excerpt = getExcerpt(vacancy.requirements, vacancy.description);
   const labOrOrgName = getLabOrOrgName(vacancy);
+  const hasLab = !!vacancy.laboratory?.name;
+  const hasOrg = !!vacancy.organization?.name;
 
   return (
     <Card
@@ -36,17 +39,29 @@ export function VacancyCard({ vacancy, onClick, onKeyDown }) {
       onKeyDown={isClickable ? onKeyDown : undefined}
     >
       <div className="vacancy-card-modern__header">
-        <Link
-          to={vacancy.public_id ? `/vacancies/${vacancy.public_id}` : "#"}
-          className="vacancy-card-modern__title"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {vacancy.name || "Вакансия"}
-        </Link>
+        <div className="vacancy-card-modern__title-row">
+          <div className="vacancy-card-modern__title-icon">
+            <Briefcase size={18} />
+          </div>
+          <Link
+            to={vacancy.public_id ? `/vacancies/${vacancy.public_id}` : "#"}
+            className="vacancy-card-modern__title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {vacancy.name || "Вакансия"}
+          </Link>
+        </div>
       </div>
 
       {labOrOrgName && (
-        <p className="vacancy-card-modern__meta">{labOrOrgName}</p>
+        <div className="vacancy-card-modern__meta-row">
+          {hasLab ? (
+            <Beaker size={14} className="vacancy-card-modern__meta-icon" />
+          ) : (
+            <Building2 size={14} className="vacancy-card-modern__meta-icon" />
+          )}
+          <span className="vacancy-card-modern__meta">{labOrOrgName}</span>
+        </div>
       )}
 
       {excerpt && (
@@ -73,9 +88,11 @@ export function VacancyCard({ vacancy, onClick, onKeyDown }) {
             variant="ghost"
             size="small"
             to={`/vacancies/${vacancy.public_id}`}
+            className="vacancy-card-modern__cta-btn"
             onClick={(e) => e.stopPropagation()}
           >
-            Подробнее
+            <span>Подробнее</span>
+            <ChevronRight size={14} />
           </Button>
         </div>
       )}

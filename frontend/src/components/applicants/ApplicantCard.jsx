@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { User, GraduationCap, Briefcase, ChevronRight } from "lucide-react";
 import { Card, Button } from "../ui";
 
 const ROLE_LABELS = { student: "Студент", researcher: "Исследователь" };
@@ -15,13 +16,14 @@ export default function ApplicantCard({ applicant, onOpen }) {
   const truncatedDesc =
     summary.length > DESCRIPTION_MAX ? `${summary.slice(0, DESCRIPTION_MAX)}…` : summary;
   const showAvatar = applicant.photo_url && !avatarError;
+  const RoleIcon = applicant.role === "researcher" ? Briefcase : GraduationCap;
 
   return (
     <Card
       variant="solid"
       as="article"
       padding="none"
-      className="modern-entity-card"
+      className="modern-entity-card modern-entity-card--applicant"
       onClick={() => hasLink && onOpen(applicant.public_id)}
       role={hasLink ? "button" : undefined}
       tabIndex={hasLink ? 0 : undefined}
@@ -41,32 +43,41 @@ export default function ApplicantCard({ applicant, onOpen }) {
             onError={() => setAvatarError(true)}
           />
         ) : (
-          <div className="modern-entity-card__fallback" aria-hidden="true">
-            {initial}
+          <div className="modern-entity-card__fallback modern-entity-card__fallback--applicant" aria-hidden="true">
+            <User size={32} className="modern-entity-card__fallback-icon" />
+            <span className="modern-entity-card__fallback-initial">{initial}</span>
           </div>
         )}
       </div>
 
       <div className="modern-entity-card__body">
         <div className="modern-entity-card__info">
-          <h3 className="modern-entity-card__title">
-            {hasLink ? (
-              <Link
-                to={`/applicants/${applicant.public_id}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {displayName}
-              </Link>
-            ) : (
-              <span>{displayName}</span>
-            )}
-          </h3>
+          <div className="modern-entity-card__title-row">
+            <div className="modern-entity-card__title-icon">
+              <User size={18} />
+            </div>
+            <h3 className="modern-entity-card__title">
+              {hasLink ? (
+                <Link
+                  to={`/applicants/${applicant.public_id}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {displayName}
+                </Link>
+              ) : (
+                <span>{displayName}</span>
+              )}
+            </h3>
+          </div>
 
           {roleLabel && (
-            <div className="modern-entity-card__meta">
-              <span className="modern-entity-card__meta-item modern-entity-card__meta-item--muted">
-                {roleLabel}
-              </span>
+            <div className="modern-entity-card__meta modern-entity-card__meta--with-icons">
+              <div className="modern-entity-card__meta-row">
+                <RoleIcon size={14} className="modern-entity-card__meta-icon" />
+                <span className="modern-entity-card__meta-item modern-entity-card__meta-item--muted">
+                  {roleLabel}
+                </span>
+              </div>
             </div>
           )}
 
@@ -83,10 +94,11 @@ export default function ApplicantCard({ applicant, onOpen }) {
               variant="ghost"
               size="small"
               to={`/applicants/${applicant.public_id}`}
-              className="nowrap-btn"
+              className="nowrap-btn modern-entity-card__cta-btn"
               onClick={(e) => e.stopPropagation()}
             >
-              Открыть профиль
+              <span>Открыть профиль</span>
+              <ChevronRight size={14} />
             </Button>
           </div>
         )}

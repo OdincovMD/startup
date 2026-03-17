@@ -1,5 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  FileText,
+  GraduationCap,
+  User,
+  ListChecks,
+  Target,
+  Briefcase,
+  Hash,
+  Beaker,
+  Search,
+  BookOpen,
+  FileStack,
+} from "lucide-react";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useApplicantSearch } from "../hooks";
@@ -43,23 +56,23 @@ function ApplicantDetailView({ details, onBack }) {
         ← Назад к списку
       </button>
       <ApplicantDetailHero details={details} />
-      <div className="detail-page__layout">
+      <div className="detail-page__layout detail-page__layout--full">
         <div className="detail-page__main">
           {!details.resume_url && (
-            <OrganizationSection title="Резюме" empty emptyMessage="Резюме не загружено" />
+            <OrganizationSection title="Резюме" icon={<FileText size={20} />} empty emptyMessage="Резюме не загружено" />
           )}
 
           {details.role === "student" && (
             <>
               {details.status && (
-                <OrganizationSection title="Статус">
+                <OrganizationSection title="Статус" icon={<GraduationCap size={20} />}>
                   <Card variant="glass" padding="md">
                     <p className="org-detail-card__text">{details.status}</p>
                   </Card>
                 </OrganizationSection>
               )}
               {details.summary && (
-                <OrganizationSection title="О себе">
+                <OrganizationSection title="О себе" icon={<User size={20} />}>
                   <Card variant="glass" padding="md">
                     <p className="org-detail-card__text" style={{ whiteSpace: "pre-wrap" }}>{details.summary}</p>
                   </Card>
@@ -67,13 +80,14 @@ function ApplicantDetailView({ details, onBack }) {
               )}
               {(details.education || []).length > 0 && (
                 <div className="org-detail-section">
-                  <div className={`profile-card-collapsible ${educationExpanded ? "expanded" : ""}`}>
+                  <div className={`profile-card-collapsible ${educationExpanded ? "expanded" : ""} profile-card-collapsible--with-icon`}>
                     <button
                       type="button"
                       className="profile-card-header"
                       onClick={() => setEducationExpanded((v) => !v)}
                       aria-expanded={educationExpanded}
                     >
+                      <BookOpen size={18} className="profile-card-header__icon" />
                       Образование ({details.education.length})
                     </button>
                     <div className="profile-card-body">
@@ -87,7 +101,7 @@ function ApplicantDetailView({ details, onBack }) {
                 </div>
               )}
               {(details.skills || []).length > 0 && (
-                <OrganizationSection title="Навыки">
+                <OrganizationSection title="Навыки" icon={<ListChecks size={20} />}>
                   <div className="org-detail-card__chips">
                     {details.skills.map((s, i) => (
                       <span key={i} className="org-detail-chip">{s}</span>
@@ -96,7 +110,7 @@ function ApplicantDetailView({ details, onBack }) {
                 </OrganizationSection>
               )}
               {(details.research_interests || []).length > 0 && (
-                <OrganizationSection title="Научные интересы">
+                <OrganizationSection title="Научные интересы" icon={<Target size={20} />}>
                   <div className="org-detail-card__chips">
                     {details.research_interests.map((s, i) => (
                       <span key={i} className="org-detail-chip">{s}</span>
@@ -110,7 +124,7 @@ function ApplicantDetailView({ details, onBack }) {
           {details.role === "researcher" && (
             <>
               {(details.academic_degree || details.position) && (
-                <OrganizationSection title="Позиция">
+                <OrganizationSection title="Позиция" icon={<Briefcase size={20} />}>
                   <Card variant="glass" padding="md">
                     <p className="org-detail-card__text">
                       {[details.academic_degree, details.position].filter(Boolean).join(", ")}
@@ -119,7 +133,7 @@ function ApplicantDetailView({ details, onBack }) {
                 </OrganizationSection>
               )}
               {(details.research_interests || []).length > 0 && (
-                <OrganizationSection title="Научные интересы">
+                <OrganizationSection title="Научные интересы" icon={<Target size={20} />}>
                   <div className="org-detail-card__chips">
                     {details.research_interests.map((s, i) => (
                       <span key={i} className="org-detail-chip">{s}</span>
@@ -129,13 +143,14 @@ function ApplicantDetailView({ details, onBack }) {
               )}
               {(details.education || []).length > 0 && (
                 <div className="org-detail-section">
-                  <div className={`profile-card-collapsible ${educationExpanded ? "expanded" : ""}`}>
+                  <div className={`profile-card-collapsible ${educationExpanded ? "expanded" : ""} profile-card-collapsible--with-icon`}>
                     <button
                       type="button"
                       className="profile-card-header"
                       onClick={() => setEducationExpanded((v) => !v)}
                       aria-expanded={educationExpanded}
                     >
+                      <BookOpen size={18} className="profile-card-header__icon" />
                       Образование ({details.education.length})
                     </button>
                     <div className="profile-card-body">
@@ -149,7 +164,7 @@ function ApplicantDetailView({ details, onBack }) {
                 </div>
               )}
               {([details.hindex_wos, details.hindex_scopus, details.hindex_rsci, details.hindex_openalex].some(Boolean)) && (
-                <OrganizationSection title="H-index">
+                <OrganizationSection title="H-index" icon={<Hash size={20} />}>
                   <div className="org-detail-hindex">
                     {details.hindex_wos != null && (
                       <span className="org-detail-hindex__item">
@@ -179,7 +194,7 @@ function ApplicantDetailView({ details, onBack }) {
                 </OrganizationSection>
               )}
               {(details.laboratories || []).length > 0 && (
-                <OrganizationSection title="Лаборатории">
+                <OrganizationSection title="Лаборатории" icon={<Beaker size={20} />}>
                   <ul className="org-detail-list">
                     {details.laboratories.map((lab, i) => (
                       <li key={i}>
@@ -197,13 +212,14 @@ function ApplicantDetailView({ details, onBack }) {
               )}
               {(details.publications || []).length > 0 && (
                 <div className="org-detail-section">
-                  <div className={`profile-card-collapsible ${publicationsExpanded ? "expanded" : ""}`}>
+                  <div className={`profile-card-collapsible ${publicationsExpanded ? "expanded" : ""} profile-card-collapsible--with-icon`}>
                     <button
                       type="button"
                       className="profile-card-header"
                       onClick={() => setPublicationsExpanded((v) => !v)}
                       aria-expanded={publicationsExpanded}
                     >
+                      <FileText size={18} className="profile-card-header__icon" />
                       Публикации ({details.publications.length})
                     </button>
                     <div className="profile-card-body">
@@ -230,7 +246,7 @@ function ApplicantDetailView({ details, onBack }) {
                 details.availability_date ||
                 details.salary_expectation ||
                 details.job_search_notes) && (
-                <OrganizationSection title="Поиск работы">
+                <OrganizationSection title="Поиск работы" icon={<Search size={20} />}>
                   <Card variant="glass" padding="md">
                     <div className="org-detail-jobsearch">
                       {details.job_search_status && (
@@ -292,13 +308,14 @@ function ApplicantDetailView({ details, onBack }) {
 
           {hasDocs && (
             <div className="org-detail-section">
-              <div className={`profile-card-collapsible ${docsExpanded ? "expanded" : ""}`}>
+              <div className={`profile-card-collapsible ${docsExpanded ? "expanded" : ""} profile-card-collapsible--with-icon`}>
                 <button
                   type="button"
                   className="profile-card-header"
                   onClick={() => setDocsExpanded((v) => !v)}
                   aria-expanded={docsExpanded}
                 >
+                  <FileStack size={18} className="profile-card-header__icon" />
                   Дополнительные файлы ({documentUrls.length})
                 </button>
                 <div className="profile-card-body">

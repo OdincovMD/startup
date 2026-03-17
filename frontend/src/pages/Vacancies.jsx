@@ -10,7 +10,7 @@ import { Drawer, Button, Card, Badge } from "../components/ui";
 import EmployeeModal from "./profile/EmployeeModal";
 import { EmployeeCard } from "../components/EmployeeCard";
 import EmptySearchFallback from "../components/EmptySearchFallback";
-import { Mail, Phone } from "lucide-react";
+import { Mail, Phone, User, ListChecks, FileText, HelpCircle } from "lucide-react";
 import { formatPhoneRU, normalizePhoneRU } from "../utils/validation";
 
 const RESPONSE_STATUS_LABELS = { new: "Новый", accepted: "Принят", rejected: "Отклонен" };
@@ -285,7 +285,7 @@ export default function Vacancies() {
             <div className="detail-page__layout">
               <div className="detail-page__main">
                 {detailSkills.length > 0 && (
-                  <OrganizationSection title="Ключевые навыки">
+                  <OrganizationSection title="Ключевые навыки" icon={<ListChecks size={20} />}>
                     <div className="org-detail-card__chips">
                       {detailSkills.map((skill, i) => (
                         <span key={i} className="org-detail-chip">
@@ -297,7 +297,7 @@ export default function Vacancies() {
                 )}
 
                 {details.requirements && (
-                  <OrganizationSection title="Требования">
+                  <OrganizationSection title="Требования" icon={<FileText size={20} />}>
                     <Card variant="glass" padding="md">
                       <p className="org-detail-card__text">{details.requirements}</p>
                     </Card>
@@ -305,7 +305,7 @@ export default function Vacancies() {
                 )}
 
                 {details.description && (
-                  <OrganizationSection title="Описание вакансии">
+                  <OrganizationSection title="Описание вакансии" icon={<FileText size={20} />}>
                     <Card variant="glass" padding="md">
                       <p className="org-detail-card__text">{details.description}</p>
                     </Card>
@@ -313,7 +313,7 @@ export default function Vacancies() {
                 )}
 
                 {details.query && (
-                  <OrganizationSection title="Связанный запрос">
+                  <OrganizationSection title="Связанный запрос" icon={<HelpCircle size={20} />}>
                     <OrganizationDetailCard variant="query" clickable onClick={() => openQuery(details.query.public_id)}>
                       <h3 className="org-detail-card__title">{details.query.title}</h3>
                       <span className="org-detail-card__cta">Открыть запрос →</span>
@@ -374,7 +374,10 @@ export default function Vacancies() {
                       <h2 className="detail-sidebar__title">Контакты</h2>
                       {details.contact_employee && (
                         <div className="detail-sidebar__block">
-                          <span className="detail-sidebar__label">Контактное лицо</span>
+                          <span className="detail-sidebar__label">
+                            <User size={14} className="detail-sidebar__label-icon" />
+                            Контактное лицо
+                          </span>
                           <EmployeeCard
                             variant="list"
                             employee={details.contact_employee}
@@ -388,7 +391,10 @@ export default function Vacancies() {
                       )}
                       {details.contact_email && (
                         <div className="detail-sidebar__block">
-                          <span className="detail-sidebar__label">Email</span>
+                          <span className="detail-sidebar__label">
+                            <Mail size={14} className="detail-sidebar__label-icon" />
+                            Email
+                          </span>
                           <a
                             href={`mailto:${details.contact_email}`}
                             className="detail-sidebar__contact-link"
@@ -400,7 +406,10 @@ export default function Vacancies() {
                       )}
                       {details.contact_phone && (
                         <div className="detail-sidebar__block">
-                          <span className="detail-sidebar__label">Телефон</span>
+                          <span className="detail-sidebar__label">
+                            <Phone size={14} className="detail-sidebar__label-icon" />
+                            Телефон
+                          </span>
                           <a
                             href={`tel:+7${normalizePhoneRU(details.contact_phone)}`}
                             className="detail-sidebar__contact-link"
