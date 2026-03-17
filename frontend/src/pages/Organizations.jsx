@@ -1,5 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import {
+  Beaker,
+  Wrench,
+  Users,
+  ClipboardCheck,
+  HelpCircle,
+  Briefcase,
+  User,
+  FileText,
+  Layers,
+  Sliders,
+  Calendar,
+  Award,
+  Wallet,
+  CalendarClock,
+} from "lucide-react";
 import { apiRequest } from "../api/client";
 import { useOrgSearch } from "../hooks";
 import WebsiteLink from "../components/WebsiteLink";
@@ -10,6 +26,7 @@ import {
   OrganizationDetailSidebar,
   OrganizationSection,
   OrganizationDetailCard,
+  OrgDetailCardBlock,
 } from "../components/organization";
 import { ListingSearchBar } from "../components/listing";
 import { Drawer, Button, Card, Badge } from "../components/ui";
@@ -468,6 +485,7 @@ export default function Organizations() {
                   <div className="detail-page__main">
                     <OrganizationSection
                       title="Лаборатории"
+                      icon={<Beaker size={20} />}
                       badge={detailsMap[selectedId].laboratories.length}
                       emptyMessage="Лаборатории не добавлены."
                       empty={detailsMap[selectedId].laboratories.length === 0}
@@ -484,26 +502,22 @@ export default function Organizations() {
                         >
                           <h3 className="org-detail-card__title">{lab.name}</h3>
                           {lab.head_employee && (
-                            <div className="org-detail-card__block">
-                              <span className="org-detail-card__meta-label">Руководитель</span>
+                            <OrgDetailCardBlock icon={User} label="Руководитель">
                               <p className="org-detail-card__text">{lab.head_employee.full_name}</p>
-                            </div>
+                            </OrgDetailCardBlock>
                           )}
                           {lab.activities && (
-                            <div className="org-detail-card__block">
-                              <span className="org-detail-card__meta-label">Направления</span>
+                            <OrgDetailCardBlock icon={Layers} label="Направления">
                               <p className="org-detail-card__text">{lab.activities}</p>
-                            </div>
+                            </OrgDetailCardBlock>
                           )}
                           {lab.description && (
-                            <div className="org-detail-card__block">
-                              <span className="org-detail-card__meta-label">Описание</span>
+                            <OrgDetailCardBlock icon={FileText} label="Описание">
                               <p className="org-detail-card__text">{lab.description}</p>
-                            </div>
+                            </OrgDetailCardBlock>
                           )}
                           {(lab.employees || []).length > 0 && (
-                            <div className="org-detail-card__block">
-                              <span className="org-detail-card__meta-label">Сотрудники</span>
+                            <OrgDetailCardBlock icon={Users} label="Сотрудники">
                               <div className="org-detail-card__chips">
                                 {lab.employees.slice(0, 2).map((emp) => (
                                   <span key={emp.id} className="org-detail-chip">{emp.full_name}</span>
@@ -512,7 +526,7 @@ export default function Organizations() {
                                   <span className="org-detail-chip">+{lab.employees.length - 2}</span>
                                 )}
                               </div>
-                            </div>
+                            </OrgDetailCardBlock>
                           )}
                           {lab.public_id && (
                             <button
@@ -539,6 +553,7 @@ export default function Organizations() {
                     </OrganizationSection>
                     <OrganizationSection
                       title="Оборудование"
+                      icon={<Wrench size={20} />}
                       badge={detailsMap[selectedId].equipment.length}
                       emptyMessage="Оборудование не добавлено."
                       empty={detailsMap[selectedId].equipment.length === 0}
@@ -563,20 +578,18 @@ export default function Organizations() {
                         >
                           <h3 className="org-detail-card__title">{item.name}</h3>
                           {item.characteristics && (
-                            <div className="org-detail-card__block">
-                              <span className="org-detail-card__meta-label">Характеристики</span>
+                            <OrgDetailCardBlock icon={Sliders} label="Характеристики">
                               <p className="org-detail-card__text" style={{ fontWeight: 500, color: 'var(--text-primary-alt)' }}>
                                 {item.characteristics}
                               </p>
-                            </div>
+                            </OrgDetailCardBlock>
                           )}
                           {item.description && (
-                            <div className="org-detail-card__block">
-                              <span className="org-detail-card__meta-label">Описание</span>
+                            <OrgDetailCardBlock icon={FileText} label="Описание">
                               <p className="org-detail-card__text org-detail-card__text--truncated">
                                 {item.description}
                               </p>
-                            </div>
+                            </OrgDetailCardBlock>
                           )}
                           <span className="org-detail-card__cta">Подробнее →</span>
                         </OrganizationDetailCard>
@@ -586,6 +599,7 @@ export default function Organizations() {
                     </OrganizationSection>
                     <OrganizationSection
                       title="Сотрудники"
+                      icon={<Users size={20} />}
                       badge={detailsMap[selectedId].employees.length}
                       emptyMessage="Сотрудники не добавлены."
                       empty={detailsMap[selectedId].employees.length === 0}
@@ -605,6 +619,7 @@ export default function Organizations() {
                     </OrganizationSection>
                     <OrganizationSection
                       title="Решённые задачи"
+                      icon={<ClipboardCheck size={20} />}
                       badge={detailsMap[selectedId].task_solutions.length}
                       emptyMessage="Задачи не добавлены."
                       empty={detailsMap[selectedId].task_solutions.length === 0}
@@ -614,40 +629,29 @@ export default function Organizations() {
                       <OrganizationDetailCard key={task.id} variant="task">
                         <h3 className="org-detail-card__title">{task.title}</h3>
                         {(task.task_description || task.solution_description) && (
-                          <div className="org-detail-card__block">
-                            <span className="org-detail-card__meta-label">Описание</span>
+                          <OrgDetailCardBlock icon={FileText} label="Описание">
                             <p className="org-detail-card__text" title={task.task_description || task.solution_description}>
                               {(task.task_description || task.solution_description || "").length > 160
                                 ? `${(task.task_description || task.solution_description || "").slice(0, 160)}…`
                                 : (task.task_description || task.solution_description || "")}
                             </p>
-                          </div>
+                          </OrgDetailCardBlock>
                         )}
 
                         <div className="org-detail-card__meta-grid">
                           {task.solution_deadline && (
-                            <div className="org-detail-card__meta-item">
-                              <span className="org-detail-card__meta-label">Сроки</span>
-                              <span className="org-detail-card__meta-value">{task.solution_deadline}</span>
-                            </div>
+                            <OrgDetailCardBlock icon={Calendar} label="Сроки" value={task.solution_deadline} />
                           )}
                           {task.grant_info && (
-                            <div className="org-detail-card__meta-item">
-                              <span className="org-detail-card__meta-label">Грант</span>
-                              <span className="org-detail-card__meta-value">{task.grant_info}</span>
-                            </div>
+                            <OrgDetailCardBlock icon={Award} label="Грант" value={task.grant_info} />
                           )}
                           {task.cost && (
-                            <div className="org-detail-card__meta-item">
-                              <span className="org-detail-card__meta-label">Стоимость</span>
-                              <span className="org-detail-card__meta-value">{task.cost}</span>
-                            </div>
+                            <OrgDetailCardBlock icon={Wallet} label="Стоимость" value={task.cost} />
                           )}
                         </div>
 
                         {(task.laboratories || []).length > 0 && (
-                          <div className="org-detail-card__block">
-                            <span className="org-detail-card__meta-label">Лаборатории</span>
+                          <OrgDetailCardBlock icon={Beaker} label="Лаборатории">
                             <div className="org-detail-card__chips">
                               {(task.laboratories || []).slice(0, 2).map((lab) => (
                                 <span key={lab.id} className="org-detail-chip">{lab.name}</span>
@@ -656,7 +660,7 @@ export default function Organizations() {
                                 <span className="org-detail-chip">+{(task.laboratories || []).length - 2}</span>
                               )}
                             </div>
-                          </div>
+                          </OrgDetailCardBlock>
                         )}
 
                         {(task.article_links || []).length > 0 && (
@@ -674,6 +678,7 @@ export default function Organizations() {
                     </OrganizationSection>
                     <OrganizationSection
                       title="Запросы"
+                      icon={<HelpCircle size={20} />}
                       badge={detailsMap[selectedId].queries.length}
                       emptyMessage="Запросы не добавлены."
                       empty={detailsMap[selectedId].queries.length === 0}
@@ -694,35 +699,27 @@ export default function Organizations() {
                       >
                         <h3 className="org-detail-card__title">{query.title}</h3>
                         {query.status && (
-                          <div className="org-detail-card__block">
-                            <span className="org-detail-card__meta-label">Статус</span>
+                          <OrgDetailCardBlock icon={HelpCircle} label="Статус">
                             <span className="org-detail-chip org-detail-chip--status">
                               {query.status === "active" && "Активный"}
                               {query.status === "paused" && "На паузе"}
                               {query.status === "closed" && "Закрыт"}
                             </span>
-                          </div>
+                          </OrgDetailCardBlock>
                         )}
                         {query.task_description && (
-                          <div className="org-detail-card__block">
-                            <span className="org-detail-card__meta-label">Описание</span>
+                          <OrgDetailCardBlock icon={FileText} label="Описание">
                             <p className="org-detail-card__text org-detail-card__text--truncated" title={query.task_description}>
                               {query.task_description}
                             </p>
-                          </div>
+                          </OrgDetailCardBlock>
                         )}
                         <div className="org-detail-card__meta-grid">
                           {query.budget && (
-                            <div className="org-detail-card__meta-item">
-                              <span className="org-detail-card__meta-label">Бюджет</span>
-                              <span className="org-detail-card__meta-value">{query.budget}</span>
-                            </div>
+                            <OrgDetailCardBlock icon={Wallet} label="Бюджет" value={query.budget} />
                           )}
                           {query.deadline && (
-                            <div className="org-detail-card__meta-item">
-                              <span className="org-detail-card__meta-label">Дедлайн</span>
-                              <span className="org-detail-card__meta-value">{query.deadline}</span>
-                            </div>
+                            <OrgDetailCardBlock icon={CalendarClock} label="Дедлайн" value={query.deadline} />
                           )}
                         </div>
                         {((query.laboratories || []).length > 0 || (query.employees || []).length > 0) && (
@@ -744,6 +741,7 @@ export default function Organizations() {
                     </OrganizationSection>
                     <OrganizationSection
                       title="Вакансии"
+                      icon={<Briefcase size={20} />}
                       badge={detailsMap[selectedId].vacancies.length}
                       emptyMessage="Вакансии не добавлены."
                       empty={detailsMap[selectedId].vacancies.length === 0}
@@ -753,33 +751,25 @@ export default function Organizations() {
                       <OrganizationDetailCard key={vacancy.id} variant="vacancy">
                         <h3 className="org-detail-card__title">{vacancy.name}</h3>
                         {vacancy.employment_type && (
-                          <div className="org-detail-card__block">
-                            <span className="org-detail-card__meta-label">Тип занятости</span>
+                          <OrgDetailCardBlock icon={Briefcase} label="Тип занятости">
                             <span className="org-detail-chip org-detail-chip--status">
                               {vacancy.employment_type}
                             </span>
-                          </div>
+                          </OrgDetailCardBlock>
                         )}
                         {vacancy.description && (
-                          <div className="org-detail-card__block">
-                            <span className="org-detail-card__meta-label">Описание</span>
+                          <OrgDetailCardBlock icon={FileText} label="Описание">
                             <p className="org-detail-card__text org-detail-card__text--truncated">
                               {vacancy.description}
                             </p>
-                          </div>
+                          </OrgDetailCardBlock>
                         )}
                         <div className="org-detail-card__meta-grid">
                           {vacancy.laboratory && (
-                            <div className="org-detail-card__meta-item">
-                              <span className="org-detail-card__meta-label">Лаборатория</span>
-                              <span className="org-detail-card__meta-value">{vacancy.laboratory.name}</span>
-                            </div>
+                            <OrgDetailCardBlock icon={Beaker} label="Лаборатория" value={vacancy.laboratory.name} />
                           )}
                           {vacancy.contact_employee && (
-                            <div className="org-detail-card__meta-item">
-                              <span className="org-detail-card__meta-label">Контакт</span>
-                              <span className="org-detail-card__meta-value">{vacancy.contact_employee.full_name}</span>
-                            </div>
+                            <OrgDetailCardBlock icon={User} label="Контакт" value={vacancy.contact_employee.full_name} />
                           )}
                         </div>
                         {vacancy.public_id && (

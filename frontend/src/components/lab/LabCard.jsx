@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { Beaker, Building2, User, ChevronRight } from "lucide-react";
 import { Card, Badge, Button } from "../ui";
 
 const DESCRIPTION_MAX = 140;
@@ -20,7 +21,7 @@ export default function LabCard({ lab, labImages, onOpen, navigate }) {
       variant="solid"
       as="article"
       padding="none"
-      className="modern-entity-card"
+      className="modern-entity-card modern-entity-card--lab"
       onClick={() => hasLink && onOpen(lab.public_id)}
       role={hasLink ? "button" : undefined}
       tabIndex={hasLink ? 0 : undefined}
@@ -40,31 +41,37 @@ export default function LabCard({ lab, labImages, onOpen, navigate }) {
             onError={() => setAvatarError(true)}
           />
         ) : (
-          <div className="modern-entity-card__fallback" aria-hidden="true">
-            {initial}
+          <div className="modern-entity-card__fallback modern-entity-card__fallback--lab" aria-hidden="true">
+            <Beaker size={32} className="modern-entity-card__fallback-icon" />
+            <span className="modern-entity-card__fallback-initial">{initial}</span>
           </div>
         )}
       </div>
 
       <div className="modern-entity-card__body">
         <div className="modern-entity-card__info">
-          <h3 className="modern-entity-card__title">
-            {hasLink ? (
-              <Link
-                to={`/laboratories/${lab.public_id}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {displayName}
-              </Link>
-            ) : (
-              <span>{displayName}</span>
-            )}
-          </h3>
+          <div className="modern-entity-card__title-row">
+            <div className="modern-entity-card__title-icon">
+              <Beaker size={18} />
+            </div>
+            <h3 className="modern-entity-card__title">
+              {hasLink ? (
+                <Link
+                  to={`/laboratories/${lab.public_id}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {displayName}
+                </Link>
+              ) : (
+                <span>{displayName}</span>
+              )}
+            </h3>
+          </div>
 
-          <div className="modern-entity-card__meta">
+          <div className="modern-entity-card__meta modern-entity-card__meta--with-icons">
             {lab.organization ? (
-              <span
-                className="modern-entity-card__meta-item modern-entity-card__meta-item--link"
+              <div
+                className="modern-entity-card__meta-row modern-entity-card__meta-row--link"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (lab.organization?.public_id) navigate(`/organizations/${lab.organization.public_id}`);
@@ -79,17 +86,26 @@ export default function LabCard({ lab, labImages, onOpen, navigate }) {
                   }
                 }}
               >
-                {lab.organization.name}
-              </span>
+                <Building2 size={14} className="modern-entity-card__meta-icon" />
+                <span className="modern-entity-card__link modern-entity-card__meta-item--truncate">
+                  {lab.organization.name}
+                </span>
+              </div>
             ) : (
-              <span className="modern-entity-card__meta-item modern-entity-card__meta-item--muted">
-                Независимая лаборатория
-              </span>
+              <div className="modern-entity-card__meta-row">
+                <Building2 size={14} className="modern-entity-card__meta-icon" />
+                <span className="modern-entity-card__meta-item modern-entity-card__meta-item--muted">
+                  Независимая лаборатория
+                </span>
+              </div>
             )}
             {lab.head_employee && (
-              <span className="modern-entity-card__meta-item modern-entity-card__meta-item--head">
-                Руководитель: {lab.head_employee.full_name}
-              </span>
+              <div className="modern-entity-card__meta-row">
+                <User size={14} className="modern-entity-card__meta-icon" />
+                <span className="modern-entity-card__meta-item modern-entity-card__meta-item--head modern-entity-card__meta-item--truncate">
+                  {lab.head_employee.full_name}
+                </span>
+              </div>
             )}
           </div>
 
@@ -126,10 +142,11 @@ export default function LabCard({ lab, labImages, onOpen, navigate }) {
               variant="ghost"
               size="small"
               to={`/laboratories/${lab.public_id}`}
-              className="nowrap-btn"
+              className="nowrap-btn modern-entity-card__cta-btn"
               onClick={(e) => e.stopPropagation()}
             >
-              В лабораторию
+              <span>В лабораторию</span>
+              <ChevronRight size={14} />
             </Button>
           </div>
         )}

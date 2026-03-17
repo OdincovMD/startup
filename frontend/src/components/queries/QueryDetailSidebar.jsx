@@ -1,4 +1,5 @@
 import React from "react";
+import { HelpCircle, Building2, Wallet, CalendarClock, Award, Beaker, Users, Briefcase } from "lucide-react";
 import { Card, Badge } from "../ui";
 
 function formatQueryDate(value) {
@@ -20,7 +21,10 @@ export default function QueryDetailSidebar({ details, onOrgClick }) {
       <div className="detail-sidebar">
         {details.status && (
           <div className="detail-sidebar__block">
-            <span className="detail-sidebar__label">Статус</span>
+            <span className="detail-sidebar__label">
+              <HelpCircle size={14} className="detail-sidebar__label-icon" />
+              Статус
+            </span>
             <Badge
               variant={
                 details.status === "active"
@@ -38,7 +42,10 @@ export default function QueryDetailSidebar({ details, onOrgClick }) {
 
         {org && (
           <div className="detail-sidebar__block">
-            <span className="detail-sidebar__label">Организация</span>
+            <span className="detail-sidebar__label">
+              <Building2 size={14} className="detail-sidebar__label-icon" />
+              Организация
+            </span>
             <span
               className="detail-sidebar__link"
               onClick={(e) => {
@@ -61,14 +68,20 @@ export default function QueryDetailSidebar({ details, onOrgClick }) {
 
         {details.budget && (
           <div className="detail-sidebar__block">
-            <span className="detail-sidebar__label">Бюджет</span>
+            <span className="detail-sidebar__label">
+              <Wallet size={14} className="detail-sidebar__label-icon" />
+              Бюджет
+            </span>
             <span className="detail-sidebar__text" style={{ fontWeight: 600 }}>{details.budget}</span>
           </div>
         )}
 
         {details.deadline && (
           <div className="detail-sidebar__block">
-            <span className="detail-sidebar__label">Дедлайн</span>
+            <span className="detail-sidebar__label">
+              <CalendarClock size={14} className="detail-sidebar__label-icon" />
+              Дедлайн
+            </span>
             <span className="detail-sidebar__text">
               {formatQueryDate(details.deadline)}
             </span>
@@ -77,7 +90,10 @@ export default function QueryDetailSidebar({ details, onOrgClick }) {
 
         {details.grant_info && (
           <div className="detail-sidebar__block">
-            <span className="detail-sidebar__label">Грант</span>
+            <span className="detail-sidebar__label">
+              <Award size={14} className="detail-sidebar__label-icon" />
+              Грант
+            </span>
             <span className="detail-sidebar__text">{details.grant_info}</span>
           </div>
         )}
@@ -85,16 +101,19 @@ export default function QueryDetailSidebar({ details, onOrgClick }) {
         <div className="detail-sidebar__stats">
           {(details.laboratories || []).length > 0 && (
             <span className="detail-sidebar__stat">
+              <Beaker size={14} className="detail-sidebar__stat-icon" />
               Лабораторий: {(details.laboratories || []).length}
             </span>
           )}
           {(details.employees || []).length > 0 && (
             <span className="detail-sidebar__stat">
+              <Users size={14} className="detail-sidebar__stat-icon" />
               Сотрудников: {(details.employees || []).length}
             </span>
           )}
           {(details.vacancies || []).length > 0 && (
             <span className="detail-sidebar__stat">
+              <Briefcase size={14} className="detail-sidebar__stat-icon" />
               Вакансий: {(details.vacancies || []).length}
             </span>
           )}

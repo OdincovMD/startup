@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { MapPin, Globe } from "lucide-react";
 import WebsiteLink from "../WebsiteLink";
 
 export default function OrganizationDetailHero({ details }) {
@@ -27,14 +28,18 @@ export default function OrganizationDetailHero({ details }) {
         <h1 className="org-detail-hero__title">{displayName}</h1>
         <div className="org-detail-hero__meta">
           {details.address && (
-            <span className="org-detail-hero__meta-item">{details.address}</span>
+            <span className="org-detail-hero__meta-item org-detail-hero__meta-item--with-icon">
+              <MapPin size={14} className="org-detail-hero__meta-icon" />
+              {details.address}
+            </span>
           )}
           {details.website && (
             <span
-              className="org-detail-hero__meta-item"
+              className="org-detail-hero__meta-item org-detail-hero__meta-item--with-icon"
               onClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => e.stopPropagation()}
             >
+              <Globe size={14} className="org-detail-hero__meta-icon" />
               <WebsiteLink url={details.website} className="org-detail-hero__link" />
             </span>
           )}

@@ -1,11 +1,24 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import {
+  ClipboardList,
+  ClipboardCheck,
+  Beaker,
+  Users,
+  Briefcase,
+  FileText,
+  Layers,
+  Calendar,
+  Award,
+  Wallet,
+  User,
+} from "lucide-react";
 import { apiRequest } from "../api/client";
 import { useQuerySearch } from "../hooks";
 import EmployeeModal from "./profile/EmployeeModal";
 import EmptySearchFallback from "../components/EmptySearchFallback";
 import { QueryCard, QueryFilters, QuerySearchBar, QueryDetailSidebar, QueryDetailHero } from "../components/queries";
-import { OrganizationSection, OrganizationDetailCard } from "../components/organization";
+import { OrganizationSection, OrganizationDetailCard, OrgDetailCardBlock } from "../components/organization";
 import { Drawer, Button, Card, Badge } from "../components/ui";
 import { EmployeeCard } from "../components/EmployeeCard";
 
@@ -201,7 +214,7 @@ export default function Queries() {
             <div className="detail-page__layout">
               <div className="detail-page__main">
                 {details.completed_examples && (
-                  <OrganizationSection title="Примеры выполнения">
+                  <OrganizationSection title="Примеры выполнения" icon={<ClipboardList size={20} />}>
                     <Card variant="glass" padding="md">
                       <p className="org-detail-card__text">{details.completed_examples}</p>
                     </Card>
@@ -209,39 +222,29 @@ export default function Queries() {
                 )}
                 
                 {details.linked_task_solution && (
-                  <OrganizationSection title="Связанная решённая задача">
+                  <OrganizationSection title="Связанная решённая задача" icon={<ClipboardCheck size={20} />}>
                     <OrganizationDetailCard variant="task">
                       <h3 className="org-detail-card__title">
                         {details.linked_task_solution.title}
                       </h3>
                       {(details.linked_task_solution.task_description ||
                         details.linked_task_solution.solution_description) && (
-                        <div className="org-detail-card__block">
-                          <span className="org-detail-card__meta-label">Описание</span>
+                        <OrgDetailCardBlock icon={FileText} label="Описание">
                           <p className="org-detail-card__text">
                             {details.linked_task_solution.task_description ||
                               details.linked_task_solution.solution_description}
                           </p>
-                        </div>
+                        </OrgDetailCardBlock>
                       )}
                       <div className="org-detail-card__meta-grid">
                         {details.linked_task_solution.solution_deadline && (
-                          <div className="org-detail-card__meta-item">
-                            <span className="org-detail-card__meta-label">Сроки</span>
-                            <span className="org-detail-card__meta-value">{details.linked_task_solution.solution_deadline}</span>
-                          </div>
+                          <OrgDetailCardBlock icon={Calendar} label="Сроки" value={details.linked_task_solution.solution_deadline} />
                         )}
                         {details.linked_task_solution.grant_info && (
-                          <div className="org-detail-card__meta-item">
-                            <span className="org-detail-card__meta-label">Грант</span>
-                            <span className="org-detail-card__meta-value">{details.linked_task_solution.grant_info}</span>
-                          </div>
+                          <OrgDetailCardBlock icon={Award} label="Грант" value={details.linked_task_solution.grant_info} />
                         )}
                         {details.linked_task_solution.cost && (
-                          <div className="org-detail-card__meta-item">
-                            <span className="org-detail-card__meta-label">Стоимость</span>
-                            <span className="org-detail-card__meta-value">{details.linked_task_solution.cost}</span>
-                          </div>
+                          <OrgDetailCardBlock icon={Wallet} label="Стоимость" value={details.linked_task_solution.cost} />
                         )}
                       </div>
                     </OrganizationDetailCard>
@@ -250,6 +253,7 @@ export default function Queries() {
 
                 <OrganizationSection
                   title="Лаборатории"
+                  icon={<Beaker size={20} />}
                   badge={(details.laboratories || []).length}
                   empty={(details.laboratories || []).length === 0}
                   emptyMessage="Лаборатории не связаны с этим запросом."
@@ -259,10 +263,9 @@ export default function Queries() {
                       <OrganizationDetailCard key={lab.id} clickable onClick={() => openLab(lab.public_id)}>
                         <h3 className="org-detail-card__title">{lab.name}</h3>
                         {lab.activities && (
-                          <div className="org-detail-card__block">
-                            <span className="org-detail-card__meta-label">Направления</span>
+                          <OrgDetailCardBlock icon={Layers} label="Направления">
                             <p className="org-detail-card__text org-detail-card__text--truncated">{lab.activities}</p>
-                          </div>
+                          </OrgDetailCardBlock>
                         )}
                         <span className="org-detail-card__cta">В лабораторию →</span>
                       </OrganizationDetailCard>
@@ -272,6 +275,7 @@ export default function Queries() {
 
                 <OrganizationSection
                   title="Ответственные сотрудники"
+                  icon={<Users size={20} />}
                   badge={(details.employees || []).length}
                   empty={(details.employees || []).length === 0}
                   emptyMessage="Сотрудники не указаны."
@@ -292,6 +296,7 @@ export default function Queries() {
 
                 <OrganizationSection
                   title="Вакансии"
+                  icon={<Briefcase size={20} />}
                   badge={(details.vacancies || []).length}
                   empty={(details.vacancies || []).length === 0}
                   emptyMessage="Связанных опубликованных вакансий нет."
@@ -301,31 +306,23 @@ export default function Queries() {
                       <OrganizationDetailCard key={vacancy.id} variant="vacancy">
                         <h3 className="org-detail-card__title">{vacancy.name}</h3>
                         {vacancy.employment_type && (
-                          <div className="org-detail-card__block">
-                            <span className="org-detail-card__meta-label">Тип занятости</span>
+                          <OrgDetailCardBlock icon={Briefcase} label="Тип занятости">
                             <span className="org-detail-chip org-detail-chip--status">
                               {vacancy.employment_type}
                             </span>
-                          </div>
+                          </OrgDetailCardBlock>
                         )}
                         {vacancy.description && (
-                          <div className="org-detail-card__block">
-                            <span className="org-detail-card__meta-label">Описание</span>
+                          <OrgDetailCardBlock icon={FileText} label="Описание">
                             <p className="org-detail-card__text org-detail-card__text--truncated">{vacancy.description}</p>
-                          </div>
+                          </OrgDetailCardBlock>
                         )}
                         <div className="org-detail-card__meta-grid">
                           {vacancy.laboratory && (
-                            <div className="org-detail-card__meta-item">
-                              <span className="org-detail-card__meta-label">Лаборатория</span>
-                              <span className="org-detail-card__meta-value">{vacancy.laboratory.name}</span>
-                            </div>
+                            <OrgDetailCardBlock icon={Beaker} label="Лаборатория" value={vacancy.laboratory.name} />
                           )}
                           {vacancy.contact_employee && (
-                            <div className="org-detail-card__meta-item">
-                              <span className="org-detail-card__meta-label">Контакт</span>
-                              <span className="org-detail-card__meta-value">{vacancy.contact_employee.full_name}</span>
-                            </div>
+                            <OrgDetailCardBlock icon={User} label="Контакт" value={vacancy.contact_employee.full_name} />
                           )}
                         </div>
                         {vacancy.public_id && (

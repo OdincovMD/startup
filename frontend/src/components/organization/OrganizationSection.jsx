@@ -1,9 +1,10 @@
 import React from "react";
 
-export default function OrganizationSection({ title, badge, emptyMessage, empty, children }) {
+export default function OrganizationSection({ title, badge, emptyMessage, empty, children, icon }) {
   return (
     <div className="org-detail-section">
       <h2 className="org-detail-section__title">
+        {icon && <span className="org-detail-section__icon">{icon}</span>}
         {title}
         {badge != null && <span className="org-detail-section__badge">{badge}</span>}
       </h2>

@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { HelpCircle, Building2, Beaker, Layers, CalendarClock, Wallet, ChevronRight } from "lucide-react";
 import { Card, Badge, Button } from "../ui";
 
 const QUERY_STATUS_LABELS = { active: "Открыт", paused: "На паузе", closed: "Закрыт" };
@@ -14,12 +15,8 @@ export default function QueryCard({ query, onOpen, navigate }) {
       ? `${description.slice(0, DESCRIPTION_MAX)}…`
       : description;
 
-  const metaParts = [];
-  if (query.research_direction) metaParts.push(query.research_direction);
-  if (query.cooperation_type) metaParts.push(query.cooperation_type);
-  if (query.organization?.name) metaParts.push(query.organization.name);
-  else if (query.laboratory?.name) metaParts.push(query.laboratory.name);
-  const metaText = metaParts.join(" · ");
+  const org = query.organization;
+  const lab = query.laboratory;
 
   return (
     <Card
@@ -30,24 +27,58 @@ export default function QueryCard({ query, onOpen, navigate }) {
     >
       <div className="query-card-modern__inner">
         <div className="query-card-modern__info">
-          <h3 className="query-card-modern__title">
-            {hasLink ? (
-              <Link
-                to={`/queries/${query.public_id}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {title}
-              </Link>
-            ) : (
-              <span>{title}</span>
-            )}
-          </h3>
-
-          {metaText && (
-            <div className="query-card-modern__meta">
-              {metaText}
+          <div className="query-card-modern__title-row">
+            <div className="query-card-modern__title-icon">
+              <HelpCircle size={18} />
             </div>
-          )}
+            <h3 className="query-card-modern__title">
+              {hasLink ? (
+                <Link
+                  to={`/queries/${query.public_id}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {title}
+                </Link>
+              ) : (
+                <span>{title}</span>
+              )}
+            </h3>
+          </div>
+
+          <div className="query-card-modern__meta query-card-modern__meta--with-icons">
+            {org && (
+              <div
+                className="query-card-modern__meta-row query-card-modern__meta-row--link"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (org.public_id) navigate?.(`/organizations/${org.public_id}`);
+                }}
+                role={org.public_id ? "button" : undefined}
+                tabIndex={org.public_id ? 0 : undefined}
+                onKeyDown={(e) => {
+                  if (org.public_id && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    navigate?.(`/organizations/${org.public_id}`);
+                  }
+                }}
+              >
+                <Building2 size={14} className="query-card-modern__meta-icon" />
+                <span className="query-card-modern__meta-item">{org.name}</span>
+              </div>
+            )}
+            {lab && !org && (
+              <div className="query-card-modern__meta-row">
+                <Beaker size={14} className="query-card-modern__meta-icon" />
+                <span className="query-card-modern__meta-item">{lab.name}</span>
+              </div>
+            )}
+            {query.research_direction && (
+              <div className="query-card-modern__meta-row">
+                <Layers size={14} className="query-card-modern__meta-icon" />
+                <span className="query-card-modern__meta-item">{query.research_direction}</span>
+              </div>
+            )}
+          </div>
 
           {truncatedDesc && (
             <p className="query-card-modern__desc" title={description}>
@@ -72,12 +103,14 @@ export default function QueryCard({ query, onOpen, navigate }) {
               )}
               {query.deadline && (
                 <span className="query-card-modern__meta-inline">
-                  Дедлайн: {new Date(query.deadline).toLocaleDateString("ru-RU")}
+                  <CalendarClock size={12} className="query-card-modern__meta-inline-icon" />
+                  {new Date(query.deadline).toLocaleDateString("ru-RU")}
                 </span>
               )}
               {query.budget && (
                 <span className="query-card-modern__meta-inline">
-                  Бюджет: {query.budget}
+                  <Wallet size={12} className="query-card-modern__meta-inline-icon" />
+                  {query.budget}
                 </span>
               )}
             </div>
@@ -90,13 +123,14 @@ export default function QueryCard({ query, onOpen, navigate }) {
               variant="ghost"
               size="small"
               to={`/queries/${query.public_id}`}
-              className="nowrap-btn"
+              className="nowrap-btn query-card-modern__cta-btn"
               onClick={(e) => {
                 e.stopPropagation();
                 onOpen?.(query.public_id);
               }}
             >
-              Подробнее
+              <span>Подробнее</span>
+              <ChevronRight size={14} />
             </Button>
           </div>
         )}

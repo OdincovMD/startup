@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { User, ChevronRight } from "lucide-react";
+import { User, Building2 } from "lucide-react";
 
 export default function LabDetailHero({ details, labImages, onOrgClick, onHeadClick }) {
   const [avatarError, setAvatarError] = useState(false);
@@ -31,7 +31,7 @@ export default function LabDetailHero({ details, labImages, onOrgClick, onHeadCl
         <div className="org-detail-hero__meta">
           {details.organization && (
             <span
-              className="org-detail-hero__link"
+              className="org-detail-hero__meta-item org-detail-hero__meta-item--with-icon org-detail-hero__link"
               onClick={(e) => {
                 e.stopPropagation();
                 if (details.organization?.public_id) onOrgClick(details.organization.public_id);
@@ -39,6 +39,7 @@ export default function LabDetailHero({ details, labImages, onOrgClick, onHeadCl
               role={details.organization?.public_id ? "button" : undefined}
               tabIndex={details.organization?.public_id ? 0 : undefined}
             >
+              <Building2 size={14} className="org-detail-hero__meta-icon" />
               {details.organization.name}
             </span>
           )}
@@ -84,12 +85,6 @@ export default function LabDetailHero({ details, labImages, onOrgClick, onHeadCl
                   )}
                 </div>
               </div>
-              {onHeadClick && (
-                <span className="org-detail-hero__head-cta">
-                  Профиль
-                  <ChevronRight size={16} strokeWidth={2} aria-hidden />
-                </span>
-              )}
             </div>
           </div>
         )}
