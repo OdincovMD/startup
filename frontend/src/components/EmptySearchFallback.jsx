@@ -34,15 +34,15 @@ export default function EmptySearchFallback({
       <div className="empty-search-fallback__grid">
         {loading ? (
           Array.from({ length: 6 }, (_, i) => (
-            <article key={i} className="org-card-modern empty-search-fallback__skeleton">
-              <div className="org-card-modern__media">
+            <article key={i} className="modern-entity-card empty-search-fallback__skeleton">
+              <div className="modern-entity-card__media">
                 <div
                   className="skeleton"
                   aria-hidden="true"
                   style={{ width: "100%", aspectRatio: 1 }}
                 />
               </div>
-              <div className="org-card-modern__body">
+              <div className="modern-entity-card__body">
                 <div
                   className="skeleton"
                   aria-hidden="true"

@@ -4,6 +4,7 @@ import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../ToastContext";
 import ProfileSummary from "./profile/ProfileSummary";
+import SummaryTabContent from "./profile/SummaryTabContent";
 import SubscriptionTab from "./profile/SubscriptionTab";
 import StudentProfileSection from "./profile/StudentProfileSection";
 import ResearcherProfileSection from "./profile/ResearcherProfileSection";
@@ -2102,48 +2103,54 @@ export default function Profile() {
 
   return (
     <main className="main profile-page">
-      <header className="profile-page-header">
-        <h1 className="profile-page-title">Профиль</h1>
-      </header>
       {error && (
         <div ref={errorRef} className="profile-error-banner" role="alert">
           <span>{error}</span>
           <button type="button" onClick={clearError} aria-label="Закрыть">×</button>
         </div>
       )}
-      <div className="profile-layout">
-        <aside className="profile-sidebar-wrap">
+      <div className="profile-page__layout">
+        <aside className="profile-page__sidebar">
           {profile && roleKey && (
-            <ProfileSidebar
-              roleKey={roleKey}
-              currentSection={profileSection}
-              onSectionChange={setProfileSection}
-              orgTab={orgTab}
-              onOrgTabChange={(tabId) => {
-                setProfileSection("organization");
-                setOrgTab(tabId);
-              }}
-              showProfileTab={roleKey === "lab_admin"}
-              emailVerified={emailVerified}
-            />
+            <>
+              <ProfileSummary
+                profile={profile}
+                roleName={roleName}
+                onAvatarUpload={uploadUserAvatar}
+                uploading={uploading}
+                loading={loading}
+              />
+              <ProfileSidebar
+                roleKey={roleKey}
+                currentSection={profileSection}
+                onSectionChange={setProfileSection}
+                orgTab={orgTab}
+                onOrgTabChange={(tabId) => {
+                  setProfileSection("organization");
+                  setOrgTab(tabId);
+                }}
+                showProfileTab={roleKey === "lab_admin"}
+                emailVerified={emailVerified}
+              />
+            </>
           )}
           <div className="profile-actions profile-actions--sidebar">
-            <button type="button" className="ghost-btn" onClick={() => navigate("/")}>
+            <button type="button" className="primary-btn" onClick={() => navigate("/")}>
               На главную
             </button>
-            <button type="button" className="primary-btn" onClick={logout}>
+            <button type="button" className="secondary-btn" onClick={logout}>
               Выйти
             </button>
           </div>
         </aside>
-        <div className="profile-content" ref={profileContentRef}>
+        <div className="profile-page__content profile-content" ref={profileContentRef}>
           <div className="profile-content-inner">
             {loading && !profile && <p className="muted">Загрузка…</p>}
             {!loading && profile && !roleKey && profileSection !== "summary" && (
               <p className="muted">Выберите роль в разделе «Обзор».</p>
             )}
             {profileSection === "summary" && (
-              <ProfileSummary
+              <SummaryTabContent
                 loading={loading}
                 error={error}
                 profile={profile}
@@ -2170,12 +2177,16 @@ export default function Profile() {
                     }
                   }
                 }}
-                onAvatarUpload={uploadUserAvatar}
-                uploading={uploading}
               />
             )}
             {profileSection === "subscription" && profile && isOrgRole && (
-              <SubscriptionTab onError={setError} />
+              <SubscriptionTab
+                onError={setError}
+                orgProfile={orgProfile}
+                orgLabs={orgLabs}
+                orgVacancies={orgVacancies}
+                orgQueries={orgQueries}
+              />
             )}
             {profileSection === "personal" && profile && (
               <PersonalProfileSection
@@ -2381,10 +2392,10 @@ export default function Profile() {
         </div>
       </div>
       <div className="profile-actions profile-actions--mobile">
-        <button type="button" className="ghost-btn" onClick={() => navigate("/")}>
+        <button type="button" className="primary-btn" onClick={() => navigate("/")}>
           На главную
         </button>
-        <button type="button" className="primary-btn" onClick={logout}>
+        <button type="button" className="secondary-btn" onClick={logout}>
           Выйти
         </button>
       </div>

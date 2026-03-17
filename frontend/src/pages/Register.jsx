@@ -1,13 +1,33 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { isValidEmail } from "../utils/validation";
+import { 
+  AuthSplitLayout, 
+  PasswordField, 
+  AuthAlert, 
+  AuthButton, 
+  AuthIconHeader,
+  ORCID_ICON_URL
+} from "../components/auth";
+
+const EMAIL_ERROR_PHRASES = ["email", "корректный"];
+const hasEmailError = (error) =>
+  error && EMAIL_ERROR_PHRASES.some((phrase) => error.includes(phrase));
+
+const REGISTER_FORM_SUBTITLE = "Создайте аккаунт, чтобы публиковать вакансии и откликаться на проекты.";
 
 export default function Register() {
   const { register, login, loading } = useAuth();
-  const [form, setForm] = useState({ mail: "", password: "" });
+  const [form, setForm] = useState({
+    mail: "",
+    password: "",
+    passwordConfirm: "",
+  });
   const [error, setError] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const navigate = useNavigate();
-  const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
   const clearError = () => setError(null);
 
@@ -19,78 +39,103 @@ export default function Register() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     clearError();
+
     if (!isValidEmail(form.mail)) {
       setError("Введите корректный email");
       return;
     }
+    if (form.password.length < 8) {
+      setError("Пароль должен быть не короче 8 символов");
+      return;
+    }
+    if (form.password !== form.passwordConfirm) {
+      setError("Пароли не совпадают");
+      return;
+    }
+
     try {
-      await register({ ...form, role_id: 1 });
+      await register({ mail: form.mail, password: form.password, role_id: 1 });
       await login({ mail: form.mail, password: form.password });
-      navigate("/profile");
+      navigate("/profile?new_user=1");
     } catch (e) {
       setError(e.message);
     }
   };
 
   return (
-    <main className="main auth-page">
-      <div className="auth-wrapper">
-        <div className="auth-card-modern">
-          <h1>Регистрация</h1>
-          <p className="auth-subtitle">
-            Создайте аккаунт, чтобы публиковать вакансии и откликаться на проекты.
-          </p>
+    <AuthSplitLayout>
+      <div className="auth-split__form-inner">
+        <AuthIconHeader 
+          title="Регистрация" 
+          subtitle={REGISTER_FORM_SUBTITLE} 
+        />
 
-          <form className="auth-form-modern" onSubmit={handleSubmit}>
-            {error && (
-              <div className="auth-alert auth-alert-error" role="alert">
-                {error}
-              </div>
-            )}
+        <form className="auth-form-modern auth-form-modern--stagger" onSubmit={handleSubmit}>
+          <AuthAlert message={error} />
 
-            <div className="field-group">
-              <label htmlFor="reg-mail">Email</label>
-              <input
-                id="reg-mail"
-                type="email"
-                value={form.mail}
-                onChange={(e) => handleChange("mail", e.target.value)}
-                placeholder="name@lab.org"
-                required
-                autoComplete="email"
-                className={error && (error.includes("email") || error.includes("корректный")) ? "error" : ""}
-              />
-            </div>
-
-            <div className="field-group">
-              <label htmlFor="reg-password">Пароль</label>
-              <input
-                id="reg-password"
-                type="password"
-                value={form.password}
-                onChange={(e) => handleChange("password", e.target.value)}
-                placeholder="Минимум 8 символов"
-                minLength={8}
-                required
-                autoComplete="new-password"
-              />
-              <span className="auth-hint-inline">Не менее 8 символов</span>
-            </div>
-
-            <button
-              className="primary-btn auth-btn-primary"
-              type="submit"
-              disabled={loading}
-            >
-              {loading ? "Создаём аккаунт…" : "Создать аккаунт"}
-            </button>
-          </form>
-
-          <div className="auth-footer">
-            Уже есть аккаунт? <Link to="/login">Войти</Link>
+          <div className="field-group">
+            <label htmlFor="reg-mail">Email</label>
+            <input
+              id="reg-mail"
+              type="email"
+              value={form.mail}
+              onChange={(e) => handleChange("mail", e.target.value)}
+              placeholder="name@lab.org"
+              required
+              autoComplete="email"
+              className={hasEmailError(error) ? "error" : ""}
+            />
           </div>
+
+          <PasswordField
+            id="reg-password"
+            label="Пароль"
+            value={form.password}
+            onChange={(v) => handleChange("password", v)}
+            showPassword={showPassword}
+            onToggleShow={() => setShowPassword((v) => !v)}
+            hint="Не менее 8 символов"
+            minLength={8}
+            required
+          />
+
+          <PasswordField
+            id="reg-password-confirm"
+            label="Повторите пароль"
+            value={form.passwordConfirm}
+            onChange={(v) => handleChange("passwordConfirm", v)}
+            showPassword={showPasswordConfirm}
+            onToggleShow={() => setShowPasswordConfirm((v) => !v)}
+            minLength={8}
+            required
+          />
+
+          <AuthButton loading={loading}>
+            Создать аккаунт
+          </AuthButton>
+
+          <div className="auth-divider">или</div>
+
+          <a
+            href="/api/auth/orcid"
+            className="auth-btn-orcid"
+            aria-label="Зарегистрироваться через ORCID"
+          >
+            <img
+              src={ORCID_ICON_URL}
+              alt=""
+              width="24"
+              height="24"
+              aria-hidden
+            />
+            Зарегистрироваться через ORCID
+          </a>
+        </form>
+
+        <div className="auth-footer">
+          Уже есть аккаунт? <Link to="/login">Войти</Link>
         </div>
       </div>
-    </main>
+    </AuthSplitLayout>
   );
 }

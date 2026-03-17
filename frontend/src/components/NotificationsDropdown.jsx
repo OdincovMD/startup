@@ -1,10 +1,44 @@
 /**
  * Иконка уведомлений с бейджем и выпадающей панелью.
- * Стиль в духе проекта: карточка, список-карточки, типография profile-list.
+ * Современный стиль: карточки, иконки по типам, читаемая иерархия.
  */
 import React, { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { apiRequest } from "../api/client";
+
+function NotificationIcon({ type }) {
+  const iconClass = `notifications-item-icon notifications-item-icon--${type?.split("_")[0] || "default"}`;
+  if (type?.startsWith("vacancy")) {
+    return (
+      <span className={iconClass} aria-hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      </span>
+    );
+  }
+  if (type?.startsWith("lab_") || type?.startsWith("org_")) {
+    return (
+      <span className={iconClass} aria-hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m2 8 10 7 10-7v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2Z" />
+          <path d="M22 8 12 15 2 8" />
+        </svg>
+      </span>
+    );
+  }
+  return (
+    <span className={iconClass} aria-hidden>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" />
+      </svg>
+    </span>
+  );
+}
 
 const TYPE_LABELS = {
   lab_join_request_created: "Новая заявка в лабораторию",
@@ -249,9 +283,20 @@ export default function NotificationsDropdown() {
           </div>
           <div className="notifications-panel-body">
             {loading ? (
-              <div className="notifications-empty">Загрузка…</div>
+              <div className="notifications-loading">
+                <div className="notifications-skeleton" />
+                <div className="notifications-skeleton" />
+                <div className="notifications-skeleton" />
+              </div>
             ) : notifications.length === 0 ? (
-              <div className="notifications-empty">Нет новых уведомлений</div>
+              <div className="notifications-empty">
+                <span className="notifications-empty-icon" aria-hidden>✓</span>
+                <p className="notifications-empty-title">Всё прочитано</p>
+                <p className="notifications-empty-hint">Здесь появятся новые заявки, отклики и обновления</p>
+                <Link to="/profile" className="notifications-empty-link" onClick={closePanel}>
+                  Перейти в профиль
+                </Link>
+              </div>
             ) : (
               <ul className="notifications-list" role="list">
                 {notifications.map((n) => (
@@ -261,10 +306,16 @@ export default function NotificationsDropdown() {
                       className={`notifications-item ${n.read_at ? "notifications-item--read" : "notifications-item--unread"}`}
                       onClick={() => handleNotificationClick(n)}
                     >
-                      <span className="notifications-item-type">{getTypeLabel(n)}</span>
-                      <span className="notifications-item-text">{formatNotification(n)}</span>
-                      <span className="notifications-item-meta">
-                        <span className="notifications-item-date">{formatDate(n.created_at)}</span>
+                      <NotificationIcon type={n.type} />
+                      <span className="notifications-item-content">
+                        <span className="notifications-item-type">{getTypeLabel(n)}</span>
+                        <span className="notifications-item-text">{formatNotification(n)}</span>
+                        <span className="notifications-item-meta">
+                          <span className="notifications-item-date">{formatDate(n.created_at)}</span>
+                          {NAVIGABLE_NOTIFICATION_TYPES.has(n.type) && (
+                            <span className="notifications-item-cta">Открыть →</span>
+                          )}
+                        </span>
                       </span>
                     </button>
                   </li>
@@ -272,6 +323,13 @@ export default function NotificationsDropdown() {
               </ul>
             )}
           </div>
+          {!loading && notifications.length > 0 && (
+            <div className="notifications-panel-footer">
+              <Link to="/profile" className="notifications-panel-footer-link" onClick={closePanel}>
+                Все уведомления в профиле
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </div>

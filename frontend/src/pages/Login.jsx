@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { 
+  AuthSplitLayout, 
+  AuthAlert, 
+  AuthButton, 
+  AuthIconHeader, 
+  EyeOffIcon, 
+  EyeOpenIcon,
+  ORCID_ICON_URL
+} from "../components/auth";
 import { useAuth } from "../auth/AuthContext";
+import { isValidEmail } from "../utils/validation";
 
 const ORCID_ERROR_MESSAGES = {
   orcid_denied: "Вы отменили вход через ORCID.",
@@ -12,20 +22,24 @@ const ORCID_ERROR_MESSAGES = {
     "Этот ORCID уже привязан к другому аккаунту. Войдите в тот аккаунт, чтобы использовать его, или отвяжите ORCID там, чтобы привязать к текущему.",
 };
 
+const LOGIN_BRAND = {
+  headline: "Вход в аккаунт",
+  desc: "Введите email и пароль, чтобы управлять профилем и организациями.",
+};
+
 export default function Login() {
   const { login, loading, auth } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [form, setForm] = useState({ mail: "", password: "" });
   const [error, setError] = useState(null);
   const [verifiedMessage, setVerifiedMessage] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     const err = searchParams.get("error");
     const verified = searchParams.get("verified");
 
-    // Если пользователь уже авторизован и пришёл с ошибкой ORCID,
-    // не держим его на экране входа: возвращаем в профиль с понятным сообщением.
     if (auth?.token && (err === "orcid_already_linked" || err === "invalid_state")) {
       setSearchParams({}, { replace: true });
       navigate("/profile?error=link_failed", { replace: true });
@@ -40,7 +54,6 @@ export default function Login() {
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams, auth, navigate]);
-  const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
   const clearError = () => setError(null);
 
@@ -65,87 +78,87 @@ export default function Login() {
   };
 
   return (
-    <main className="main auth-page">
-      <div className="auth-wrapper">
-        <div className="auth-card-modern">
-          <h1>Вход в аккаунт</h1>
-          <p className="auth-subtitle">
-            Введите email и пароль, чтобы управлять профилем и организациями.
-          </p>
+    <AuthSplitLayout>
+      <div className="auth-split__form-inner">
+        <AuthIconHeader 
+          title={LOGIN_BRAND.headline} 
+          subtitle={LOGIN_BRAND.desc} 
+        />
 
-          <form className="auth-form-modern" onSubmit={handleSubmit}>
-            {verifiedMessage && (
-              <div className="auth-alert auth-alert-success" role="status">
-                Email подтверждён. Войдите в аккаунт.
-              </div>
-            )}
-            {error && (
-              <div className="auth-alert auth-alert-error" role="alert">
-                {error}
-              </div>
-            )}
+        <form className="auth-form-modern auth-form-modern--stagger" onSubmit={handleSubmit}>
+          {verifiedMessage && (
+            <AuthAlert type="success" message="Email подтверждён. Войдите в аккаунт." />
+          )}
+          <AuthAlert message={error} />
 
-            <div className="field-group">
-              <label htmlFor="login-mail">Email</label>
-              <input
-                id="login-mail"
-                type="email"
-                value={form.mail}
-                onChange={(e) => handleChange("mail", e.target.value)}
-                placeholder="name@lab.org"
-                required
-                autoComplete="email"
-                className={error && error.includes("email") ? "error" : ""}
-              />
-            </div>
+          <div className="field-group">
+            <label htmlFor="login-mail">Email</label>
+            <input
+              id="login-mail"
+              type="email"
+              value={form.mail}
+              onChange={(e) => handleChange("mail", e.target.value)}
+              placeholder="name@lab.org"
+              required
+              autoComplete="email"
+              className={error && error.includes("email") ? "error" : ""}
+            />
+          </div>
 
-            <div className="field-group">
-              <label htmlFor="login-password">Пароль</label>
+          <div className="field-group">
+            <label htmlFor="login-password">Пароль</label>
+            <div className="field-password-wrap">
               <input
                 id="login-password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={form.password}
                 onChange={(e) => handleChange("password", e.target.value)}
                 placeholder="••••••••"
                 required
                 autoComplete="current-password"
               />
+              <button
+                type="button"
+                className="field-password-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOffIcon /> : <EyeOpenIcon />}
+              </button>
             </div>
-
-            <button
-              className="primary-btn auth-btn-primary"
-              type="submit"
-              disabled={loading}
-            >
-              {loading ? "Вход…" : "Войти"}
-            </button>
-
-            <div className="auth-footer auth-footer--compact">
-              <Link to="/forgot-password">Забыли пароль?</Link>
-            </div>
-
-            <div className="auth-divider">или</div>
-
-            <a
-              href="/api/auth/orcid"
-              className="auth-btn-orcid"
-              aria-label="Войти через ORCID"
-            >
-              <img
-                src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
-                alt=""
-                width="24"
-                height="24"
-              />
-              Войти через ORCID
-            </a>
-          </form>
-
-          <div className="auth-footer">
-            Нет аккаунта? <Link to="/register">Зарегистрироваться</Link>
           </div>
+
+          <AuthButton loading={loading}>
+            Войти
+          </AuthButton>
+
+          <div className="auth-footer auth-footer--compact">
+            <Link to="/forgot-password">Забыли пароль?</Link>
+          </div>
+
+          <div className="auth-divider">или</div>
+
+          <a
+            href="/api/auth/orcid"
+            className="auth-btn-orcid"
+            aria-label="Войти через ORCID"
+          >
+            <img
+              src={ORCID_ICON_URL}
+              alt=""
+              width="24"
+              height="24"
+              aria-hidden
+            />
+            Войти через ORCID
+          </a>
+        </form>
+
+        <div className="auth-footer">
+          Нет аккаунта? <Link to="/register">Зарегистрироваться</Link>
         </div>
       </div>
-    </main>
+    </AuthSplitLayout>
   );
 }
