@@ -57,13 +57,24 @@ export default function MainLayout() {
   const closeSearch = () => setSearchOpen(false);
 
   useEffect(() => {
-    const close = () => setMenuOpen(false);
     if (menuOpen) {
+      const scrollY = window.scrollY;
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.setProperty("--scroll-y", String(scrollY));
+      if (scrollbarWidth > 0) {
+        document.body.style.paddingRight = `${scrollbarWidth}px`;
+      }
       document.body.classList.add("nav-open");
-      window.addEventListener("resize", close);
+      const handleResize = () => {
+        if (window.innerWidth > 768) setMenuOpen(false);
+      };
+      window.addEventListener("resize", handleResize);
       return () => {
         document.body.classList.remove("nav-open");
-        window.removeEventListener("resize", close);
+        document.body.style.removeProperty("--scroll-y");
+        document.body.style.removeProperty("padding-right");
+        window.removeEventListener("resize", handleResize);
+        requestAnimationFrame(() => window.scrollTo(0, scrollY));
       };
     }
   }, [menuOpen]);

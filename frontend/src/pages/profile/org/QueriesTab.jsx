@@ -23,6 +23,7 @@ import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Badge } from "../../../components/ui/Badge";
+import { useEditOverlayScrollLock } from "../../../hooks";
 
 const STATUS_OPTIONS = [
   { value: "active", label: "Активный", hint: "Запрос открыт для откликов" },
@@ -58,6 +59,8 @@ export default function QueriesTab({
   const newQueryRef = useRef(null);
   const listRef = useRef(null);
 
+  useEditOverlayScrollLock(!!editingQueryId);
+
   const handleAddQueryClick = () => {
     setExpandedNewQuery(true);
     requestAnimationFrame(() => {
@@ -87,7 +90,7 @@ export default function QueriesTab({
           <Plus size={18} /> <span>Добавить запрос</span>
         </Button>
       </div>
-      <p className="profile-section-desc" style={{ marginBottom: "1.5rem" }}>
+      <p className="profile-section-desc">
         Создавайте запросы на решение задач, указывайте бюджет, сроки и грант. Привязывайте к лабораториям и сотрудникам.
       </p>
       <div className="profile-list" ref={listRef}>
@@ -109,17 +112,6 @@ export default function QueriesTab({
                     {query.is_published ? "Опубликован" : "Черновик"}
                   </Badge>
                 </div>
-              </div>
-              <div className="query-dashboard-card__actions-top">
-                <Button 
-                  variant="ghost" 
-                  size="small" 
-                  onClick={() => startEditQuery(query)}
-                  className="icon-btn"
-                  title="Редактировать"
-                >
-                  <Edit3 size={16} />
-                </Button>
               </div>
             </div>
 
@@ -222,6 +214,15 @@ export default function QueriesTab({
               <Button 
                 variant="ghost" 
                 size="small" 
+                onClick={() => startEditQuery(query)}
+                className="icon-btn"
+                title="Редактировать"
+              >
+                <Edit3 size={14} />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="small" 
                 onClick={() => toggleQueryPublish(query.id, !query.is_published)}
                 className="status-toggle-btn"
               >
@@ -245,7 +246,6 @@ export default function QueriesTab({
           <div className="query-edit-form">
             <div className="query-edit-form__header">
               <h5>Редактирование: {queryEdit.title || "запроса"}</h5>
-              <Button variant="ghost" size="small" onClick={cancelEditQuery}>×</Button>
             </div>
             <div className="query-edit-form__scroll">
               <div className="profile-form-group">

@@ -17,6 +17,7 @@ import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Badge } from "../../../components/ui/Badge";
+import { useEditOverlayScrollLock } from "../../../hooks";
 
 /**
  * Общий модуль «Оборудование»: создание/редактирование оборудования, привязка к лабораториям.
@@ -51,6 +52,8 @@ export default function EquipmentTab({
   const editFilesInputRef = useRef(null);
   const newEquipmentRef = useRef(null);
   const listRef = useRef(null);
+
+  useEditOverlayScrollLock(!!editingEquipmentId);
 
   useEffect(() => {
     onFileInputRefsReady?.([draftFilesInputRef, editFilesInputRef]);
@@ -98,7 +101,7 @@ export default function EquipmentTab({
           <Plus size={18} /> <span>Добавить оборудование</span>
         </Button>
       </div>
-      <p className="profile-section-desc" style={{ marginBottom: "1.5rem" }}>
+      <p className="profile-section-desc">
         Добавляйте единицы оборудования, указывайте характеристики и привязывайте к лабораториям.
       </p>
       <div className="profile-list" ref={listRef}>
@@ -123,17 +126,6 @@ export default function EquipmentTab({
                     </Badge>
                   )}
                 </div>
-              </div>
-              <div className="equipment-dashboard-card__actions-top">
-                <Button 
-                  variant="ghost" 
-                  size="small" 
-                  onClick={() => startEditEquipment(item)}
-                  className="icon-btn"
-                  title="Редактировать"
-                >
-                  <Edit3 size={16} />
-                </Button>
               </div>
             </div>
 
@@ -197,6 +189,15 @@ export default function EquipmentTab({
               <Button 
                 variant="ghost" 
                 size="small" 
+                onClick={() => startEditEquipment(item)}
+                className="icon-btn"
+                title="Редактировать"
+              >
+                <Edit3 size={14} />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="small" 
                 className="equipment-btn-delete" 
                 onClick={() => deleteEquipment(item.id)}
               >
@@ -212,7 +213,6 @@ export default function EquipmentTab({
           <div className="equipment-edit-form">
             <div className="equipment-edit-form__header">
               <h5>Редактирование: {equipmentEdit.name || "оборудования"}</h5>
-              <Button variant="ghost" size="small" onClick={cancelEditEquipment}>×</Button>
             </div>
             <div className="equipment-edit-form__scroll">
               <div className="profile-form-group">

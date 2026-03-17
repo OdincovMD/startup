@@ -574,14 +574,20 @@ export default function Laboratories() {
                         >
                           <h3 className="org-detail-card__title">{item.name}</h3>
                           {item.characteristics && (
-                            <p className="org-detail-card__text" style={{ fontWeight: 500, color: 'var(--text-primary-alt)' }}>
-                              {item.characteristics}
-                            </p>
+                            <div className="org-detail-card__block">
+                              <span className="org-detail-card__meta-label">Характеристики</span>
+                              <p className="org-detail-card__text" style={{ fontWeight: 500, color: 'var(--text-primary-alt)' }}>
+                                {item.characteristics}
+                              </p>
+                            </div>
                           )}
                           {item.description && (
-                            <p className="org-detail-card__text org-detail-card__text--truncated">
-                              {item.description}
-                            </p>
+                            <div className="org-detail-card__block">
+                              <span className="org-detail-card__meta-label">Описание</span>
+                              <p className="org-detail-card__text org-detail-card__text--truncated">
+                                {item.description}
+                              </p>
+                            </div>
                           )}
                           <span className="org-detail-card__cta">Подробнее →</span>
                         </LabDetailCard>
@@ -600,11 +606,14 @@ export default function Laboratories() {
                       <LabDetailCard key={task.id} variant="task">
                         <h3 className="org-detail-card__title">{task.title}</h3>
                         {(task.task_description || task.solution_description) && (
-                          <p className="org-detail-card__text" title={task.task_description || task.solution_description}>
-                            {(task.task_description || task.solution_description || "").length > 160
-                              ? `${(task.task_description || task.solution_description || "").slice(0, 160)}…`
-                              : (task.task_description || task.solution_description || "")}
-                          </p>
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Описание</span>
+                            <p className="org-detail-card__text" title={task.task_description || task.solution_description}>
+                              {(task.task_description || task.solution_description || "").length > 160
+                                ? `${(task.task_description || task.solution_description || "").slice(0, 160)}…`
+                                : (task.task_description || task.solution_description || "")}
+                            </p>
+                          </div>
                         )}
                         <div className="org-detail-card__meta-grid">
                           {task.solution_deadline && (
@@ -627,13 +636,16 @@ export default function Laboratories() {
                           )}
                         </div>
                         {(task.laboratories || []).length > 0 && (
-                          <div className="org-detail-card__chips">
-                            {(task.laboratories || []).slice(0, 2).map((lab) => (
-                              <span key={lab.id} className="org-detail-chip">{lab.name}</span>
-                            ))}
-                            {(task.laboratories || []).length > 2 && (
-                              <span className="org-detail-chip">+{(task.laboratories || []).length - 2}</span>
-                            )}
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Лаборатории</span>
+                            <div className="org-detail-card__chips">
+                              {(task.laboratories || []).slice(0, 2).map((lab) => (
+                                <span key={lab.id} className="org-detail-chip">{lab.name}</span>
+                              ))}
+                              {(task.laboratories || []).length > 2 && (
+                                <span className="org-detail-chip">+{(task.laboratories || []).length - 2}</span>
+                              )}
+                            </div>
                           </div>
                         )}
                       </LabDetailCard>
@@ -662,16 +674,22 @@ export default function Laboratories() {
                       >
                         <h3 className="org-detail-card__title">{query.title}</h3>
                         {query.status && (
-                          <span className="org-detail-chip org-detail-chip--status">
-                            {query.status === "active" && "Активный"}
-                            {query.status === "paused" && "На паузе"}
-                            {query.status === "closed" && "Закрыт"}
-                          </span>
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Статус</span>
+                            <span className="org-detail-chip org-detail-chip--status">
+                              {query.status === "active" && "Активный"}
+                              {query.status === "paused" && "На паузе"}
+                              {query.status === "closed" && "Закрыт"}
+                            </span>
+                          </div>
                         )}
                         {query.task_description && (
-                          <p className="org-detail-card__text org-detail-card__text--truncated" title={query.task_description}>
-                            {query.task_description}
-                          </p>
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Описание</span>
+                            <p className="org-detail-card__text org-detail-card__text--truncated" title={query.task_description}>
+                              {query.task_description}
+                            </p>
+                          </div>
                         )}
                         <div className="org-detail-card__meta-grid">
                           {query.budget && (
@@ -715,14 +733,20 @@ export default function Laboratories() {
                       <LabDetailCard key={vacancy.id} variant="vacancy">
                         <h3 className="org-detail-card__title">{vacancy.name}</h3>
                         {vacancy.employment_type && (
-                          <span className="org-detail-chip org-detail-chip--status" style={{ marginBottom: '0.5rem' }}>
-                            {vacancy.employment_type}
-                          </span>
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Тип занятости</span>
+                            <span className="org-detail-chip org-detail-chip--status">
+                              {vacancy.employment_type}
+                            </span>
+                          </div>
                         )}
                         {vacancy.description && (
-                          <p className="org-detail-card__text org-detail-card__text--truncated">
-                            {vacancy.description}
-                          </p>
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Описание</span>
+                            <p className="org-detail-card__text org-detail-card__text--truncated">
+                              {vacancy.description}
+                            </p>
+                          </div>
                         )}
                         {vacancy.contact_employee && (
                           <div className="org-detail-card__meta-grid">

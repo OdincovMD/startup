@@ -2103,9 +2103,6 @@ export default function Profile() {
 
   return (
     <main className="main profile-page">
-      <header className="profile-page-header">
-        <h1 className="profile-page-title">Профиль</h1>
-      </header>
       {error && (
         <div ref={errorRef} className="profile-error-banner" role="alert">
           <span>{error}</span>
@@ -2138,10 +2135,10 @@ export default function Profile() {
             </>
           )}
           <div className="profile-actions profile-actions--sidebar">
-            <button type="button" className="ghost-btn" onClick={() => navigate("/")}>
+            <button type="button" className="primary-btn" onClick={() => navigate("/")}>
               На главную
             </button>
-            <button type="button" className="primary-btn" onClick={logout}>
+            <button type="button" className="secondary-btn" onClick={logout}>
               Выйти
             </button>
           </div>
@@ -2395,10 +2392,10 @@ export default function Profile() {
         </div>
       </div>
       <div className="profile-actions profile-actions--mobile">
-        <button type="button" className="ghost-btn" onClick={() => navigate("/")}>
+        <button type="button" className="primary-btn" onClick={() => navigate("/")}>
           На главную
         </button>
-        <button type="button" className="primary-btn" onClick={logout}>
+        <button type="button" className="secondary-btn" onClick={logout}>
           Выйти
         </button>
       </div>

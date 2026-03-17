@@ -10,6 +10,8 @@ import { Drawer, Button, Card, Badge } from "../components/ui";
 import EmployeeModal from "./profile/EmployeeModal";
 import { EmployeeCard } from "../components/EmployeeCard";
 import EmptySearchFallback from "../components/EmptySearchFallback";
+import { Mail, Phone } from "lucide-react";
+import { formatPhoneRU, normalizePhoneRU } from "../utils/validation";
 
 const RESPONSE_STATUS_LABELS = { new: "Новый", accepted: "Принят", rejected: "Отклонен" };
 const VACANCIES_PAGE_SIZE = 20;
@@ -368,10 +370,11 @@ export default function Vacancies() {
               <aside className="detail-page__sidebar">
                 {(details.contact_employee || details.contact_email || details.contact_phone) && (
                   <Card variant="elevated" padding="md" className="vacancy-sidebar-card">
-                    <h2 className="detail-sidebar__label" style={{ marginBottom: '1rem', display: 'block' }}>Контакты</h2>
-                    <div className="vacancy-sidebar-content">
+                    <div className="detail-sidebar">
+                      <h2 className="detail-sidebar__title">Контакты</h2>
                       {details.contact_employee && (
-                        <div style={{ marginBottom: '1rem' }}>
+                        <div className="detail-sidebar__block">
+                          <span className="detail-sidebar__label">Контактное лицо</span>
                           <EmployeeCard
                             variant="list"
                             employee={details.contact_employee}
@@ -379,25 +382,34 @@ export default function Vacancies() {
                               setEmployeePreview(details.contact_employee);
                               setShowEmployeePublications(false);
                             }}
+                            listLabel=""
                           />
                         </div>
                       )}
-                      <div className="detail-sidebar__stats" style={{ marginTop: '1rem', borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
-                        {details.contact_email && (
-                          <div className="detail-sidebar__stat">
-                            <span className="detail-sidebar__label">Email:</span>
-                            <a href={`mailto:${details.contact_email}`} className="detail-sidebar__link">
-                              {details.contact_email}
-                            </a>
-                          </div>
-                        )}
-                        {details.contact_phone && (
-                          <div className="detail-sidebar__stat">
-                            <span className="detail-sidebar__label">Телефон:</span>
-                            <span className="detail-sidebar__text">{details.contact_phone}</span>
-                          </div>
-                        )}
-                      </div>
+                      {details.contact_email && (
+                        <div className="detail-sidebar__block">
+                          <span className="detail-sidebar__label">Email</span>
+                          <a
+                            href={`mailto:${details.contact_email}`}
+                            className="detail-sidebar__contact-link"
+                          >
+                            <Mail size={14} className="detail-sidebar__contact-icon" />
+                            {details.contact_email}
+                          </a>
+                        </div>
+                      )}
+                      {details.contact_phone && (
+                        <div className="detail-sidebar__block">
+                          <span className="detail-sidebar__label">Телефон</span>
+                          <a
+                            href={`tel:+7${normalizePhoneRU(details.contact_phone)}`}
+                            className="detail-sidebar__contact-link"
+                          >
+                            <Phone size={14} className="detail-sidebar__contact-icon" />
+                            {formatPhoneRU(details.contact_phone)}
+                          </a>
+                        </div>
+                      )}
                     </div>
                   </Card>
                 )}

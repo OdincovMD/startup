@@ -1,3 +1,4 @@
+export { useEditOverlayScrollLock } from "./useEditOverlayScrollLock";
 export { useVacancySearch } from "./useVacancySearch";
 export { useVacancyFilters } from "./useVacancyFilters";
 export { useLabSearch } from "./useLabSearch";

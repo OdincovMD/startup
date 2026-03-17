@@ -16,6 +16,7 @@ import { Drawer, Button, Card, Badge } from "../components/ui";
 import { EmployeeCard } from "../components/EmployeeCard";
 import EmployeeModal from "./profile/EmployeeModal";
 import EquipmentModal from "./profile/EquipmentModal";
+import GalleryModal from "./profile/GalleryModal";
 import EmptySearchFallback from "../components/EmptySearchFallback";
 
 const ORGANIZATIONS_PAGE_SIZE = 20;
@@ -483,20 +484,34 @@ export default function Organizations() {
                         >
                           <h3 className="org-detail-card__title">{lab.name}</h3>
                           {lab.head_employee && (
-                            <p className="org-detail-card__meta org-detail-card__meta--head">
-                              Руководитель: {lab.head_employee.full_name}
-                            </p>
+                            <div className="org-detail-card__block">
+                              <span className="org-detail-card__meta-label">Руководитель</span>
+                              <p className="org-detail-card__text">{lab.head_employee.full_name}</p>
+                            </div>
                           )}
-                          {lab.activities && <p className="org-detail-card__text">{lab.activities}</p>}
-                          {lab.description && <p className="org-detail-card__text">{lab.description}</p>}
+                          {lab.activities && (
+                            <div className="org-detail-card__block">
+                              <span className="org-detail-card__meta-label">Направления</span>
+                              <p className="org-detail-card__text">{lab.activities}</p>
+                            </div>
+                          )}
+                          {lab.description && (
+                            <div className="org-detail-card__block">
+                              <span className="org-detail-card__meta-label">Описание</span>
+                              <p className="org-detail-card__text">{lab.description}</p>
+                            </div>
+                          )}
                           {(lab.employees || []).length > 0 && (
-                            <div className="org-detail-card__chips">
-                              {lab.employees.slice(0, 2).map((emp) => (
-                                <span key={emp.id} className="org-detail-chip">{emp.full_name}</span>
-                              ))}
-                              {lab.employees.length > 2 && (
-                                <span className="org-detail-chip">+{lab.employees.length - 2}</span>
-                              )}
+                            <div className="org-detail-card__block">
+                              <span className="org-detail-card__meta-label">Сотрудники</span>
+                              <div className="org-detail-card__chips">
+                                {lab.employees.slice(0, 2).map((emp) => (
+                                  <span key={emp.id} className="org-detail-chip">{emp.full_name}</span>
+                                ))}
+                                {lab.employees.length > 2 && (
+                                  <span className="org-detail-chip">+{lab.employees.length - 2}</span>
+                                )}
+                              </div>
                             </div>
                           )}
                           {lab.public_id && (
@@ -548,14 +563,20 @@ export default function Organizations() {
                         >
                           <h3 className="org-detail-card__title">{item.name}</h3>
                           {item.characteristics && (
-                            <p className="org-detail-card__text" style={{ fontWeight: 500, color: 'var(--text-primary-alt)' }}>
-                              {item.characteristics}
-                            </p>
+                            <div className="org-detail-card__block">
+                              <span className="org-detail-card__meta-label">Характеристики</span>
+                              <p className="org-detail-card__text" style={{ fontWeight: 500, color: 'var(--text-primary-alt)' }}>
+                                {item.characteristics}
+                              </p>
+                            </div>
                           )}
                           {item.description && (
-                            <p className="org-detail-card__text org-detail-card__text--truncated">
-                              {item.description}
-                            </p>
+                            <div className="org-detail-card__block">
+                              <span className="org-detail-card__meta-label">Описание</span>
+                              <p className="org-detail-card__text org-detail-card__text--truncated">
+                                {item.description}
+                              </p>
+                            </div>
                           )}
                           <span className="org-detail-card__cta">Подробнее →</span>
                         </OrganizationDetailCard>
@@ -593,13 +614,16 @@ export default function Organizations() {
                       <OrganizationDetailCard key={task.id} variant="task">
                         <h3 className="org-detail-card__title">{task.title}</h3>
                         {(task.task_description || task.solution_description) && (
-                          <p className="org-detail-card__text" title={task.task_description || task.solution_description}>
-                            {(task.task_description || task.solution_description || "").length > 160
-                              ? `${(task.task_description || task.solution_description || "").slice(0, 160)}…`
-                              : (task.task_description || task.solution_description || "")}
-                          </p>
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Описание</span>
+                            <p className="org-detail-card__text" title={task.task_description || task.solution_description}>
+                              {(task.task_description || task.solution_description || "").length > 160
+                                ? `${(task.task_description || task.solution_description || "").slice(0, 160)}…`
+                                : (task.task_description || task.solution_description || "")}
+                            </p>
+                          </div>
                         )}
-                        
+
                         <div className="org-detail-card__meta-grid">
                           {task.solution_deadline && (
                             <div className="org-detail-card__meta-item">
@@ -622,13 +646,16 @@ export default function Organizations() {
                         </div>
 
                         {(task.laboratories || []).length > 0 && (
-                          <div className="org-detail-card__chips">
-                            {(task.laboratories || []).slice(0, 2).map((lab) => (
-                              <span key={lab.id} className="org-detail-chip">{lab.name}</span>
-                            ))}
-                            {(task.laboratories || []).length > 2 && (
-                              <span className="org-detail-chip">+{(task.laboratories || []).length - 2}</span>
-                            )}
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Лаборатории</span>
+                            <div className="org-detail-card__chips">
+                              {(task.laboratories || []).slice(0, 2).map((lab) => (
+                                <span key={lab.id} className="org-detail-chip">{lab.name}</span>
+                              ))}
+                              {(task.laboratories || []).length > 2 && (
+                                <span className="org-detail-chip">+{(task.laboratories || []).length - 2}</span>
+                              )}
+                            </div>
                           </div>
                         )}
 
@@ -667,16 +694,22 @@ export default function Organizations() {
                       >
                         <h3 className="org-detail-card__title">{query.title}</h3>
                         {query.status && (
-                          <span className="org-detail-chip org-detail-chip--status">
-                            {query.status === "active" && "Активный"}
-                            {query.status === "paused" && "На паузе"}
-                            {query.status === "closed" && "Закрыт"}
-                          </span>
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Статус</span>
+                            <span className="org-detail-chip org-detail-chip--status">
+                              {query.status === "active" && "Активный"}
+                              {query.status === "paused" && "На паузе"}
+                              {query.status === "closed" && "Закрыт"}
+                            </span>
+                          </div>
                         )}
                         {query.task_description && (
-                          <p className="org-detail-card__text org-detail-card__text--truncated" title={query.task_description}>
-                            {query.task_description}
-                          </p>
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Описание</span>
+                            <p className="org-detail-card__text org-detail-card__text--truncated" title={query.task_description}>
+                              {query.task_description}
+                            </p>
+                          </div>
                         )}
                         <div className="org-detail-card__meta-grid">
                           {query.budget && (
@@ -720,14 +753,20 @@ export default function Organizations() {
                       <OrganizationDetailCard key={vacancy.id} variant="vacancy">
                         <h3 className="org-detail-card__title">{vacancy.name}</h3>
                         {vacancy.employment_type && (
-                          <span className="org-detail-chip org-detail-chip--status" style={{ marginBottom: '0.5rem' }}>
-                            {vacancy.employment_type}
-                          </span>
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Тип занятости</span>
+                            <span className="org-detail-chip org-detail-chip--status">
+                              {vacancy.employment_type}
+                            </span>
+                          </div>
                         )}
                         {vacancy.description && (
-                          <p className="org-detail-card__text org-detail-card__text--truncated">
-                            {vacancy.description}
-                          </p>
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Описание</span>
+                            <p className="org-detail-card__text org-detail-card__text--truncated">
+                              {vacancy.description}
+                            </p>
+                          </div>
                         )}
                         <div className="org-detail-card__meta-grid">
                           {vacancy.laboratory && (
@@ -766,41 +805,15 @@ export default function Organizations() {
           </div>
         )}
       </section>
-      {gallery.open && (
-        <div className="gallery-overlay" onClick={closeGallery}>
-          <div className="gallery-modal" onClick={(e) => e.stopPropagation()}>
-            <button className="gallery-close" onClick={closeGallery} aria-label="Закрыть">
-              ×
-            </button>
-            <div className="gallery-body">
-              <button className="gallery-nav" onClick={showPrev} aria-label="Предыдущее">
-                ←
-              </button>
-              <div className="gallery-image-wrap" onWheel={handleGalleryWheel}>
-                <img
-                  className="gallery-image"
-                  src={gallery.images[gallery.index]}
-                  alt="Галерея"
-                  style={{
-                    transform: `scale(${galleryZoom})`,
-                    cursor: galleryZoom > 1 ? "zoom-out" : "zoom-in",
-                  }}
-                  onClick={toggleZoom}
-                />
-              </div>
-              <button className="gallery-nav" onClick={showNext} aria-label="Следующее">
-                →
-              </button>
-            </div>
-            <button className="gallery-zoom" onClick={toggleZoom}>
-              {galleryZoom > 1 ? "Уменьшить" : "Увеличить"}
-            </button>
-            <div className="gallery-counter">
-              {gallery.index + 1} / {gallery.images.length}
-            </div>
-          </div>
-        </div>
-      )}
+      <GalleryModal
+        gallery={gallery}
+        galleryZoom={galleryZoom}
+        closeGallery={closeGallery}
+        showPrev={showPrev}
+        showNext={showNext}
+        handleGalleryWheel={handleGalleryWheel}
+        toggleZoom={toggleZoom}
+      />
       <EmployeeModal
         employeePreview={employeePreview}
         showEmployeePublications={showEmployeePublications}

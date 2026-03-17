@@ -23,6 +23,7 @@ import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Badge } from "../../../components/ui/Badge";
+import { useEditOverlayScrollLock } from "../../../hooks";
 
 function TagInput({ value = [], onChange, placeholder, id }) {
   const [inputValue, setInputValue] = useState("");
@@ -110,6 +111,8 @@ export default function StaffTab({
   const listRef = useRef(null);
   const editFormRef = useRef(null);
 
+  useEditOverlayScrollLock(!!employeeEditId);
+
   useEffect(() => {
     onFileInputRefsReady?.([draftPhotoInputRef, editPhotoInputRef]);
   }, [onFileInputRefsReady]);
@@ -187,7 +190,7 @@ export default function StaffTab({
   return (
     <Card variant="solid" padding="lg" className="profile-section-card">
       <div className="profile-section-header">
-        <h2 className="profile-section-card__title" style={{ margin: 0 }}>Сотрудники</h2>
+        <h2 className="profile-section-card__title">Сотрудники</h2>
         <Button variant="primary" onClick={handleAddEmployeeClick}>
           + Добавить сотрудника
         </Button>
@@ -224,17 +227,6 @@ export default function StaffTab({
                       <span className="employee-dashboard-card__degree">{employee.academic_degree}</span>
                     )}
                   </div>
-                </div>
-                <div className="employee-dashboard-card__actions-top">
-                  <Button 
-                    variant="ghost" 
-                    size="small" 
-                    onClick={() => startEditEmployee(employee)}
-                    className="icon-btn"
-                    title="Редактировать"
-                  >
-                    <Edit3 size={16} />
-                  </Button>
                 </div>
               </div>
 
@@ -309,6 +301,15 @@ export default function StaffTab({
                 <Button 
                   variant="ghost" 
                   size="small" 
+                  onClick={() => startEditEmployee(employee)}
+                  className="icon-btn"
+                  title="Редактировать"
+                >
+                  <Edit3 size={14} />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="small" 
                   className="btn-icon-text"
                   onClick={() => { setEmployeePreview(employee); setShowEmployeePublications(false); }}
                 >
@@ -333,7 +334,6 @@ export default function StaffTab({
           <div className="employee-edit-form">
             <div className="employee-edit-form__header">
               <h5>Редактирование: {employeeEdit.full_name}</h5>
-              <Button variant="ghost" size="small" onClick={cancelEditEmployee}>×</Button>
             </div>
             <div className="employee-edit-form__scroll">
               <div className="profile-form-group">

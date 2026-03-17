@@ -23,6 +23,7 @@ import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Badge } from "../../../components/ui/Badge";
+import { useEditOverlayScrollLock } from "../../../hooks";
 
 /**
  * Вкладка «Вакансии»: список вакансий, форма новой и редактирование.
@@ -56,6 +57,8 @@ export default function VacanciesTab({
   const [expandedNewVacancy, setExpandedNewVacancy] = useState(false);
   const newVacancyRef = useRef(null);
   const listRef = useRef(null);
+
+  useEditOverlayScrollLock(!!editingVacancyId);
 
   const handleAddVacancyClick = () => {
     setExpandedNewVacancy(true);
@@ -251,7 +254,7 @@ export default function VacanciesTab({
           <Plus size={18} /> <span>Добавить вакансию</span>
         </Button>
       </div>
-      <p className="profile-section-desc" style={{ marginBottom: "1.5rem" }}>
+      <p className="profile-section-desc">
         Добавляйте вакансии, привязывайте к запросам и лабораториям. Укажите контактное лицо (сотрудника) или email и телефон для связи.
       </p>
       <div className="profile-list" ref={listRef}>
@@ -273,17 +276,6 @@ export default function VacanciesTab({
                     {vacancy.is_published ? "Опубликовано" : "Черновик"}
                   </Badge>
                 </div>
-              </div>
-              <div className="vacancy-dashboard-card__actions-top">
-                <Button 
-                  variant="ghost" 
-                  size="small" 
-                  onClick={() => startEditVacancy(vacancy)}
-                  className="icon-btn"
-                  title="Редактировать"
-                >
-                  <Edit3 size={16} />
-                </Button>
               </div>
             </div>
 
@@ -348,6 +340,15 @@ export default function VacanciesTab({
               <Button 
                 variant="ghost" 
                 size="small" 
+                onClick={() => startEditVacancy(vacancy)}
+                className="icon-btn"
+                title="Редактировать"
+              >
+                <Edit3 size={14} />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="small" 
                 onClick={() => toggleVacancyPublish(vacancy.id, !vacancy.is_published)}
                 className="status-toggle-btn"
               >
@@ -371,7 +372,6 @@ export default function VacanciesTab({
           <div className="vacancy-edit-form">
             <div className="vacancy-edit-form__header">
               <h5>Редактирование: {vacancyEdit.name || "вакансии"}</h5>
-              <Button variant="ghost" size="small" onClick={cancelEditVacancy}>×</Button>
             </div>
             <div className="vacancy-edit-form__scroll">
               <div className="profile-form-group">

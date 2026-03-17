@@ -14,7 +14,9 @@ export function EmployeeCard({
   variant = "grid", 
   onClick, 
   actions,
-  className = "" 
+  className = "",
+  /** When list variant: override internal label. Pass empty string to hide. */
+  listLabel,
 }) {
   if (!employee) return null;
 
@@ -82,7 +84,9 @@ export function EmployeeCard({
       </div>
 
       <div className="employee-card__content">
-        {isList && !actions && <span className="employee-card__label">Контактное лицо</span>}
+        {isList && !actions && listLabel !== "" && (
+          <span className="employee-card__label">{listLabel ?? "Контактное лицо"}</span>
+        )}
         <h3 className="employee-card__name">{employee.full_name}</h3>
         {meta && <p className="employee-card__meta">{meta}</p>}
         {isList && !actions && (

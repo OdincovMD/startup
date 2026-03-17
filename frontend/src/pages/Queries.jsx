@@ -216,10 +216,13 @@ export default function Queries() {
                       </h3>
                       {(details.linked_task_solution.task_description ||
                         details.linked_task_solution.solution_description) && (
-                        <p className="org-detail-card__text">
-                          {details.linked_task_solution.task_description ||
-                            details.linked_task_solution.solution_description}
-                        </p>
+                        <div className="org-detail-card__block">
+                          <span className="org-detail-card__meta-label">Описание</span>
+                          <p className="org-detail-card__text">
+                            {details.linked_task_solution.task_description ||
+                              details.linked_task_solution.solution_description}
+                          </p>
+                        </div>
                       )}
                       <div className="org-detail-card__meta-grid">
                         {details.linked_task_solution.solution_deadline && (
@@ -256,7 +259,10 @@ export default function Queries() {
                       <OrganizationDetailCard key={lab.id} clickable onClick={() => openLab(lab.public_id)}>
                         <h3 className="org-detail-card__title">{lab.name}</h3>
                         {lab.activities && (
-                          <p className="org-detail-card__text org-detail-card__text--truncated">{lab.activities}</p>
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Направления</span>
+                            <p className="org-detail-card__text org-detail-card__text--truncated">{lab.activities}</p>
+                          </div>
                         )}
                         <span className="org-detail-card__cta">В лабораторию →</span>
                       </OrganizationDetailCard>
@@ -295,12 +301,18 @@ export default function Queries() {
                       <OrganizationDetailCard key={vacancy.id} variant="vacancy">
                         <h3 className="org-detail-card__title">{vacancy.name}</h3>
                         {vacancy.employment_type && (
-                          <span className="org-detail-chip org-detail-chip--status" style={{ marginBottom: '0.5rem' }}>
-                            {vacancy.employment_type}
-                          </span>
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Тип занятости</span>
+                            <span className="org-detail-chip org-detail-chip--status">
+                              {vacancy.employment_type}
+                            </span>
+                          </div>
                         )}
                         {vacancy.description && (
-                          <p className="org-detail-card__text org-detail-card__text--truncated">{vacancy.description}</p>
+                          <div className="org-detail-card__block">
+                            <span className="org-detail-card__meta-label">Описание</span>
+                            <p className="org-detail-card__text org-detail-card__text--truncated">{vacancy.description}</p>
+                          </div>
                         )}
                         <div className="org-detail-card__meta-grid">
                           {vacancy.laboratory && (

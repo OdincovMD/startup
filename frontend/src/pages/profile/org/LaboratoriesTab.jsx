@@ -21,6 +21,7 @@ import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Badge } from "../../../components/ui/Badge";
+import { useEditOverlayScrollLock } from "../../../hooks";
 
 /**
  * Общий модуль «Лаборатории»: создание/редактирование лабораторий, привязка оборудования, задач, сотрудников.
@@ -63,6 +64,8 @@ export default function LaboratoriesTab({
   const listRef = useRef(null);
   const [expandedNewLab, setExpandedNewLab] = useState(false);
 
+  useEditOverlayScrollLock(!!editingLabId);
+
   useEffect(() => {
     onFileInputRefsReady?.([draftFilesInputRef, editFilesInputRef]);
   }, [onFileInputRefsReady]);
@@ -96,7 +99,7 @@ export default function LaboratoriesTab({
           <Plus size={18} /> <span>Добавить лабораторию</span>
         </Button>
       </div>
-      <p className="profile-section-desc" style={{ marginBottom: "1.5rem" }}>
+      <p className="profile-section-desc">
         Создавайте лаборатории, назначайте руководителей и участников, привязывайте оборудование и задачи.
       </p>
       <div className="profile-list" ref={listRef}>
@@ -118,17 +121,6 @@ export default function LaboratoriesTab({
                     {lab.is_published ? "Опубликовано" : "Черновик"}
                   </Badge>
                 </div>
-              </div>
-              <div className="lab-dashboard-card__actions-top">
-                <Button 
-                  variant="ghost" 
-                  size="small" 
-                  onClick={() => startEditLab(lab)}
-                  className="icon-btn"
-                  title="Редактировать"
-                >
-                  <Edit3 size={16} />
-                </Button>
               </div>
             </div>
 
@@ -219,6 +211,15 @@ export default function LaboratoriesTab({
               <Button 
                 variant="ghost" 
                 size="small" 
+                onClick={() => startEditLab(lab)}
+                className="icon-btn"
+                title="Редактировать"
+              >
+                <Edit3 size={14} />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="small" 
                 onClick={() => toggleLabPublish(lab.id, !lab.is_published)}
                 className="status-toggle-btn"
               >
@@ -242,7 +243,6 @@ export default function LaboratoriesTab({
           <div className="lab-edit-form">
             <div className="lab-edit-form__header">
               <h5>Редактирование: {labEdit.name || "лаборатории"}</h5>
-              <Button variant="ghost" size="small" onClick={cancelEditLab}>×</Button>
             </div>
             <div className="lab-edit-form__scroll">
               <div className="profile-form-group">

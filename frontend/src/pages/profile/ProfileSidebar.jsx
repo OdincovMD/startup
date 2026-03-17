@@ -3,6 +3,7 @@
  * Блок «Профиль организации» можно скрыть; выбор сохраняется в localStorage.
  */
 import React, { useState, useEffect } from "react";
+import { ChevronDown } from "lucide-react";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 
@@ -188,7 +189,10 @@ export default function ProfileSidebar({
                   disabled={locked}
                   title={expanded ? "Свернуть" : "Развернуть"}
                 >
-                  {item.label}
+                  <span className="profile-sidebar__parent-label">{item.label}</span>
+                  <span className={`profile-sidebar__expand-icon ${expanded ? "profile-sidebar__expand-icon--open" : ""}`} aria-hidden>
+                    <ChevronDown size={16} />
+                  </span>
                 </Button>
                 </span>
               </div>

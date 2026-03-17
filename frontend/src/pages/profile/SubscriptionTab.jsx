@@ -19,7 +19,7 @@ const TIER_CARDS = [
       "Ограниченный срок",
       "По запросу администратору",
     ],
-    cta: "Запросить trial",
+    cta: "Подключить",
     accent: false,
     isTrial: true,
   },

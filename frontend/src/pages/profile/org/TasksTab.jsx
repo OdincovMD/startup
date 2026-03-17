@@ -20,6 +20,7 @@ import { normalizeWebsiteInput } from "../../../utils/validation";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
+import { useEditOverlayScrollLock } from "../../../hooks";
 
 /**
  * Модуль «Решённые задачи»: список, форма новой задачи, редактирование.
@@ -46,6 +47,8 @@ export default function TasksTab({
   const editLinkInputRef = useRef(null);
   const newTaskRef = useRef(null);
   const listRef = useRef(null);
+
+  useEditOverlayScrollLock(!!editingTaskId);
 
   const addArticleLink = (isEdit) => {
     if (isEdit && taskEdit) {
@@ -137,7 +140,7 @@ export default function TasksTab({
           <Plus size={18} /> <span>Добавить задачу</span>
         </Button>
       </div>
-      <p className="profile-section-desc" style={{ marginBottom: "1.5rem" }}>
+      <p className="profile-section-desc">
         Добавляйте решённые задачи, указывайте сроки и грант, привязывайте к лабораториям.
       </p>
       <div className="profile-list" ref={listRef}>
@@ -154,17 +157,6 @@ export default function TasksTab({
                 <div>
                   <h4 className="task-dashboard-card__name">{task.title}</h4>
                 </div>
-              </div>
-              <div className="task-dashboard-card__actions-top">
-                <Button 
-                  variant="ghost" 
-                  size="small" 
-                  onClick={() => startEditTask(task)}
-                  className="icon-btn"
-                  title="Редактировать"
-                >
-                  <Edit3 size={16} />
-                </Button>
               </div>
             </div>
 
@@ -264,6 +256,15 @@ export default function TasksTab({
             </div>
 
             <div className="task-dashboard-card__footer">
+              <Button 
+                variant="ghost" 
+                size="small" 
+                onClick={() => startEditTask(task)}
+                className="icon-btn"
+                title="Редактировать"
+              >
+                <Edit3 size={14} />
+              </Button>
               <Button variant="ghost" size="small" className="lab-btn-delete" onClick={() => deleteTask(task.id)}>
                 <Trash2 size={14} /> 
               </Button>
@@ -277,7 +278,6 @@ export default function TasksTab({
           <div className="task-edit-form">
             <div className="task-edit-form__header">
               <h5>Редактирование: {taskEdit.title || "задачи"}</h5>
-              <Button variant="ghost" size="small" onClick={cancelEditTask}>×</Button>
             </div>
             <div className="task-edit-form__scroll">
               <div className="profile-form-group">

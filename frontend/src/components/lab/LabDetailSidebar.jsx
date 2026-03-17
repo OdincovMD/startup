@@ -1,5 +1,6 @@
 import React from "react";
 import { Card, Button } from "../ui";
+import { EmployeeCard } from "../EmployeeCard";
 
 export default function LabDetailSidebar({
   details,
@@ -15,29 +16,12 @@ export default function LabDetailSidebar({
         {head && (
           <div className="detail-sidebar__block">
             <span className="detail-sidebar__label">Руководитель</span>
-            <div
-              className="detail-sidebar__head"
-              role={onHeadClick ? "button" : undefined}
-              tabIndex={onHeadClick ? 0 : undefined}
-              onClick={(e) => {
-                if (onHeadClick) {
-                  e.preventDefault();
-                  onHeadClick(head);
-                }
-              }}
-              onKeyDown={(e) => {
-                if (onHeadClick && (e.key === "Enter" || e.key === " ")) {
-                  e.preventDefault();
-                  onHeadClick(head);
-                }
-              }}
-            >
-              <span className="detail-sidebar__head-name">{head.full_name}</span>
-              {head.academic_degree && (
-                <span className="detail-sidebar__head-degree">{head.academic_degree}</span>
-              )}
-              {onHeadClick && <span className="detail-sidebar__cta">Профиль →</span>}
-            </div>
+            <EmployeeCard
+              variant="list"
+              employee={head}
+              onClick={onHeadClick ? () => onHeadClick(head) : undefined}
+              listLabel=""
+            />
           </div>
         )}
 
@@ -68,7 +52,7 @@ export default function LabDetailSidebar({
 
         <div className="detail-sidebar__actions">
           <Button
-            variant="secondary"
+            variant="primary"
             size="default"
             onClick={() => {}}
           >
