@@ -20,6 +20,31 @@ from app.services.elasticsearch import search_laboratories, suggest_laboratories
 router = APIRouter(prefix="/laboratories", tags=["laboratories"])
 
 
+def _resolve_lab_contact_email(lab) -> Optional[str]:
+    """Email для кнопки «Связаться»: руководитель (contacts/user), затем создатель организации, затем создатель лаборатории."""
+    he = getattr(lab, "head_employee", None)
+    if he:
+        contacts = getattr(he, "contacts", None) or {}
+        if isinstance(contacts, dict):
+            email = contacts.get("email") or contacts.get("mail")
+            if email and isinstance(email, str) and email.strip():
+                return email.strip()
+        if getattr(he, "user", None):
+            mail = getattr(he.user, "mail", None)
+            if mail and isinstance(mail, str) and mail.strip():
+                return mail.strip()
+    org = getattr(lab, "organization", None)
+    if org and getattr(org, "creator", None):
+        mail = getattr(org.creator, "mail", None)
+        if mail and isinstance(mail, str) and mail.strip():
+            return mail.strip()
+    if getattr(lab, "creator", None):
+        mail = getattr(lab.creator, "mail", None)
+        if mail and isinstance(mail, str) and mail.strip():
+            return mail.strip()
+    return None
+
+
 def _prepare_labs_for_response(labs):
     """Применить фильтры организации и исследователей к списку лабораторий."""
     for lab in labs:
@@ -46,60 +71,39 @@ async def list_laboratories(
 ):
     """
     Список опубликованных лабораторий.
-    При q или любом фильтре — поиск через Elasticsearch.
-    Иначе — полный список из БД.
+    Всегда через Elasticsearch для корректной сортировки: paid_active, rank_score, created_at.
     """
-    use_search = bool((q or "").strip()) or organization_id is not None or without_org or (
-        min_employees is not None and min_employees > 0
-    )
-    if use_search:
-        try:
-            result = await search_laboratories(
-                q=(q or "").strip(),
-                page=page,
-                size=size,
-                organization_id=organization_id,
-                without_org=without_org,
-                min_employees=min_employees,
-                sort_by=sort_by,
-            )
-            items = result.get("items", [])
-            lab_ids = [it["id"] for it in items if it.get("id") is not None]
-            if lab_ids:
-                labs = await Orm.get_laboratories_by_ids(lab_ids)
-                labs = _prepare_labs_for_response(labs)
-                return LaboratoryListResponse(
-                    items=labs,
-                    total=result.get("total", 0),
-                    page=result.get("page", page),
-                    size=result.get("size", size),
-                )
+    try:
+        result = await search_laboratories(
+            q=(q or "").strip(),
+            page=page,
+            size=size,
+            organization_id=organization_id,
+            without_org=without_org,
+            min_employees=min_employees,
+            sort_by=sort_by,
+        )
+        items = result.get("items", [])
+        lab_ids = [it["id"] for it in items if it.get("id") is not None]
+        if lab_ids:
+            labs = await Orm.get_laboratories_by_ids(lab_ids)
+            labs = _prepare_labs_for_response(labs)
             return LaboratoryListResponse(
-                items=[],
+                items=labs,
                 total=result.get("total", 0),
                 page=result.get("page", page),
                 size=result.get("size", size),
             )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"error": "LABORATORY_SEARCH_FAILURE", "message": str(e)},
-            )
-    try:
-        labs = await Orm.list_published_laboratories()
-        labs = _prepare_labs_for_response(labs)
-        total = len(labs)
-        # Без фильтров возвращаем все лаборатории (пагинация не применяется)
         return LaboratoryListResponse(
-            items=labs,
-            total=total,
-            page=1,
-            size=total,
+            items=[],
+            total=result.get("total", 0),
+            page=result.get("page", page),
+            size=result.get("size", size),
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "LABORATORY_LIST_FAILURE", "message": str(e)},
+            detail={"error": "LABORATORY_SEARCH_FAILURE", "message": str(e)},
         )
 
 
@@ -165,6 +169,7 @@ async def get_laboratory_details(public_id: str):
         }
 
     task_solutions = lab.task_solutions or []
+    contact_email = _resolve_lab_contact_email(lab)
 
     return LaboratoryDetails(
         id=lab.id,
@@ -183,4 +188,5 @@ async def get_laboratory_details(public_id: str):
         task_solutions=task_solutions,
         queries=org_queries,
         vacancies=vacancies,
+        contact_email=contact_email,
     )

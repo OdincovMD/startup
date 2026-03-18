@@ -4,12 +4,13 @@ import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../ToastContext";
 import ProfileSummary from "./profile/ProfileSummary";
+import SummaryTabContent from "./profile/SummaryTabContent";
+import SubscriptionTab from "./profile/SubscriptionTab";
 import StudentProfileSection from "./profile/StudentProfileSection";
 import ResearcherProfileSection from "./profile/ResearcherProfileSection";
 import OrganizationProfileSection from "./profile/OrganizationProfileSection";
 import MyJoinRequestsSection from "./profile/MyJoinRequestsSection";
 import MyVacancyResponsesSection from "./profile/MyVacancyResponsesSection";
-import JoinRequestsIncomingTab from "./profile/JoinRequestsIncomingTab";
 import GalleryModal from "./profile/GalleryModal";
 import EmployeeModal from "./profile/EmployeeModal";
 import PersonalProfileSection from "./profile/PersonalProfileSection";
@@ -24,7 +25,7 @@ const EMPTY_ORG_PROFILE = {
 };
 
 export default function Profile() {
-  const { auth, logout } = useAuth();
+  const { auth, logout, refreshUser } = useAuth();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [profile, setProfile] = useState(null);
@@ -162,8 +163,8 @@ export default function Profile() {
   }, [profile, roles]);
 
   const ALLOWED_SECTIONS_BY_ROLE = {
-    lab_admin: ["summary", "personal", "organization"],
-    lab_representative: ["summary", "personal", "organization", "my-requests"],
+    lab_admin: ["summary", "personal", "subscription", "organization"],
+    lab_representative: ["summary", "personal", "subscription", "organization"],
     student: ["summary", "personal", "student", "my-vacancy-responses"],
     researcher: ["summary", "personal", "researcher", "my-requests", "my-vacancy-responses"],
   };
@@ -303,9 +304,14 @@ export default function Profile() {
       setOrgTab("vacancy-responses");
       setSearchParams({ section: "organization" }, { replace: true });
     } else if (tab === "my-requests") {
-      setSearchParams({ section: "my-requests" }, { replace: true });
+      if (roleKey === "lab_representative") {
+        setOrgTab("my-requests");
+        setSearchParams({ section: "organization" }, { replace: true });
+      } else {
+        setSearchParams({ section: "my-requests" }, { replace: true });
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, roleKey]);
 
   useEffect(() => {
     const handler = () => setRefreshKey((k) => k + 1);
@@ -438,6 +444,7 @@ export default function Profile() {
         body: JSON.stringify({ role_id: Number(selectedRoleId) }),
       });
       setProfile(updated);
+      await refreshUser();
       const updatedRole = roles.find((item) => Number(item.id) === Number(updated.role_id));
       const isOrg = updatedRole?.name === "lab_admin" || updatedRole?.name === "lab_representative";
       const isResearcher = updatedRole?.name === "researcher";
@@ -1864,11 +1871,11 @@ export default function Profile() {
     }
   };
 
-  const saveStudent = async () => {
+  const saveStudent = async (patch = {}) => {
     setSaving(true);
     setError(null);
     try {
-      const s = studentProfile || {};
+      const s = { ...(studentProfile || {}), ...patch };
       const payload = {
         full_name: profile?.full_name || s.full_name?.trim() || "Студент",
         university: s.university?.trim() || "",
@@ -1883,6 +1890,7 @@ export default function Profile() {
         education: s.education || [],
         research_interests: s.research_interests || [],
         contacts: s.contacts || {},
+        is_published: s.is_published ?? false,
       };
       const data = await apiRequest("/profile/student", {
         method: "PUT",
@@ -1968,11 +1976,11 @@ export default function Profile() {
     }));
   };
 
-  const saveResearcher = async () => {
+  const saveResearcher = async (patch = {}) => {
     setSaving(true);
     setError(null);
     try {
-      const r = researcherProfile || {};
+      const r = { ...(researcherProfile || {}), ...patch };
       const payload = {
         full_name: r.full_name?.trim() || profile?.full_name || "Исследователь",
         positions: r.positions || [],
@@ -1994,6 +2002,7 @@ export default function Profile() {
         job_search_notes: r.job_search_notes?.trim() || null,
         resume_url: r.resume_url || null,
         document_urls: r.document_urls || [],
+        is_published: r.is_published ?? false,
       };
       const data = await apiRequest("/profile/researcher", {
         method: "PUT",
@@ -2007,6 +2016,18 @@ export default function Profile() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const toggleStudentPublish = async () => {
+    const next = !(studentProfile?.is_published ?? false);
+    setStudentProfile((prev) => ({ ...(prev || {}), is_published: next }));
+    await saveStudent({ is_published: next });
+  };
+
+  const toggleResearcherPublish = async () => {
+    const next = !(researcherProfile?.is_published ?? false);
+    setResearcherProfile((prev) => ({ ...(prev || {}), is_published: next }));
+    await saveResearcher({ is_published: next });
   };
 
   const uploadResearcherPhoto = async (file) => {
@@ -2081,48 +2102,56 @@ export default function Profile() {
 
   return (
     <main className="main profile-page">
-      <header className="profile-page-header">
-        <h1 className="profile-page-title">Профиль</h1>
-      </header>
       {error && (
         <div ref={errorRef} className="profile-error-banner" role="alert">
           <span>{error}</span>
           <button type="button" onClick={clearError} aria-label="Закрыть">×</button>
         </div>
       )}
-      <div className="profile-layout">
-        <aside className="profile-sidebar-wrap">
+      <div className="profile-page__layout">
+        <aside className="profile-page__sidebar">
           {profile && roleKey && (
-            <ProfileSidebar
-              roleKey={roleKey}
-              currentSection={profileSection}
-              onSectionChange={setProfileSection}
-              orgTab={orgTab}
-              onOrgTabChange={(tabId) => {
-                setProfileSection("organization");
-                setOrgTab(tabId);
-              }}
-              showProfileTab={roleKey === "lab_admin"}
-              emailVerified={emailVerified}
-            />
+            <>
+              <ProfileSummary
+                profile={profile}
+                roleName={roleName}
+                onAvatarUpload={uploadUserAvatar}
+                uploading={uploading}
+                loading={loading}
+              />
+              {roleKey !== "platform_admin" && (
+                <ProfileSidebar
+                  roleKey={roleKey}
+                  currentSection={profileSection}
+                  onSectionChange={setProfileSection}
+                  orgTab={orgTab}
+                  onOrgTabChange={(tabId) => {
+                    setProfileSection("organization");
+                    setOrgTab(tabId);
+                  }}
+                  showProfileTab={roleKey === "lab_admin"}
+                  emailVerified={emailVerified}
+                />
+              )}
+            </>
           )}
           <div className="profile-actions profile-actions--sidebar">
-            <button type="button" className="ghost-btn" onClick={() => navigate("/")}>
+            <button type="button" className="primary-btn" onClick={() => navigate("/")}>
               На главную
             </button>
-            <button type="button" className="primary-btn" onClick={logout}>
+            <button type="button" className="secondary-btn" onClick={logout}>
               Выйти
             </button>
           </div>
         </aside>
-        <div className="profile-content" ref={profileContentRef}>
+        <div className="profile-page__content profile-content" ref={profileContentRef}>
           <div className="profile-content-inner">
             {loading && !profile && <p className="muted">Загрузка…</p>}
             {!loading && profile && !roleKey && profileSection !== "summary" && (
               <p className="muted">Выберите роль в разделе «Обзор».</p>
             )}
             {profileSection === "summary" && (
-              <ProfileSummary
+              <SummaryTabContent
                 loading={loading}
                 error={error}
                 profile={profile}
@@ -2133,6 +2162,7 @@ export default function Profile() {
                 onRoleSave={saveRole}
                 roleSaving={roleSaving}
                 roleLabelByName={roleLabelByName}
+                isPlatformAdmin={roleKey === "platform_admin"}
                 orcidError={orcidError}
                 orcidLinked={orcidLinked}
                 onOrcidLinked={() => apiRequest("/users/me").then(setProfile)}
@@ -2149,8 +2179,15 @@ export default function Profile() {
                     }
                   }
                 }}
-                onAvatarUpload={uploadUserAvatar}
-                uploading={uploading}
+              />
+            )}
+            {profileSection === "subscription" && profile && isOrgRole && (
+              <SubscriptionTab
+                onError={setError}
+                orgProfile={orgProfile}
+                orgLabs={orgLabs}
+                orgVacancies={orgVacancies}
+                orgQueries={orgQueries}
               />
             )}
             {profileSection === "personal" && profile && (
@@ -2169,6 +2206,7 @@ export default function Profile() {
                 hideTitle
                 orgTab={orgTab}
                 setOrgTab={setOrgTab}
+                onNavigateToSubscription={() => setProfileSection("subscription")}
                 showProfileTab={roleKey === "lab_admin"}
                 roleKey={roleKey}
                 onError={setError}
@@ -2310,24 +2348,25 @@ export default function Profile() {
                 title="Профиль студента"
                 hideTitle
                 studentProfile={studentProfile}
-              handleStudentChange={handleStudentChange}
-              saveStudent={saveStudent}
-              uploadStudentPhoto={uploadStudentPhoto}
-              uploadStudentResume={uploadStudentResume}
-              uploadStudentDocument={uploadStudentDocument}
-              removeStudentDocument={removeStudentDocument}
-              saving={saving}
-              uploading={uploading}
-              onFileInputRefsReady={(refs) => {
-                studentFileInputRefs.current = refs || [];
-              }}
-            />
+                handleStudentChange={handleStudentChange}
+                saveStudent={saveStudent}
+                togglePublish={toggleStudentPublish}
+                uploadStudentPhoto={uploadStudentPhoto}
+                uploadStudentResume={uploadStudentResume}
+                uploadStudentDocument={uploadStudentDocument}
+                removeStudentDocument={removeStudentDocument}
+                saving={saving}
+                uploading={uploading}
+                onFileInputRefsReady={(refs) => {
+                  studentFileInputRefs.current = refs || [];
+                }}
+              />
             )}
-            {profileSection === "my-requests" && profile && (roleKey === "researcher" || roleKey === "lab_representative") && (
+            {profileSection === "my-requests" && profile && roleKey === "researcher" && (
               <MyJoinRequestsSection
                 roleKey={roleKey}
                 onError={setError}
-                creatorLabs={orgLabs}
+                creatorLabs={[]}
               />
             )}
             {profileSection === "my-vacancy-responses" && profile && (roleKey === "student" || roleKey === "researcher") && (
@@ -2335,29 +2374,30 @@ export default function Profile() {
             )}
             {profileSection === "researcher" && profile && roleKey === "researcher" && (
               <ResearcherProfileSection
-              hideTitle
-              researcherProfile={researcherProfile}
-              handleResearcherChange={handleResearcherChange}
-              saveResearcher={saveResearcher}
-              uploadResearcherPhoto={uploadResearcherPhoto}
-              uploadResearcherResume={uploadResearcherResume}
-              uploadResearcherDocument={uploadResearcherDocument}
-              removeResearcherDocument={removeResearcherDocument}
-              saving={saving}
-              uploading={uploading}
-              onFileInputRefsReady={(refs) => {
-                researcherFileInputRefs.current = refs || [];
-              }}
-            />
+                hideTitle
+                researcherProfile={researcherProfile}
+                handleResearcherChange={handleResearcherChange}
+                saveResearcher={saveResearcher}
+                togglePublish={toggleResearcherPublish}
+                uploadResearcherPhoto={uploadResearcherPhoto}
+                uploadResearcherResume={uploadResearcherResume}
+                uploadResearcherDocument={uploadResearcherDocument}
+                removeResearcherDocument={removeResearcherDocument}
+                saving={saving}
+                uploading={uploading}
+                onFileInputRefsReady={(refs) => {
+                  researcherFileInputRefs.current = refs || [];
+                }}
+              />
             )}
           </div>
         </div>
       </div>
       <div className="profile-actions profile-actions--mobile">
-        <button type="button" className="ghost-btn" onClick={() => navigate("/")}>
+        <button type="button" className="primary-btn" onClick={() => navigate("/")}>
           На главную
         </button>
-        <button type="button" className="primary-btn" onClick={logout}>
+        <button type="button" className="secondary-btn" onClick={logout}>
           Выйти
         </button>
       </div>

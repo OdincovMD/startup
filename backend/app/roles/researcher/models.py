@@ -2,7 +2,7 @@
 SQLAlchemy ORM-модели для роли исследователя.
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, JSON, Index, func
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Text, JSON, Index, func
 from sqlalchemy.orm import relationship
 
 from app.database import BaseModel
@@ -37,6 +37,7 @@ class Researcher(BaseModel):
     job_search_notes = Column(Text, nullable=True)
     resume_url = Column(String(500), nullable=True)
     document_urls = Column(JSON, nullable=True)
+    is_published = Column(Boolean, nullable=False, server_default="false")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="researcher_profile")

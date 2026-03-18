@@ -46,6 +46,7 @@ services:
     env_file:
       - .env
     environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASS}@postgres:5432/${DB_NAME}
       - ELASTICSEARCH_URL=${ELASTICSEARCH_URL}
       - LOG_FILE_PATH=/app/logs/app.log
     expose:
@@ -102,14 +103,13 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - cluster.routing.allocation.disk.watermark.low=95%
-      - cluster.routing.allocation.disk.watermark.high=97%
-      - cluster.routing.allocation.disk.watermark.flood_stage=99%
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
     ports:
       - "${ELASTICSEARCH_PORT_HOST}:${ELASTICSEARCH_PORT}"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
+      # Пороги по диску (high=99%) заданы в конфиге, чтобы при ~97% занятости кластер не уходил в RED
+      - ./elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://localhost:${ELASTICSEARCH_PORT}/_cluster/health | grep -q 'green\\|yellow'"]
       interval: 10s

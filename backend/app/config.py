@@ -61,21 +61,24 @@ class Settings(BaseSettings):
     MAIL_FROM: str = ""
     MAIL_FROM_NAME: str = "Синтезум"
 
-    # Шаблон URL профиля кандидата для писем об отклике. {user_id} — плейсхолдер.
-    # Пример: https://pi-hardbox.ru/profile/{user_id}
-    # Пусто — ссылка в письме не добавляется (до внедрения платной подписки).
-    PROFILE_PUBLIC_URL_TEMPLATE: Optional[str] = None
-
     ELASTICSEARCH_URL: str = "http://localhost:9200"
     ELASTICSEARCH_REQUEST_TIMEOUT: int = 60  # индекс может инициализироваться до 1 мин
+    # Эталонный ES _score для нормализации релевантности до 0..35 при текстовом поиске вакансий/запросов
+    ES_RELEVANCE_REF_SCORE: float = 10.0
     VACANCIES_INDEX: str = "vacancies"
     QUERIES_INDEX: str = "queries"
     LABORATORIES_INDEX: str = "laboratories"
     ORGANIZATIONS_INDEX: str = "organizations"
+    APPLICANTS_INDEX: str = "applicants"
 
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "plain"  # plain | json
     LOG_FILE_PATH: Optional[str] = None  # если задан — пишем в файл (для монтирования на хост)
+
+    # Лимиты тарифа Basic (защита от злоупотреблений)
+    BASIC_MAX_STANDALONE_LABS: int = 3
+    BASIC_MAX_VACANCIES: int = 15
+    BASIC_MAX_QUERIES: int = 15
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -84,20 +87,18 @@ class Settings(BaseSettings):
             return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
         origins = [self.FRONTEND_URL.rstrip("/")]
         if self.ENV == "development":
-            origins.extend(["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"])
+            origins.extend(["http://localhost:5173", "http://127.0.0.1:5173"])
         return origins
 
     @property
     def DATABASE_URL_async(self) -> str:
         """
         Строка подключения для asyncpg (SQLAlchemy async).
-        DATABASE_URL с postgresql:// или postgresql+psycopg2:// преобразуется в postgresql+asyncpg://.
+        DATABASE_URL с postgresql:// преобразуется в postgresql+asyncpg://.
         """
         if self.DATABASE_URL:
             url = self.DATABASE_URL
-            if url.startswith("postgresql+psycopg2://"):
-                return url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
-            if url.startswith("postgresql://"):
+            if url.startswith("postgresql://") and "asyncpg" not in url:
                 return url.replace("postgresql://", "postgresql+asyncpg://", 1)
             return url
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"

@@ -36,23 +36,6 @@ def _public_base_url() -> str:
     return base
 
 
-def normalize_storage_url(url: str | None) -> str | None:
-    """Заменяет localhost-URL хранилища на публичный (для доступа через туннель)."""
-    if not url:
-        return url
-    prefix = settings.S3_LOCALHOST_STORAGE_PREFIX
-    if url.startswith(prefix):
-        return url.replace(prefix, _public_base_url(), 1)
-    return url
-
-
-def normalize_storage_urls_in_text(text: str | None) -> str | None:
-    """Заменяет все localhost-URL хранилища в строке на публичные."""
-    if not text:
-        return text
-    return text.replace(settings.S3_LOCALHOST_STORAGE_PREFIX, _public_base_url())
-
-
 def _sanitize_filename(filename: str) -> str:
     """Оставляем оригинальное имя файла, убираем опасные символы."""
     name = os.path.basename(filename or "").strip()

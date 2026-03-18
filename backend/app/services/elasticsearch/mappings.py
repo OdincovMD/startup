@@ -22,6 +22,12 @@ VACANCIES_INDEX_MAPPING = {
             "organization_avatar_url": {"type": "keyword", "index": False},
             "is_published": {"type": "boolean"},
             "created_at": {"type": "date"},
+            "paid_active": {"type": "boolean"},
+            "rank_score": {"type": "float"},
+            "quality_score": {"type": "float"},
+            "freshness_score": {"type": "float"},
+            "performance_score": {"type": "float"},
+            "creator_user_id": {"type": "integer"},
             "name_suggest": {
                 "type": "completion",
                 "analyzer": "simple",
@@ -56,6 +62,15 @@ LABORATORIES_INDEX_MAPPING = {
             "has_organization": {"type": "boolean"},
             "is_published": {"type": "boolean"},
             "created_at": {"type": "date"},
+            "paid_active": {"type": "boolean"},
+            "paid_via_org": {"type": "boolean"},
+            "org_creator_user_id": {"type": "integer"},
+            "rank_score": {"type": "float"},
+            "quality_score": {"type": "float"},
+            "team_score": {"type": "float"},
+            "freshness_score": {"type": "float"},
+            "performance_score": {"type": "float"},
+            "creator_user_id": {"type": "integer"},
             "name_suggest": {
                 "type": "completion",
                 "analyzer": "simple",
@@ -91,6 +106,12 @@ QUERIES_INDEX_MAPPING = {
             "deadline_year": {"type": "integer"},
             "is_published": {"type": "boolean"},
             "created_at": {"type": "date"},
+            "paid_active": {"type": "boolean"},
+            "rank_score": {"type": "float"},
+            "quality_score": {"type": "float"},
+            "freshness_score": {"type": "float"},
+            "performance_score": {"type": "float"},
+            "creator_user_id": {"type": "integer"},
             "title_suggest": {
                 "type": "completion",
                 "analyzer": "simple",
@@ -98,6 +119,40 @@ QUERIES_INDEX_MAPPING = {
                 "max_input_length": 50,
             },
             "organization_suggest": {"type": "completion", "analyzer": "simple", "max_input_length": 50},
+            "status_suggest": {"type": "completion", "analyzer": "simple", "max_input_length": 30},
+            "public_id_suggest": {"type": "completion", "analyzer": "simple", "max_input_length": 50},
+        }
+    }
+}
+
+APPLICANTS_INDEX_MAPPING = {
+    "settings": {"number_of_replicas": 0},
+    "mappings": {
+        "properties": {
+            "id": {"type": "integer"},
+            "public_id": {"type": "keyword"},
+            "user_id": {"type": "integer"},
+            "role": {"type": "keyword"},
+            "full_name": {"type": "text", "analyzer": "standard"},
+            "status": {"type": "text", "analyzer": "standard", "fields": {"keyword": {"type": "keyword"}}},
+            "education_text": {"type": "text", "analyzer": "standard"},
+            "skills_text": {"type": "text", "analyzer": "standard"},
+            "research_interests_text": {"type": "text", "analyzer": "standard"},
+            "summary": {"type": "text", "analyzer": "standard"},
+            "position": {"type": "text", "analyzer": "standard"},
+            "job_search_status": {"type": "keyword"},
+            "employment_type_preference": {"type": "text", "analyzer": "standard"},
+            "photo_url": {"type": "keyword", "index": False},
+            "created_at": {"type": "date"},
+            "full_name_suggest": {
+                "type": "completion",
+                "analyzer": "simple",
+                "preserve_separators": True,
+                "max_input_length": 50,
+            },
+            "skills_suggest": {"type": "completion", "analyzer": "simple", "max_input_length": 50},
+            "research_interests_suggest": {"type": "completion", "analyzer": "simple", "max_input_length": 50},
+            "position_suggest": {"type": "completion", "analyzer": "simple", "max_input_length": 50},
             "status_suggest": {"type": "completion", "analyzer": "simple", "max_input_length": 30},
             "public_id_suggest": {"type": "completion", "analyzer": "simple", "max_input_length": 50},
         }
@@ -121,6 +176,9 @@ ORGANIZATIONS_INDEX_MAPPING = {
             "avatar_url": {"type": "keyword", "index": False},
             "is_published": {"type": "boolean"},
             "created_at": {"type": "date"},
+            "paid_active": {"type": "boolean"},
+            "rank_score": {"type": "float"},
+            "creator_user_id": {"type": "integer"},
             "name_suggest": {
                 "type": "completion",
                 "analyzer": "simple",

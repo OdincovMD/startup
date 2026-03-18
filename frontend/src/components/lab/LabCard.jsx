@@ -1,12 +1,24 @@
 import React from "react";
+import { Link } from "react-router-dom";
+import { Beaker, Building2, User, ChevronRight } from "lucide-react";
+import { Card, Badge, Button, EntityAvatar } from "../ui";
 
-export default function LabCard({ lab, labImages, onOpen, onOrgClick, navigate }) {
-  const images = labImages(lab.image_urls);
+const DESCRIPTION_MAX = 140;
+
+export default function LabCard({ lab, labImages, onOpen, navigate }) {
+  const images = labImages ? labImages(lab.image_urls) : [];
+  const avatarUrl = images[0];
   const hasLink = !!lab.public_id;
+  const displayName = lab.name || "Лаборатория";
+  const description = lab.description || lab.activities || "";
+  const truncatedDesc = description.length > DESCRIPTION_MAX ? `${description.slice(0, DESCRIPTION_MAX)}…` : description;
 
   return (
-    <article
-      className="org-card-modern"
+    <Card
+      variant="solid"
+      as="article"
+      padding="none"
+      className="modern-entity-card modern-entity-card--lab"
       onClick={() => hasLink && onOpen(lab.public_id)}
       role={hasLink ? "button" : undefined}
       tabIndex={hasLink ? 0 : undefined}
@@ -17,77 +29,113 @@ export default function LabCard({ lab, labImages, onOpen, onOrgClick, navigate }
         }
       }}
     >
-      <div className="org-card-modern__media">
-        {images[0] ? (
-          <img
-            className="org-card-modern__avatar"
-            src={images[0]}
-            alt=""
-            loading="lazy"
-          />
-        ) : (
-          <div className="org-card-modern__avatar-placeholder" aria-hidden="true">
-            {lab.name ? lab.name.charAt(0).toUpperCase() : "?"}
-          </div>
-        )}
+      <div className="modern-entity-card__media">
+        <EntityAvatar src={avatarUrl} alt="" loading="lazy" />
       </div>
-      <div className="org-card-modern__body">
-        <h3 className="org-card-modern__title">{lab.name || "Лаборатория"}</h3>
-        <div className="org-card-modern__meta">
-          {lab.organization && (
-            <span
-              className="org-card-modern__meta-item"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (lab.organization?.public_id) {
-                  navigate(`/organizations/${lab.organization.public_id}`);
-                }
-              }}
-              role={lab.organization?.public_id ? "button" : undefined}
-              tabIndex={lab.organization?.public_id ? 0 : undefined}
-            >
-              {lab.organization.name}
-            </span>
-          )}
-          {!lab.organization && (
-            <span className="org-card-modern__meta-item org-card-modern__meta-item--muted">
-              Независимая лаборатория
-            </span>
-          )}
-          {lab.head_employee && (
-            <span className="org-card-modern__meta-item org-card-modern__meta-item--head">
-              Руководитель: {lab.head_employee.full_name}
-            </span>
-          )}
-        </div>
-        {(lab.description || lab.activities) && (
-          <p className="org-card-modern__description" title={lab.description || lab.activities}>
-            {(lab.description || lab.activities).length > 140
-              ? `${(lab.description || lab.activities).slice(0, 140)}…`
-              : (lab.description || lab.activities)}
-          </p>
-        )}
-        {(lab.employees || []).length > 0 && (
-          <div className="org-detail-card__chips org-card-modern__chips">
-            {lab.employees.slice(0, 3).map((emp) => (
-              <span key={emp.id} className="org-detail-chip">
-                {emp.full_name}
-              </span>
-            ))}
-            {lab.employees.length > 3 && (
-              <span className="org-detail-chip">+{lab.employees.length - 3}</span>
+
+      <div className="modern-entity-card__body">
+        <div className="modern-entity-card__info">
+          <div className="modern-entity-card__title-row">
+            <div className="modern-entity-card__title-icon">
+              <Beaker size={18} />
+            </div>
+            <h3 className="modern-entity-card__title">
+              {hasLink ? (
+                <Link
+                  to={`/laboratories/${lab.public_id}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {displayName}
+                </Link>
+              ) : (
+                <span>{displayName}</span>
+              )}
+            </h3>
+          </div>
+
+          <div className="modern-entity-card__meta modern-entity-card__meta--with-icons">
+            {lab.organization ? (
+              <div
+                className="modern-entity-card__meta-row modern-entity-card__meta-row--link"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (lab.organization?.public_id) navigate(`/organizations/${lab.organization.public_id}`);
+                }}
+                role={lab.organization?.public_id ? "button" : undefined}
+                tabIndex={lab.organization?.public_id ? 0 : undefined}
+                onKeyDown={(e) => {
+                  if (lab.organization?.public_id && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigate(`/organizations/${lab.organization.public_id}`);
+                  }
+                }}
+              >
+                <Building2 size={14} className="modern-entity-card__meta-icon" />
+                <span className="modern-entity-card__link modern-entity-card__meta-item--truncate">
+                  {lab.organization.name}
+                </span>
+              </div>
+            ) : (
+              <div className="modern-entity-card__meta-row">
+                <Building2 size={14} className="modern-entity-card__meta-icon" />
+                <span className="modern-entity-card__meta-item modern-entity-card__meta-item--muted">
+                  Независимая лаборатория
+                </span>
+              </div>
+            )}
+            {lab.head_employee && (
+              <div className="modern-entity-card__meta-row">
+                <User size={14} className="modern-entity-card__meta-icon" />
+                <span className="modern-entity-card__meta-item modern-entity-card__meta-item--head modern-entity-card__meta-item--truncate">
+                  {lab.head_employee.full_name}
+                </span>
+              </div>
             )}
           </div>
-        )}
+
+          {truncatedDesc && (
+            <p className="modern-entity-card__desc" title={description}>
+              {truncatedDesc}
+            </p>
+          )}
+
+          {(() => {
+            const head = lab.head_employee;
+            const headId = head?.id;
+            const others = (lab.employees || []).filter((emp) => emp.id !== headId);
+            const all = head ? [head, ...others] : others;
+            const toShow = all.slice(0, 2);
+            const remaining = all.length - 2;
+            if (toShow.length === 0) return null;
+            return (
+              <div className="modern-entity-card__badges">
+                {toShow.map((emp) => (
+                  <Badge key={emp.id} variant="default">
+                    {emp.full_name}
+                  </Badge>
+                ))}
+                {remaining > 0 && <Badge variant="default">+{remaining}</Badge>}
+              </div>
+            );
+          })()}
+        </div>
+
         {hasLink && (
-          <span className="org-card-modern__cta">
-            Открыть лабораторию
-            <span className="org-card-modern__cta-arrow" aria-hidden="true">
-              →
-            </span>
-          </span>
+          <div className="modern-entity-card__actions">
+            <Button
+              variant="ghost"
+              size="small"
+              to={`/laboratories/${lab.public_id}`}
+              className="nowrap-btn modern-entity-card__cta-btn"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span>В лабораторию</span>
+              <ChevronRight size={14} />
+            </Button>
+          </div>
         )}
       </div>
-    </article>
+    </Card>
   );
 }

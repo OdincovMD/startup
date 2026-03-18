@@ -58,37 +58,19 @@ async def list_queries(
     budget_contains: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None, description="date_desc | date_asc"),
 ):
-    """Список опубликованных запросов. При q или любом фильтре — поиск через Elasticsearch."""
+    """Список опубликованных запросов. Всегда через Elasticsearch для корректной сортировки."""
     q_stripped = (q or "").strip()
-    has_search_or_filters = bool(
-        q_stripped
-        or (status and status.strip())
-        or laboratory_id is not None
-        or (budget_contains and budget_contains.strip())
-    )
-    if has_search_or_filters:
-        try:
-            result = await search_queries(
-                q=q_stripped,
-                page=page,
-                size=size,
-                status=status,
-                laboratory_id=laboratory_id,
-                budget_contains=budget_contains,
-                sort_by=sort_by,
-            )
-            return result.get("items", [])
-        except Exception:
-            return []
     try:
-        queries = await Orm.list_published_queries()
-        for query in queries:
-            query.vacancies = [v for v in (query.vacancies or []) if getattr(v, "is_published", False)]
-        if sort_by == "date_asc":
-            queries = sorted(queries, key=lambda q: getattr(q, "created_at") or "", reverse=False)
-        else:
-            queries = sorted(queries, key=lambda q: getattr(q, "created_at") or "", reverse=True)
-        return queries
+        result = await search_queries(
+            q=q_stripped,
+            page=page,
+            size=size,
+            status=status,
+            laboratory_id=laboratory_id,
+            budget_contains=budget_contains,
+            sort_by=sort_by,
+        )
+        return result.get("items", [])
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

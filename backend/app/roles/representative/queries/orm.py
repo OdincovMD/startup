@@ -5,7 +5,7 @@ Orm — асинхронный слой для домена организаци
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple
 
-from sqlalchemy import insert, select, delete, exists, func, or_, cast, distinct, text
+from sqlalchemy import insert, select, delete, exists, func, or_, and_, cast, distinct, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import literal
 from sqlalchemy.orm import selectinload
@@ -14,7 +14,10 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app import models
 from app.database import async_session_factory
+from app.config import settings
+from app.core.queries.orm import Orm as CoreOrm
 from app.roles.representative.queries import helpers
+from app.roles.representative import ranking
 
 
 class Orm:
@@ -68,7 +71,11 @@ class Orm:
     @staticmethod
     async def get_organization_by_public_id(public_id: str) -> Optional[models.Organization]:
         async with async_session_factory() as session:
-            stmt = select(models.Organization).where(models.Organization.public_id == public_id)
+            stmt = (
+                select(models.Organization)
+                .options(selectinload(models.Organization.creator))
+                .where(models.Organization.public_id == public_id)
+            )
             result = await session.execute(stmt)
             return result.scalars().first()
 
@@ -173,6 +180,8 @@ class Orm:
                     ),
                     selectinload(models.Organization.employees),
                     selectinload(models.Organization.equipment),
+                    selectinload(models.Organization.vacancies),
+                    selectinload(models.Organization.queries),
                 )
                 .where(
                     models.Organization.id.in_(org_ids),
@@ -184,6 +193,291 @@ class Orm:
             id_order = {oid: i for i, oid in enumerate(org_ids)}
             orgs.sort(key=lambda o: id_order.get(o.id, 999))
             return orgs
+
+    @staticmethod
+    async def get_organization_analytics_30d(
+        public_ids: List[str],
+    ) -> dict:
+        """
+        Для каждой организации (public_id) вернуть unique_views_30d и avg_time_on_page_sec
+        за последние 30 дней (page_view / page_leave, без учёта просмотров создателя).
+        Возвращает: { public_id: {"unique_views_30d": int, "avg_time_on_page_sec": float|None} }
+        """
+        if not public_ids:
+            return {}
+        out = {pid: {"unique_views_30d": 0, "avg_time_on_page_sec": None} for pid in public_ids}
+        if not hasattr(models, "AnalyticsEvent"):
+            return out
+        since = datetime.now(timezone.utc) - timedelta(days=30)
+        async with async_session_factory() as session:
+            ae = models.AnalyticsEvent
+            org = models.Organization
+            join_cond = (ae.entity_id == org.public_id) & (ae.entity_type == "organization")
+            creator_filter = (ae.user_id.is_(None)) | (ae.user_id != org.creator_user_id)
+            # Unique viewers (distinct user_id/session_id) for page_view in last 30 days
+            viewer_key = func.coalesce(cast(ae.user_id, String), ae.session_id)
+            stmt_uv = (
+                select(ae.entity_id, func.count(distinct(viewer_key)).label("uv"))
+                .select_from(ae)
+                .join(org, join_cond)
+                .where(
+                    ae.event_type == "page_view",
+                    ae.entity_type == "organization",
+                    ae.entity_id.in_(public_ids),
+                    ae.created_at >= since,
+                    creator_filter,
+                )
+                .group_by(ae.entity_id)
+            )
+            res = await session.execute(stmt_uv)
+            for row in res.all():
+                if row.entity_id:
+                    out[row.entity_id]["unique_views_30d"] = row.uv
+            # Avg time on page from page_leave (duration_sec or time_spent_sec in payload)
+            time_sql = text("""
+                SELECT ae.entity_id, AVG((COALESCE(ae.payload->>'duration_sec', ae.payload->>'time_spent_sec'))::float) AS avg_sec
+                FROM analytics_events ae
+                JOIN organizations o ON ae.entity_id = o.public_id AND ae.entity_type = 'organization'
+                WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'organization'
+                  AND ae.entity_id = ANY(:public_ids)
+                  AND ae.created_at >= :since
+                  AND (ae.user_id IS NULL OR ae.user_id != o.creator_user_id)
+                  AND (ae.payload->>'duration_sec' IS NOT NULL OR ae.payload->>'time_spent_sec' IS NOT NULL)
+                GROUP BY ae.entity_id
+            """)
+            try:
+                res = await session.execute(
+                    time_sql,
+                    {"public_ids": public_ids, "since": since},
+                )
+                for row in res.all():
+                    if row.entity_id and row.avg_sec is not None:
+                        out[row.entity_id]["avg_time_on_page_sec"] = round(float(row.avg_sec), 1)
+            except Exception:
+                pass
+        return out
+
+    @staticmethod
+    async def get_laboratory_analytics_30d(
+        public_ids: List[str],
+    ) -> dict:
+        """
+        За последние 30 дней по лабораториям: unique_views_30d, avg_time_on_page_sec, cta_clicks_30d.
+        Возвращает: { public_id: {"unique_views_30d": int, "avg_time_on_page_sec": float|None, "cta_clicks_30d": int} }
+        """
+        if not public_ids:
+            return {}
+        out = {
+            pid: {"unique_views_30d": 0, "avg_time_on_page_sec": None, "cta_clicks_30d": 0}
+            for pid in public_ids
+        }
+        if not hasattr(models, "AnalyticsEvent"):
+            return out
+        since = datetime.now(timezone.utc) - timedelta(days=30)
+        async with async_session_factory() as session:
+            ae = models.AnalyticsEvent
+            lo = models.OrganizationLaboratory
+            join_cond = (ae.entity_id == lo.public_id) & (ae.entity_type == "laboratory")
+            creator_filter = (ae.user_id.is_(None)) | (ae.user_id != lo.creator_user_id)
+            viewer_key = func.coalesce(cast(ae.user_id, String), ae.session_id)
+            stmt_uv = (
+                select(ae.entity_id, func.count(distinct(viewer_key)).label("uv"))
+                .select_from(ae)
+                .join(lo, join_cond)
+                .where(
+                    ae.event_type == "page_view",
+                    ae.entity_type == "laboratory",
+                    ae.entity_id.in_(public_ids),
+                    ae.created_at >= since,
+                    creator_filter,
+                )
+                .group_by(ae.entity_id)
+            )
+            res = await session.execute(stmt_uv)
+            for row in res.all():
+                if row.entity_id:
+                    out[row.entity_id]["unique_views_30d"] = row.uv
+            time_sql_lab = text("""
+                SELECT ae.entity_id, AVG((COALESCE(ae.payload->>'duration_sec', ae.payload->>'time_spent_sec'))::float) AS avg_sec
+                FROM analytics_events ae
+                JOIN laboratories_organizations lo ON ae.entity_id = lo.public_id AND ae.entity_type = 'laboratory'
+                WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'laboratory'
+                  AND ae.entity_id = ANY(:public_ids)
+                  AND ae.created_at >= :since
+                  AND (ae.user_id IS NULL OR ae.user_id != lo.creator_user_id)
+                  AND (ae.payload->>'duration_sec' IS NOT NULL OR ae.payload->>'time_spent_sec' IS NOT NULL)
+                GROUP BY ae.entity_id
+            """)
+            try:
+                res = await session.execute(
+                    time_sql_lab,
+                    {"public_ids": public_ids, "since": since},
+                )
+                for row in res.all():
+                    if row.entity_id and row.avg_sec is not None:
+                        out[row.entity_id]["avg_time_on_page_sec"] = round(float(row.avg_sec), 1)
+            except Exception:
+                pass
+            stmt_cta = (
+                select(ae.entity_id, func.count(ae.id).label("cta"))
+                .where(
+                    ae.event_type == "button_click",
+                    ae.entity_type == "laboratory",
+                    ae.entity_id.in_(public_ids),
+                    ae.created_at >= since,
+                )
+                .group_by(ae.entity_id)
+            )
+            res = await session.execute(stmt_cta)
+            for row in res.all():
+                if row.entity_id:
+                    out[row.entity_id]["cta_clicks_30d"] = row.cta
+        return out
+
+    @staticmethod
+    async def get_vacancy_analytics_30d(
+        public_ids: List[str],
+        vacancy_ids: Optional[List[int]] = None,
+    ) -> dict:
+        """
+        За последние 30 дней по вакансиям: unique_viewers_30d, avg_time_on_page_sec.
+        response_count — все отклики по вакансии (all-time).
+        Возвращает: { public_id: {"unique_viewers_30d": int, "response_count": int, "avg_time_on_page_sec": float|None} }
+        """
+        if not public_ids:
+            return {}
+        out = {
+            pid: {"unique_viewers_30d": 0, "response_count": 0, "avg_time_on_page_sec": None}
+            for pid in public_ids
+        }
+        since = datetime.now(timezone.utc) - timedelta(days=30)
+        async with async_session_factory() as session:
+            if vacancy_ids is None:
+                stmt_pid = (
+                    select(models.VacancyOrganization.id)
+                    .where(models.VacancyOrganization.public_id.in_(public_ids))
+                )
+                res = await session.execute(stmt_pid)
+                vacancy_ids = [row.id for row in res.all()]
+            if vacancy_ids and hasattr(models, "AnalyticsEvent"):
+                ae = models.AnalyticsEvent
+                vo = models.VacancyOrganization
+                join_cond = (ae.entity_id == vo.public_id) & (ae.entity_type == "vacancy")
+                creator_filter = (ae.user_id.is_(None)) | (ae.user_id != vo.creator_user_id)
+                viewer_key = func.coalesce(cast(ae.user_id, String), ae.session_id)
+                stmt_uv = (
+                    select(ae.entity_id, func.count(distinct(viewer_key)).label("uv"))
+                    .select_from(ae)
+                    .join(vo, join_cond)
+                    .where(
+                        ae.event_type == "page_view",
+                        ae.entity_type == "vacancy",
+                        ae.entity_id.in_(public_ids),
+                        ae.created_at >= since,
+                        creator_filter,
+                    )
+                    .group_by(ae.entity_id)
+                )
+                res = await session.execute(stmt_uv)
+                for row in res.all():
+                    if row.entity_id:
+                        out[row.entity_id]["unique_viewers_30d"] = row.uv
+                time_sql = text("""
+                    SELECT ae.entity_id, AVG((COALESCE(ae.payload->>'duration_sec', ae.payload->>'time_spent_sec'))::float) AS avg_sec
+                    FROM analytics_events ae
+                    JOIN vacancies_organizations vo ON ae.entity_id = vo.public_id AND ae.entity_type = 'vacancy'
+                    WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'vacancy'
+                      AND ae.entity_id = ANY(:public_ids)
+                      AND ae.created_at >= :since
+                      AND (ae.user_id IS NULL OR ae.user_id != vo.creator_user_id)
+                      AND (ae.payload->>'duration_sec' IS NOT NULL OR ae.payload->>'time_spent_sec' IS NOT NULL)
+                    GROUP BY ae.entity_id
+                """)
+                try:
+                    res = await session.execute(
+                        time_sql,
+                        {"public_ids": public_ids, "since": since},
+                    )
+                    for row in res.all():
+                        if row.entity_id and row.avg_sec is not None:
+                            out[row.entity_id]["avg_time_on_page_sec"] = round(float(row.avg_sec), 1)
+                except Exception:
+                    pass
+            if vacancy_ids:
+                stmt_resp = (
+                    select(models.VacancyResponse.vacancy_id, func.count(models.VacancyResponse.id).label("cnt"))
+                    .where(models.VacancyResponse.vacancy_id.in_(vacancy_ids))
+                    .group_by(models.VacancyResponse.vacancy_id)
+                )
+                res = await session.execute(stmt_resp)
+                vid_to_cnt = {row.vacancy_id: row.cnt for row in res.all()}
+                stmt_pid = (
+                    select(models.VacancyOrganization.id, models.VacancyOrganization.public_id)
+                    .where(models.VacancyOrganization.id.in_(vacancy_ids))
+                )
+                res = await session.execute(stmt_pid)
+                for row in res.all():
+                    if row.public_id and row.id in vid_to_cnt:
+                        out[row.public_id]["response_count"] = vid_to_cnt[row.id]
+        return out
+
+    @staticmethod
+    async def get_query_analytics_30d(public_ids: List[str]) -> dict:
+        """
+        За последние 30 дней по запросам: unique_views_30d, avg_time_on_page_sec.
+        Возвращает: { public_id: {"unique_views_30d": int, "avg_time_on_page_sec": float|None} }
+        """
+        if not public_ids:
+            return {}
+        out = {pid: {"unique_views_30d": 0, "avg_time_on_page_sec": None} for pid in public_ids}
+        if not hasattr(models, "AnalyticsEvent"):
+            return out
+        since = datetime.now(timezone.utc) - timedelta(days=30)
+        async with async_session_factory() as session:
+            ae = models.AnalyticsEvent
+            oq = models.OrganizationQuery
+            join_cond = (ae.entity_id == oq.public_id) & (ae.entity_type == "query")
+            creator_filter = (ae.user_id.is_(None)) | (ae.user_id != oq.creator_user_id)
+            viewer_key = func.coalesce(cast(ae.user_id, String), ae.session_id)
+            stmt_uv = (
+                select(ae.entity_id, func.count(distinct(viewer_key)).label("uv"))
+                .select_from(ae)
+                .join(oq, join_cond)
+                .where(
+                    ae.event_type == "page_view",
+                    ae.entity_type == "query",
+                    ae.entity_id.in_(public_ids),
+                    ae.created_at >= since,
+                    creator_filter,
+                )
+                .group_by(ae.entity_id)
+            )
+            res = await session.execute(stmt_uv)
+            for row in res.all():
+                if row.entity_id:
+                    out[row.entity_id]["unique_views_30d"] = row.uv
+            time_sql_q = text("""
+                SELECT ae.entity_id, AVG((COALESCE(ae.payload->>'duration_sec', ae.payload->>'time_spent_sec'))::float) AS avg_sec
+                FROM analytics_events ae
+                JOIN organization_queries oq ON ae.entity_id = oq.public_id AND ae.entity_type = 'query'
+                WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'query'
+                  AND ae.entity_id = ANY(:public_ids)
+                  AND ae.created_at >= :since
+                  AND (ae.user_id IS NULL OR ae.user_id != oq.creator_user_id)
+                  AND (ae.payload->>'duration_sec' IS NOT NULL OR ae.payload->>'time_spent_sec' IS NOT NULL)
+                GROUP BY ae.entity_id
+            """)
+            try:
+                res = await session.execute(
+                    time_sql_q,
+                    {"public_ids": public_ids, "since": since},
+                )
+                for row in res.all():
+                    if row.entity_id and row.avg_sec is not None:
+                        out[row.entity_id]["avg_time_on_page_sec"] = round(float(row.avg_sec), 1)
+            except Exception:
+                pass
+        return out
 
     @staticmethod
     async def upsert_organization_for_user(
@@ -1002,6 +1296,37 @@ class Orm:
             return labs
 
     @staticmethod
+    async def count_standalone_labs_for_creator(creator_user_id: int) -> int:
+        """Count standalone labs (organization_id is None) for a creator."""
+        async with async_session_factory() as session:
+            stmt = select(func.count()).select_from(models.OrganizationLaboratory).where(
+                models.OrganizationLaboratory.creator_user_id == creator_user_id,
+                models.OrganizationLaboratory.organization_id.is_(None),
+            )
+            result = await session.execute(stmt)
+            return result.scalar() or 0
+
+    @staticmethod
+    async def count_vacancies_for_creator(creator_user_id: int) -> int:
+        """Count total vacancies by creator (для лимита Basic)."""
+        async with async_session_factory() as session:
+            stmt = select(func.count()).select_from(models.VacancyOrganization).where(
+                models.VacancyOrganization.creator_user_id == creator_user_id,
+            )
+            result = await session.execute(stmt)
+            return result.scalar() or 0
+
+    @staticmethod
+    async def count_queries_for_creator(creator_user_id: int) -> int:
+        """Count total queries by creator (для лимита Basic)."""
+        async with async_session_factory() as session:
+            stmt = select(func.count()).select_from(models.OrganizationQuery).where(
+                models.OrganizationQuery.creator_user_id == creator_user_id,
+            )
+            result = await session.execute(stmt)
+            return result.scalar() or 0
+
+    @staticmethod
     async def list_laboratories_for_creator(
         creator_user_id: int,
     ) -> List[models.OrganizationLaboratory]:
@@ -1102,8 +1427,13 @@ class Orm:
             stmt = (
                 select(models.OrganizationLaboratory)
                 .options(
-                    selectinload(models.OrganizationLaboratory.organization),
-                    selectinload(models.OrganizationLaboratory.head_employee),
+                    selectinload(models.OrganizationLaboratory.organization).selectinload(
+                        models.Organization.creator
+                    ),
+                    selectinload(models.OrganizationLaboratory.head_employee).selectinload(
+                        models.Employee.user
+                    ),
+                    selectinload(models.OrganizationLaboratory.creator),
                     selectinload(models.OrganizationLaboratory.employees).selectinload(
                         models.Employee.laboratories
                     ),
@@ -1133,6 +1463,17 @@ class Orm:
         equipment_ids: Optional[List[int]] = None,
         task_solution_ids: Optional[List[int]] = None,
     ) -> models.OrganizationLaboratory:
+        # Basic tier limit: up to N standalone labs (organization_id is None)
+        if organization_id is None and creator_user_id is not None:
+            tier = await CoreOrm.get_subscription_tier(creator_user_id)
+            if tier == "basic":
+                standalone_count = await Orm.count_standalone_labs_for_creator(creator_user_id)
+                limit = settings.BASIC_MAX_STANDALONE_LABS
+                if standalone_count >= limit:
+                    raise ValueError(
+                        f"Тариф Basic ограничивает до {limit} самостоятельных лабораторий. "
+                        "Перейдите на Pro для неограниченного количества."
+                    )
         async with async_session_factory() as session:
             lab = models.OrganizationLaboratory(
                 organization_id=organization_id,
@@ -2020,6 +2361,17 @@ class Orm:
         laboratory_ids: Optional[List[int]] = None,
         employee_ids: Optional[List[int]] = None,
     ) -> models.OrganizationQuery:
+        # Basic tier limit: максимум N запросов
+        if creator_user_id is not None:
+            tier = await CoreOrm.get_subscription_tier(creator_user_id)
+            if tier == "basic":
+                count = await Orm.count_queries_for_creator(creator_user_id)
+                limit = settings.BASIC_MAX_QUERIES
+                if count >= limit:
+                    raise ValueError(
+                        f"Тариф Basic ограничивает до {limit} запросов. "
+                        "Перейдите на Pro для неограниченного количества."
+                    )
         async with async_session_factory() as session:
             query = models.OrganizationQuery(
                 organization_id=organization_id,
@@ -2546,6 +2898,17 @@ class Orm:
         contact_email: Optional[str] = None,
         contact_phone: Optional[str] = None,
     ) -> models.VacancyOrganization:
+        # Basic tier limit: максимум N вакансий
+        if creator_user_id is not None:
+            tier = await CoreOrm.get_subscription_tier(creator_user_id)
+            if tier == "basic":
+                count = await Orm.count_vacancies_for_creator(creator_user_id)
+                limit = settings.BASIC_MAX_VACANCIES
+                if count >= limit:
+                    raise ValueError(
+                        f"Тариф Basic ограничивает до {limit} вакансий. "
+                        "Перейдите на Pro для неограниченного количества."
+                    )
         async with async_session_factory() as session:
             vacancy = models.VacancyOrganization(
                 organization_id=organization_id,
@@ -2883,6 +3246,7 @@ class Orm:
         lab_view_counts: dict = {}
         lab_unique_viewers: dict = {}
         lab_avg_time: dict = {}
+        lab_cta_clicks_30d: dict = {}
         query_view_counts: dict = {}
         query_unique_viewers: dict = {}
         query_avg_time: dict = {}
@@ -2893,7 +3257,24 @@ class Orm:
         views_over_time: List[dict] = []
         responses_over_time: List[dict] = []
 
+        full_vacancies: dict = {}
+        full_queries: dict = {}
+        since_30d = datetime.now(timezone.utc) - timedelta(days=30)
         async with async_session_factory() as session:
+            if vacancy_ids:
+                stmt_v = select(models.VacancyOrganization).where(
+                    models.VacancyOrganization.id.in_(vacancy_ids)
+                )
+                res_v = await session.execute(stmt_v)
+                full_vacancies = {v.id: v for v in res_v.scalars().all()}
+            if query_rows:
+                query_ids = [r[0] for r in query_rows]
+                stmt_q = select(models.OrganizationQuery).options(
+                    selectinload(models.OrganizationQuery.laboratories)
+                ).where(models.OrganizationQuery.id.in_(query_ids))
+                res_q = await session.execute(stmt_q)
+                full_queries = {q.id: q for q in res_q.scalars().all()}
+
             if vacancy_public_ids and hasattr(models, "AnalyticsEvent"):
                 ae = models.AnalyticsEvent
                 vo = models.VacancyOrganization
@@ -2906,6 +3287,7 @@ class Orm:
                     .where(
                         ae.event_type == "page_view",
                         ae.entity_id.in_(vacancy_public_ids),
+                        ae.created_at >= since_30d,
                         creator_filter,
                     )
                     .group_by(ae.entity_id)
@@ -2921,6 +3303,7 @@ class Orm:
                     .where(
                         ae.event_type == "page_view",
                         ae.entity_id.in_(vacancy_public_ids),
+                        ae.created_at >= since_30d,
                         creator_filter,
                     )
                     .group_by(ae.entity_id)
@@ -2929,16 +3312,20 @@ class Orm:
                 for row in res.all():
                     unique_viewers[row.entity_id] = row.uv
                 time_sql = text("""
-                    SELECT ae.entity_id, AVG((ae.payload->>'duration_sec')::float) AS avg_sec
+                    SELECT ae.entity_id, AVG((COALESCE(ae.payload->>'duration_sec', ae.payload->>'time_spent_sec'))::float) AS avg_sec
                     FROM analytics_events ae
                     JOIN vacancies_organizations vo ON ae.entity_id = vo.public_id AND ae.entity_type = 'vacancy'
                     WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'vacancy'
                       AND ae.entity_id = ANY(:public_ids)
-                      AND ae.payload->>'duration_sec' IS NOT NULL
+                      AND ae.created_at >= :since
+                      AND (ae.payload->>'duration_sec' IS NOT NULL OR ae.payload->>'time_spent_sec' IS NOT NULL)
                     GROUP BY ae.entity_id
                 """)
                 try:
-                    res = await session.execute(time_sql, {"public_ids": vacancy_public_ids})
+                    res = await session.execute(
+                        time_sql,
+                        {"public_ids": vacancy_public_ids, "since": since_30d},
+                    )
                     for row in res.all():
                         if row.avg_sec is not None:
                             avg_time_on_page[row.entity_id] = round(float(row.avg_sec), 1)
@@ -2957,6 +3344,7 @@ class Orm:
                     .where(
                         ae.event_type == "page_view",
                         ae.entity_id.in_(lab_public_ids),
+                        ae.created_at >= since_30d,
                         creator_filter,
                     )
                     .group_by(ae.entity_id)
@@ -2972,6 +3360,7 @@ class Orm:
                     .where(
                         ae.event_type == "page_view",
                         ae.entity_id.in_(lab_public_ids),
+                        ae.created_at >= since_30d,
                         creator_filter,
                     )
                     .group_by(ae.entity_id)
@@ -2980,21 +3369,39 @@ class Orm:
                 for row in res.all():
                     lab_unique_viewers[row.entity_id] = row.uv
                 time_sql_lab = text("""
-                    SELECT ae.entity_id, AVG((ae.payload->>'duration_sec')::float) AS avg_sec
+                    SELECT ae.entity_id, AVG((COALESCE(ae.payload->>'duration_sec', ae.payload->>'time_spent_sec'))::float) AS avg_sec
                     FROM analytics_events ae
                     JOIN laboratories_organizations lo ON ae.entity_id = lo.public_id AND ae.entity_type = 'laboratory'
                     WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'laboratory'
                       AND ae.entity_id = ANY(:public_ids)
-                      AND ae.payload->>'duration_sec' IS NOT NULL
+                      AND ae.created_at >= :since
+                      AND (ae.payload->>'duration_sec' IS NOT NULL OR ae.payload->>'time_spent_sec' IS NOT NULL)
                     GROUP BY ae.entity_id
                 """)
                 try:
-                    res = await session.execute(time_sql_lab, {"public_ids": lab_public_ids})
+                    res = await session.execute(
+                        time_sql_lab,
+                        {"public_ids": lab_public_ids, "since": since_30d},
+                    )
                     for row in res.all():
                         if row.avg_sec is not None:
                             lab_avg_time[row.entity_id] = round(float(row.avg_sec), 1)
                 except Exception:
                     pass
+                stmt_cta = (
+                    select(ae.entity_id, func.count(ae.id).label("cta"))
+                    .where(
+                        ae.event_type == "button_click",
+                        ae.entity_type == "laboratory",
+                        ae.entity_id.in_(lab_public_ids),
+                        ae.created_at >= since_30d,
+                    )
+                    .group_by(ae.entity_id)
+                )
+                res = await session.execute(stmt_cta)
+                for row in res.all():
+                    if row.entity_id:
+                        lab_cta_clicks_30d[row.entity_id] = row.cta
 
             if query_public_ids and hasattr(models, "AnalyticsEvent"):
                 ae = models.AnalyticsEvent
@@ -3008,6 +3415,7 @@ class Orm:
                     .where(
                         ae.event_type == "page_view",
                         ae.entity_id.in_(query_public_ids),
+                        ae.created_at >= since_30d,
                         creator_filter,
                     )
                     .group_by(ae.entity_id)
@@ -3023,6 +3431,7 @@ class Orm:
                     .where(
                         ae.event_type == "page_view",
                         ae.entity_id.in_(query_public_ids),
+                        ae.created_at >= since_30d,
                         creator_filter,
                     )
                     .group_by(ae.entity_id)
@@ -3031,16 +3440,20 @@ class Orm:
                 for row in res.all():
                     query_unique_viewers[row.entity_id] = row.uv
                 time_sql_q = text("""
-                    SELECT ae.entity_id, AVG((ae.payload->>'duration_sec')::float) AS avg_sec
+                    SELECT ae.entity_id, AVG((COALESCE(ae.payload->>'duration_sec', ae.payload->>'time_spent_sec'))::float) AS avg_sec
                     FROM analytics_events ae
                     JOIN organization_queries oq ON ae.entity_id = oq.public_id AND ae.entity_type = 'query'
                     WHERE ae.event_type = 'page_leave' AND ae.entity_type = 'query'
                       AND ae.entity_id = ANY(:public_ids)
-                      AND ae.payload->>'duration_sec' IS NOT NULL
+                      AND ae.created_at >= :since
+                      AND (ae.payload->>'duration_sec' IS NOT NULL OR ae.payload->>'time_spent_sec' IS NOT NULL)
                     GROUP BY ae.entity_id
                 """)
                 try:
-                    res = await session.execute(time_sql_q, {"public_ids": query_public_ids})
+                    res = await session.execute(
+                        time_sql_q,
+                        {"public_ids": query_public_ids, "since": since_30d},
+                    )
                     for row in res.all():
                         if row.avg_sec is not None:
                             query_avg_time[row.entity_id] = round(float(row.avg_sec), 1)
@@ -3193,6 +3606,49 @@ class Orm:
                 delta = (first_at - r[4]).total_seconds() / 86400
                 days_to_accept_list.append(delta)
         avg_days_to_first_acceptance = round(sum(days_to_accept_list) / len(days_to_accept_list), 1) if days_to_accept_list else None
+
+        subscription_row = await CoreOrm.get_active_subscription(user_id)
+        subscription = (
+            {
+                "active": True,
+                "tier": getattr(subscription_row, "tier", None) or "pro",
+                "expires_at": subscription_row.expires_at.isoformat() if subscription_row.expires_at else None,
+                "trial_ends_at": subscription_row.trial_ends_at.isoformat() if getattr(subscription_row, "trial_ends_at", None) else None,
+                "status": subscription_row.status or "active",
+                "started_at": subscription_row.started_at.isoformat() if subscription_row.started_at else None,
+            }
+            if subscription_row
+            else {"active": False, "tier": None, "expires_at": None, "trial_ends_at": None, "status": "none", "started_at": None}
+        )
+
+        org_ranking = None
+        if org:
+            employees_count = len(
+                set(
+                    e.id
+                    for lab in laboratories
+                    for e in (getattr(lab, "employees", None) or [])
+                )
+            )
+            org_analytics = {}
+            if org.public_id:
+                org_analytics_map = await Orm.get_organization_analytics_30d([org.public_id])
+                org_analytics = org_analytics_map.get(org.public_id, {})
+            published_vacancies = sum(1 for r in vacancy_rows if r[3])
+            org_doc = ranking.build_doc_from_org(
+                org,
+                laboratories_count=len(laboratories),
+                employees_count=employees_count,
+                vacancies_count=published_vacancies,
+                queries_count=len(query_rows),
+                unique_views_30d=org_analytics.get("unique_views_30d", 0),
+                avg_time_on_page_sec=org_analytics.get("avg_time_on_page_sec"),
+            )
+            org_ranking = {
+                "score": ranking.get_organization_score(org_doc),
+                "tips": ranking.get_organization_tips(org_doc),
+            }
+
         by_vacancy = []
         for r in vacancy_rows:
             vid, v_public_id, v_name, _v_pub, v_created_at = r[0], r[1], r[2], r[3], r[4]
@@ -3207,6 +3663,18 @@ class Orm:
             days_to_first = None
             if first_at and v_created_at:
                 days_to_first = round((first_at - v_created_at).total_seconds() / 86400, 1)
+            vac = full_vacancies.get(vid)
+            rank_score = 0.0
+            tips = []
+            if vac:
+                v_doc = ranking.build_doc_from_vacancy(
+                    vac,
+                    unique_viewers_30d=uv,
+                    response_count=response_count,
+                    avg_time_on_page_sec=avg_sec,
+                )
+                rank_score = ranking.get_vacancy_score(v_doc)
+                tips = ranking.get_vacancy_tips(v_doc)
             by_vacancy.append({
                 "vacancy_id": vid,
                 "public_id": v_public_id,
@@ -3217,12 +3685,25 @@ class Orm:
                 "conversion_rate": conversion_rate,
                 "avg_time_on_page_sec": avg_sec,
                 "days_to_first_response": days_to_first,
+                "rank_score": round(rank_score, 1),
+                "tips": tips,
             })
         by_laboratory = []
         for lab in laboratories:
             view_count = lab_view_counts.get(lab.public_id, 0) if lab.public_id else 0
             uv = lab_unique_viewers.get(lab.public_id, 0) if lab.public_id else 0
             avg_sec = lab_avg_time.get(lab.public_id) if lab.public_id else None
+            lab_doc = ranking.build_doc_from_lab(
+                lab,
+                employees_count=len(getattr(lab, "employees", None) or []),
+                researchers_count=len(getattr(lab, "researchers", None) or []),
+                equipment_count=len(getattr(lab, "equipment", None) or []),
+                unique_views_30d=uv,
+                avg_time_on_page_sec=avg_sec,
+                cta_clicks_30d=lab_cta_clicks_30d.get(lab.public_id, 0) if lab.public_id else 0,
+            )
+            rank_score = ranking.get_laboratory_score(lab_doc)
+            tips = ranking.get_laboratory_tips(lab_doc)
             by_laboratory.append({
                 "laboratory_id": lab.id,
                 "public_id": lab.public_id,
@@ -3230,6 +3711,8 @@ class Orm:
                 "view_count": view_count,
                 "unique_viewers": uv,
                 "avg_time_on_page_sec": avg_sec,
+                "rank_score": round(rank_score, 1),
+                "tips": tips,
             })
         by_query = []
         for row in query_rows:
@@ -3237,6 +3720,17 @@ class Orm:
             view_count = query_view_counts.get(q_public_id, 0) if q_public_id else 0
             uv = query_unique_viewers.get(q_public_id, 0) if q_public_id else 0
             avg_sec = query_avg_time.get(q_public_id) if q_public_id else None
+            q = full_queries.get(qid)
+            rank_score = 0.0
+            tips = []
+            if q:
+                q_doc = ranking.build_doc_from_query(
+                    q,
+                    unique_views_30d=uv,
+                    avg_time_on_page_sec=avg_sec,
+                )
+                rank_score = ranking.get_query_score(q_doc)
+                tips = ranking.get_query_tips(q_doc)
             by_query.append({
                 "query_id": qid,
                 "public_id": q_public_id,
@@ -3244,6 +3738,8 @@ class Orm:
                 "view_count": view_count,
                 "unique_viewers": uv,
                 "avg_time_on_page_sec": avg_sec,
+                "rank_score": round(rank_score, 1),
+                "tips": tips,
             })
         return {
             "summary": {
@@ -3268,6 +3764,106 @@ class Orm:
             "by_query": by_query,
             "views_over_time": views_over_time,
             "responses_over_time": responses_over_time,
+            "subscription": subscription,
+            "org_ranking": org_ranking,
+        }
+
+    @staticmethod
+    async def get_extended_analytics_for_user(user_id: int) -> dict:
+        """Расширенная аналитика для Pro: просмотры 7/30 дн., конверсия, сравнительный контекст."""
+        dashboard = await Orm.get_employer_dashboard_data(user_id)
+        since_7d = datetime.now(timezone.utc) - timedelta(days=7)
+        views_7d_org = 0
+        views_7d_lab = 0
+        views_7d_vacancy = 0
+        views_7d_query = 0
+        org_public_id = None
+        org = await Orm.get_organization_for_user(user_id)
+        if org:
+            org_public_id = org.public_id
+        lab_public_ids = [lb.get("public_id") for lb in dashboard.get("by_laboratory", []) if lb.get("public_id")]
+        vacancy_public_ids = [v.get("public_id") for v in dashboard.get("by_vacancy", []) if v.get("public_id")]
+        query_public_ids = [q.get("public_id") for q in dashboard.get("by_query", []) if q.get("public_id")]
+        if hasattr(models, "AnalyticsEvent"):
+            ae = models.AnalyticsEvent
+            async with async_session_factory() as session:
+                if org_public_id:
+                    stmt = (
+                        select(func.count(ae.id))
+                        .where(
+                            ae.event_type == "page_view",
+                            ae.entity_type == "organization",
+                            ae.entity_id == org_public_id,
+                            ae.created_at >= since_7d,
+                        )
+                    )
+                    res = await session.execute(stmt)
+                    views_7d_org = res.scalar() or 0
+                if lab_public_ids:
+                    stmt = (
+                        select(func.count(ae.id))
+                        .where(
+                            ae.event_type == "page_view",
+                            ae.entity_type == "laboratory",
+                            ae.entity_id.in_(lab_public_ids),
+                            ae.created_at >= since_7d,
+                        )
+                    )
+                    res = await session.execute(stmt)
+                    views_7d_lab = res.scalar() or 0
+                if vacancy_public_ids:
+                    stmt = (
+                        select(func.count(ae.id))
+                        .where(
+                            ae.event_type == "page_view",
+                            ae.entity_type == "vacancy",
+                            ae.entity_id.in_(vacancy_public_ids),
+                            ae.created_at >= since_7d,
+                        )
+                    )
+                    res = await session.execute(stmt)
+                    views_7d_vacancy = res.scalar() or 0
+                if query_public_ids:
+                    stmt = (
+                        select(func.count(ae.id))
+                        .where(
+                            ae.event_type == "page_view",
+                            ae.entity_type == "query",
+                            ae.entity_id.in_(query_public_ids),
+                            ae.created_at >= since_7d,
+                        )
+                    )
+                    res = await session.execute(stmt)
+                    views_7d_query = res.scalar() or 0
+        total_views_30d = (
+            sum(v.get("view_count", 0) for v in dashboard.get("by_vacancy", []))
+            + sum(lab.get("view_count", 0) for lab in dashboard.get("by_laboratory", []))
+            + sum(q.get("view_count", 0) for q in dashboard.get("by_query", []))
+        )
+        org_views_30d = 0
+        if org_public_id and org:
+            org_analytics = await Orm.get_organization_analytics_30d([org_public_id])
+            org_views_30d = org_analytics.get(org_public_id, {}).get("unique_views_30d", 0) or 0
+        total_responses = dashboard.get("summary", {}).get("total_responses", 0)
+        total_uv = sum(
+            v.get("unique_viewers", 0) for v in dashboard.get("by_vacancy", [])
+        )
+        conversion_pct = round(100 * total_responses / total_uv, 1) if total_uv else 0
+        return {
+            **dashboard,
+            "extended": {
+                "views_7d": {
+                    "organization": views_7d_org,
+                    "laboratories": views_7d_lab,
+                    "vacancies": views_7d_vacancy,
+                    "queries": views_7d_query,
+                    "total": views_7d_org + views_7d_lab + views_7d_vacancy + views_7d_query,
+                },
+                "views_30d_total": total_views_30d + org_views_30d,
+                "org_views_30d": org_views_30d,
+                "conversion_rate_pct": conversion_pct,
+                "benchmark_note": "Сравните ваши показатели с средними по платформе. Чем выше полнота карточек и конверсия — тем лучше позиция в выдаче.",
+            },
         }
 
     @staticmethod
@@ -3681,8 +4277,61 @@ class Orm:
                     "vacancy_public_id": getattr(r.vacancy, "public_id", None) if r.vacancy else None,
                     "applicant_name": applicant_name,
                     "applicant_preview": applicant_preview or None,
+                    "applicant_public_id": getattr(r.user, "public_id", None) if r.user else None,
                 })
             return out
+
+    @staticmethod
+    async def list_vacancy_responses_admin(
+        page: int = 1,
+        size: int = 20,
+        vacancy_id: Optional[int] = None,
+        status_filter: Optional[str] = None,
+    ) -> Tuple[List[dict], int]:
+        """List vacancy responses for admin with pagination. Returns (items, total)."""
+        async with async_session_factory() as session:
+            conditions = []
+            if vacancy_id is not None:
+                conditions.append(models.VacancyResponse.vacancy_id == vacancy_id)
+            if status_filter:
+                conditions.append(models.VacancyResponse.status == status_filter)
+            base_stmt = select(models.VacancyResponse.id)
+            if conditions:
+                base_stmt = base_stmt.where(and_(*conditions))
+            count_stmt = select(func.count()).select_from(base_stmt.subquery())
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.VacancyResponse)
+                .options(
+                    selectinload(models.VacancyResponse.user),
+                    selectinload(models.VacancyResponse.vacancy),
+                )
+                .order_by(models.VacancyResponse.created_at.desc())
+            )
+            if conditions:
+                stmt = stmt.where(and_(*conditions))
+            stmt = stmt.offset((page - 1) * size).limit(size)
+            result = await session.execute(stmt)
+            rows = list(result.unique().scalars().all())
+            items = []
+            for r in rows:
+                applicant_name = (
+                    getattr(r.user, "full_name", None)
+                    or getattr(r.user, "mail", "")
+                    or "?"
+                )
+                items.append({
+                    "id": r.id,
+                    "user_id": r.user_id,
+                    "user_full_name": applicant_name,
+                    "user_public_id": getattr(r.user, "public_id", None) if r.user else None,
+                    "vacancy_id": r.vacancy_id,
+                    "vacancy_name": r.vacancy.name if r.vacancy else None,
+                    "vacancy_public_id": getattr(r.vacancy, "public_id", None) if r.vacancy else None,
+                    "status": r.status,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                })
+            return items, int(total)
 
     @staticmethod
     async def list_my_vacancy_responses(user_id: int):
@@ -3816,6 +4465,57 @@ class Orm:
                 "organizations": orgs_count,
                 "responses": responses_count,
                 "research_interests": interests,
+            }
+
+    @staticmethod
+    async def get_admin_dashboard_stats() -> dict:
+        """Admin dashboard: counts for organizations, labs, vacancies, queries, users, pending requests."""
+        async with async_session_factory() as session:
+            orgs_r = await session.execute(
+                select(func.count()).select_from(models.Organization).where(
+                    models.Organization.is_published.is_(True)
+                )
+            )
+            labs_r = await session.execute(
+                select(func.count()).select_from(models.OrganizationLaboratory).where(
+                    models.OrganizationLaboratory.is_published.is_(True)
+                )
+            )
+            vac_r = await session.execute(
+                select(func.count()).select_from(models.VacancyOrganization).where(
+                    models.VacancyOrganization.is_published.is_(True)
+                )
+            )
+            q_r = await session.execute(
+                select(func.count()).select_from(models.OrganizationQuery).where(
+                    models.OrganizationQuery.is_published.is_(True)
+                )
+            )
+            users_r = await session.execute(select(func.count()).select_from(models.User))
+            sub_req_r = await session.execute(
+                select(func.count()).select_from(models.SubscriptionRequest).where(
+                    models.SubscriptionRequest.status == "pending"
+                )
+            )
+            lab_join_r = await session.execute(
+                select(func.count()).select_from(models.LabJoinRequest).where(
+                    models.LabJoinRequest.status == "pending"
+                )
+            )
+            org_join_r = await session.execute(
+                select(func.count()).select_from(models.OrgJoinRequest).where(
+                    models.OrgJoinRequest.status == "pending"
+                )
+            )
+            return {
+                "organizations": orgs_r.scalar() or 0,
+                "laboratories": labs_r.scalar() or 0,
+                "vacancies": vac_r.scalar() or 0,
+                "queries": q_r.scalar() or 0,
+                "users_count": users_r.scalar() or 0,
+                "pending_subscription_requests": sub_req_r.scalar() or 0,
+                "pending_lab_join_requests": lab_join_r.scalar() or 0,
+                "pending_org_join_requests": org_join_r.scalar() or 0,
             }
 
     # =============================
@@ -4037,6 +4737,48 @@ class Orm:
             result = await session.execute(stmt)
             return result.scalars().first()
 
+    @staticmethod
+    async def list_all_lab_join_requests_admin(
+        status_filter: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[models.LabJoinRequest]:
+        """List all lab join requests for admin. status_filter: 'pending' or None for all."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.LabJoinRequest)
+                .options(
+                    selectinload(models.LabJoinRequest.researcher),
+                    selectinload(models.LabJoinRequest.laboratory).selectinload(models.OrganizationLaboratory.organization),
+                )
+                .order_by(models.LabJoinRequest.created_at.desc())
+                .limit(limit)
+            )
+            if status_filter == "pending":
+                stmt = stmt.where(models.LabJoinRequest.status == "pending")
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
+    @staticmethod
+    async def list_all_org_join_requests_admin(
+        status_filter: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[models.OrgJoinRequest]:
+        """List all org join requests for admin. status_filter: 'pending' or None for all."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.OrgJoinRequest)
+                .options(
+                    selectinload(models.OrgJoinRequest.laboratory),
+                    selectinload(models.OrgJoinRequest.organization),
+                )
+                .order_by(models.OrgJoinRequest.created_at.desc())
+                .limit(limit)
+            )
+            if status_filter == "pending":
+                stmt = stmt.where(models.OrgJoinRequest.status == "pending")
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
     # =============================
     #   ORG JOIN REQUESTS — native async
     # =============================
@@ -4248,6 +4990,752 @@ class Orm:
                     selectinload(models.OrgJoinRequest.organization),
                 )
                 .where(models.OrgJoinRequest.id == request_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    # =============================
+    #        ADMIN (platform_admin)
+    # =============================
+
+    @staticmethod
+    async def list_organizations_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[models.Organization], int]:
+        """List all organizations with pagination. Returns (items, total)."""
+        async with async_session_factory() as session:
+            count_stmt = select(func.count()).select_from(models.Organization)
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.Organization)
+                .order_by(models.Organization.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            items = list(result.scalars().all())
+            return items, total
+
+    @staticmethod
+    async def admin_update_organization(
+        org_id: int,
+        name: Optional[str] = None,
+        avatar_url: Optional[str] = None,
+        description: Optional[str] = None,
+        address: Optional[str] = None,
+        website: Optional[str] = None,
+        ror_id: Optional[str] = None,
+        is_published: Optional[bool] = None,
+    ) -> Optional[models.Organization]:
+        """Update organization by id (admin, no ownership check)."""
+        async with async_session_factory() as session:
+            org = await session.get(models.Organization, org_id)
+            if not org:
+                return None
+            if name is not None:
+                org.name = name
+            if avatar_url is not None:
+                org.avatar_url = avatar_url
+            if description is not None:
+                org.description = description
+            if address is not None:
+                org.address = address
+            if website is not None:
+                org.website = website
+            if ror_id is not None:
+                org.ror_id = ror_id
+            if is_published is not None:
+                org.is_published = bool(is_published)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            await session.refresh(org)
+            return org
+
+    @staticmethod
+    async def list_laboratories_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[models.OrganizationLaboratory], int]:
+        """List all laboratories with pagination. Returns (items, total)."""
+        async with async_session_factory() as session:
+            count_stmt = select(func.count()).select_from(models.OrganizationLaboratory)
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.OrganizationLaboratory)
+                .options(
+                    selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
+                    selectinload(models.OrganizationLaboratory.employees),
+                    selectinload(models.OrganizationLaboratory.equipment),
+                    selectinload(models.OrganizationLaboratory.task_solutions),
+                )
+                .order_by(models.OrganizationLaboratory.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all()), total
+
+    @staticmethod
+    async def get_laboratory_by_id(lab_id: int) -> Optional[models.OrganizationLaboratory]:
+        """Get laboratory by internal id."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.OrganizationLaboratory)
+                .options(
+                    selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
+                    selectinload(models.OrganizationLaboratory.employees),
+                    selectinload(models.OrganizationLaboratory.equipment),
+                    selectinload(models.OrganizationLaboratory.task_solutions),
+                )
+                .where(models.OrganizationLaboratory.id == lab_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def admin_update_laboratory(
+        lab_id: int,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        activities: Optional[str] = None,
+        image_urls: Optional[List[str]] = None,
+        is_published: Optional[bool] = None,
+        employee_ids: Optional[List[int]] = None,
+        head_employee_id: Optional[int] = None,
+        equipment_ids: Optional[List[int]] = None,
+        task_solution_ids: Optional[List[int]] = None,
+    ) -> Optional[models.OrganizationLaboratory]:
+        """Update laboratory by id (admin, no ownership check)."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.OrganizationLaboratory)
+                .options(selectinload(models.OrganizationLaboratory.employees))
+                .where(models.OrganizationLaboratory.id == lab_id)
+            )
+            result = await session.execute(stmt)
+            lab = result.scalars().first()
+            if not lab:
+                return None
+            org_id = lab.organization_id
+            creator_id = lab.creator_user_id
+            if name is not None:
+                lab.name = name
+            if description is not None:
+                lab.description = description
+            if activities is not None:
+                lab.activities = activities
+            if image_urls is not None:
+                lab.image_urls = image_urls
+            if is_published is not None:
+                lab.is_published = bool(is_published)
+            if employee_ids is not None or head_employee_id is not None:
+                eids = list(employee_ids) if employee_ids is not None else [e.id for e in (lab.employees or [])]
+                if head_employee_id is not None:
+                    lab.head_employee_id = head_employee_id
+                    if head_employee_id not in eids:
+                        eids = list(set(eids) | {head_employee_id})
+                else:
+                    lab.head_employee_id = None
+                await session.execute(
+                    delete(models.employee_laboratories).where(
+                        models.employee_laboratories.c.laboratory_id == lab.id
+                    )
+                )
+                if org_id is not None:
+                    emps = await helpers.get_employees_by_ids(session, org_id, eids)
+                elif creator_id is not None:
+                    emps = await helpers.get_employees_by_ids_for_creator(session, creator_id, eids)
+                else:
+                    emps = []
+                if emps:
+                    await session.execute(
+                        insert(models.employee_laboratories),
+                        [{"employee_id": e.id, "laboratory_id": lab.id} for e in emps],
+                    )
+            if equipment_ids is not None:
+                await session.execute(
+                    delete(models.laboratory_equipment).where(
+                        models.laboratory_equipment.c.laboratory_id == lab.id
+                    )
+                )
+                if org_id is not None:
+                    eqs = await helpers.get_equipment_by_ids(session, org_id, equipment_ids)
+                elif creator_id is not None:
+                    eqs = await helpers.get_equipment_by_ids_for_creator(session, creator_id, equipment_ids)
+                else:
+                    eqs = []
+                if eqs:
+                    await session.execute(
+                        insert(models.laboratory_equipment),
+                        [{"laboratory_id": lab.id, "equipment_id": e.id} for e in eqs],
+                    )
+            if task_solution_ids is not None:
+                await session.execute(
+                    delete(models.task_solution_laboratories).where(
+                        models.task_solution_laboratories.c.laboratory_id == lab.id
+                    )
+                )
+                if org_id is not None:
+                    tss = await helpers.get_task_solutions_by_ids(session, org_id, task_solution_ids)
+                elif creator_id is not None:
+                    tss = await helpers.get_task_solutions_by_ids_for_creator(session, creator_id, task_solution_ids)
+                else:
+                    tss = []
+                if tss:
+                    await session.execute(
+                        insert(models.task_solution_laboratories),
+                        [{"laboratory_id": lab.id, "task_solution_id": ts.id} for ts in tss],
+                    )
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            stmt = (
+                select(models.OrganizationLaboratory)
+                .options(*Orm._lab_select_options())
+                .where(models.OrganizationLaboratory.id == lab_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def list_vacancies_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[models.VacancyOrganization], int]:
+        """List all vacancies with pagination. Returns (items, total)."""
+        async with async_session_factory() as session:
+            count_stmt = select(func.count()).select_from(models.VacancyOrganization)
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.VacancyOrganization)
+                .options(
+                    selectinload(models.VacancyOrganization.organization),
+                    selectinload(models.VacancyOrganization.laboratory),
+                    selectinload(models.VacancyOrganization.query),
+                )
+                .order_by(models.VacancyOrganization.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all()), total
+
+    @staticmethod
+    async def admin_update_vacancy(
+        vacancy_id: int,
+        name: Optional[str] = None,
+        requirements: Optional[str] = None,
+        description: Optional[str] = None,
+        employment_type: Optional[str] = None,
+        is_published: Optional[bool] = None,
+        query_id: Optional[int] = None,
+        laboratory_id: Optional[int] = None,
+        contact_employee_id: Optional[int] = None,
+        contact_email: Optional[str] = None,
+        contact_phone: Optional[str] = None,
+    ) -> Optional[models.VacancyOrganization]:
+        """Update vacancy by id (admin, no ownership check)."""
+        async with async_session_factory() as session:
+            vacancy = await session.get(models.VacancyOrganization, vacancy_id)
+            if not vacancy:
+                return None
+            if name is not None:
+                vacancy.name = name
+            if requirements is not None:
+                vacancy.requirements = requirements
+            if description is not None:
+                vacancy.description = description
+            if employment_type is not None:
+                vacancy.employment_type = employment_type
+            if is_published is not None:
+                vacancy.is_published = bool(is_published)
+            if query_id is not None:
+                vacancy.query_id = query_id
+            if laboratory_id is not None:
+                vacancy.laboratory_id = laboratory_id
+            if contact_employee_id is not None:
+                vacancy.contact_employee_id = contact_employee_id
+            if contact_email is not None:
+                vacancy.contact_email = contact_email
+            if contact_phone is not None:
+                vacancy.contact_phone = contact_phone
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            stmt = (
+                select(models.VacancyOrganization)
+                .options(
+                    selectinload(models.VacancyOrganization.organization),
+                    selectinload(models.VacancyOrganization.laboratory),
+                    selectinload(models.VacancyOrganization.query),
+                )
+                .where(models.VacancyOrganization.id == vacancy_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def list_queries_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[models.OrganizationQuery], int]:
+        """List all queries with pagination. Returns (items, total)."""
+        async with async_session_factory() as session:
+            count_stmt = select(func.count()).select_from(models.OrganizationQuery)
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.OrganizationQuery)
+                .options(
+                    selectinload(models.OrganizationQuery.organization),
+                    selectinload(models.OrganizationQuery.laboratories),
+                    selectinload(models.OrganizationQuery.employees),
+                )
+                .order_by(models.OrganizationQuery.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all()), total
+
+    @staticmethod
+    async def get_query_by_id(query_id: int) -> Optional[models.OrganizationQuery]:
+        """Get query by internal id."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.OrganizationQuery)
+                .options(
+                    selectinload(models.OrganizationQuery.organization),
+                    selectinload(models.OrganizationQuery.laboratories),
+                    selectinload(models.OrganizationQuery.employees),
+                )
+                .where(models.OrganizationQuery.id == query_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def admin_update_query(
+        query_id: int,
+        title: Optional[str] = None,
+        task_description: Optional[str] = None,
+        completed_examples: Optional[str] = None,
+        grant_info: Optional[str] = None,
+        budget: Optional[str] = None,
+        deadline: Optional[str] = None,
+        status: Optional[str] = None,
+        linked_task_solution_id: Optional[int] = None,
+        laboratory_ids: Optional[List[int]] = None,
+        employee_ids: Optional[List[int]] = None,
+        is_published: Optional[bool] = None,
+    ) -> Optional[models.OrganizationQuery]:
+        """Update query by id (admin, no ownership check)."""
+        async with async_session_factory() as session:
+            query = await session.get(models.OrganizationQuery, query_id)
+            if not query:
+                return None
+            org_id = query.organization_id
+            creator_id = query.creator_user_id
+            if title is not None:
+                query.title = title
+            if task_description is not None:
+                query.task_description = task_description
+            if completed_examples is not None:
+                query.completed_examples = completed_examples
+            if grant_info is not None:
+                query.grant_info = grant_info
+            if budget is not None:
+                query.budget = budget
+            if deadline is not None:
+                query.deadline = deadline
+            if status is not None:
+                query.status = status
+            if linked_task_solution_id is not None:
+                query.linked_task_solution_id = linked_task_solution_id
+            if is_published is not None:
+                query.is_published = bool(is_published)
+            if laboratory_ids is not None:
+                await session.execute(
+                    delete(models.query_laboratories).where(
+                        models.query_laboratories.c.query_id == query.id
+                    )
+                )
+                if org_id is not None:
+                    labs = await helpers.get_labs_by_ids(session, org_id, laboratory_ids)
+                elif creator_id is not None:
+                    labs = await helpers.get_labs_by_ids_for_creator(session, creator_id, laboratory_ids)
+                else:
+                    labs = []
+                if labs:
+                    await session.execute(
+                        insert(models.query_laboratories),
+                        [{"query_id": query.id, "laboratory_id": lab.id} for lab in labs],
+                    )
+            if employee_ids is not None:
+                await session.execute(
+                    delete(models.query_employees).where(
+                        models.query_employees.c.query_id == query.id
+                    )
+                )
+                if org_id is not None:
+                    emps = await helpers.get_employees_by_ids(session, org_id, employee_ids)
+                elif creator_id is not None:
+                    emps = await helpers.get_employees_by_ids_for_creator(session, creator_id, employee_ids)
+                else:
+                    emps = []
+                if emps:
+                    await session.execute(
+                        insert(models.query_employees),
+                        [{"query_id": query.id, "employee_id": e.id} for e in emps],
+                    )
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            stmt = (
+                select(models.OrganizationQuery)
+                .options(
+                    selectinload(models.OrganizationQuery.organization),
+                    selectinload(models.OrganizationQuery.laboratories),
+                    selectinload(models.OrganizationQuery.employees),
+                )
+                .where(models.OrganizationQuery.id == query_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def list_equipment_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[models.OrganizationEquipment], int]:
+        """List all equipment with pagination (admin)."""
+        async with async_session_factory() as session:
+            count_stmt = select(func.count()).select_from(models.OrganizationEquipment)
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.OrganizationEquipment)
+                .options(
+                    selectinload(models.OrganizationEquipment.laboratories),
+                    selectinload(models.OrganizationEquipment.organization),
+                )
+                .order_by(models.OrganizationEquipment.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all()), total
+
+    @staticmethod
+    async def admin_get_equipment(equipment_id: int) -> Optional[models.OrganizationEquipment]:
+        """Get equipment by id (admin, no org check)."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.OrganizationEquipment)
+                .options(
+                    selectinload(models.OrganizationEquipment.laboratories),
+                    selectinload(models.OrganizationEquipment.organization),
+                )
+                .where(models.OrganizationEquipment.id == equipment_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def admin_update_equipment(
+        equipment_id: int,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        characteristics: Optional[str] = None,
+        image_urls: Optional[List[str]] = None,
+        laboratory_ids: Optional[List[int]] = None,
+    ) -> Optional[models.OrganizationEquipment]:
+        """Update equipment by id (admin, no org check)."""
+        async with async_session_factory() as session:
+            stmt = select(models.OrganizationEquipment).where(models.OrganizationEquipment.id == equipment_id)
+            result = await session.execute(stmt)
+            equipment = result.scalars().first()
+            if not equipment:
+                return None
+            if name is not None:
+                equipment.name = name
+            if description is not None:
+                equipment.description = description
+            if characteristics is not None:
+                equipment.characteristics = characteristics
+            if image_urls is not None:
+                equipment.image_urls = image_urls
+            if laboratory_ids is not None:
+                await session.execute(
+                    delete(models.laboratory_equipment).where(
+                        models.laboratory_equipment.c.equipment_id == equipment.id
+                    )
+                )
+                if equipment.organization_id is not None:
+                    labs = await helpers.get_labs_by_ids(session, equipment.organization_id, laboratory_ids)
+                elif equipment.creator_user_id is not None:
+                    labs = await helpers.get_labs_by_ids_for_creator(
+                        session, equipment.creator_user_id, laboratory_ids
+                    )
+                else:
+                    labs = []
+                if labs:
+                    await session.execute(
+                        insert(models.laboratory_equipment),
+                        [
+                            {"laboratory_id": lab.id, "equipment_id": equipment.id}
+                            for lab in labs
+                        ],
+                    )
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            stmt = (
+                select(models.OrganizationEquipment)
+                .options(selectinload(models.OrganizationEquipment.laboratories))
+                .where(models.OrganizationEquipment.id == equipment.id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def list_task_solutions_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[models.OrganizationTaskSolution], int]:
+        """List all task solutions with pagination (admin)."""
+        async with async_session_factory() as session:
+            count_stmt = select(func.count()).select_from(models.OrganizationTaskSolution)
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.OrganizationTaskSolution)
+                .options(
+                    selectinload(models.OrganizationTaskSolution.laboratories),
+                    selectinload(models.OrganizationTaskSolution.organization),
+                )
+                .order_by(models.OrganizationTaskSolution.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all()), total
+
+    @staticmethod
+    async def admin_get_task_solution(task_id: int) -> Optional[models.OrganizationTaskSolution]:
+        """Get task solution by id (admin, no org check)."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.OrganizationTaskSolution)
+                .options(
+                    selectinload(models.OrganizationTaskSolution.laboratories),
+                    selectinload(models.OrganizationTaskSolution.organization),
+                )
+                .where(models.OrganizationTaskSolution.id == task_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def admin_update_task_solution(
+        task_id: int,
+        title: Optional[str] = None,
+        task_description: Optional[str] = None,
+        solution_description: Optional[str] = None,
+        article_links: Optional[List[str]] = None,
+        solution_deadline: Optional[str] = None,
+        grant_info: Optional[str] = None,
+        cost: Optional[str] = None,
+        external_solutions: Optional[str] = None,
+        laboratory_ids: Optional[List[int]] = None,
+    ) -> Optional[models.OrganizationTaskSolution]:
+        """Update task solution by id (admin, no org check)."""
+        async with async_session_factory() as session:
+            stmt = select(models.OrganizationTaskSolution).where(models.OrganizationTaskSolution.id == task_id)
+            result = await session.execute(stmt)
+            task = result.scalars().first()
+            if not task:
+                return None
+            if title is not None:
+                task.title = title
+            if task_description is not None:
+                task.task_description = task_description
+            if solution_description is not None:
+                task.solution_description = solution_description
+            if article_links is not None:
+                task.article_links = article_links
+            if solution_deadline is not None:
+                task.solution_deadline = solution_deadline
+            if grant_info is not None:
+                task.grant_info = grant_info
+            if cost is not None:
+                task.cost = cost
+            if external_solutions is not None:
+                task.external_solutions = external_solutions
+            if laboratory_ids is not None:
+                await session.execute(
+                    delete(models.task_solution_laboratories).where(
+                        models.task_solution_laboratories.c.task_solution_id == task.id
+                    )
+                )
+                if task.organization_id is not None:
+                    labs = await helpers.get_labs_by_ids(session, task.organization_id, laboratory_ids)
+                elif task.creator_user_id is not None:
+                    labs = await helpers.get_labs_by_ids_for_creator(
+                        session, task.creator_user_id, laboratory_ids
+                    )
+                else:
+                    labs = []
+                if labs:
+                    await session.execute(
+                        insert(models.task_solution_laboratories),
+                        [
+                            {"task_solution_id": task.id, "laboratory_id": lab.id}
+                            for lab in labs
+                        ],
+                    )
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            stmt = (
+                select(models.OrganizationTaskSolution)
+                .options(selectinload(models.OrganizationTaskSolution.laboratories))
+                .where(models.OrganizationTaskSolution.id == task.id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def list_employees_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[models.Employee], int]:
+        """List all employees with pagination (admin)."""
+        async with async_session_factory() as session:
+            count_stmt = select(func.count()).select_from(models.Employee)
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.Employee)
+                .options(
+                    selectinload(models.Employee.laboratories),
+                    selectinload(models.Employee.organization),
+                )
+                .order_by(models.Employee.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all()), total
+
+    @staticmethod
+    async def admin_get_employee(employee_id: int) -> Optional[models.Employee]:
+        """Get employee by id (admin, no org check)."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.Employee)
+                .options(
+                    selectinload(models.Employee.laboratories),
+                    selectinload(models.Employee.organization),
+                )
+                .where(models.Employee.id == employee_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def admin_update_employee(
+        employee_id: int,
+        full_name: Optional[str] = None,
+        positions: Optional[List[str]] = None,
+        academic_degree: Optional[str] = None,
+        photo_url: Optional[str] = None,
+        research_interests: Optional[List[str]] = None,
+        education: Optional[List[str]] = None,
+        publications: Optional[List[dict]] = None,
+        hindex_wos: Optional[int] = None,
+        hindex_scopus: Optional[int] = None,
+        hindex_rsci: Optional[int] = None,
+        hindex_openalex: Optional[int] = None,
+        contacts: Optional[dict] = None,
+        laboratory_ids: Optional[List[int]] = None,
+    ) -> Optional[models.Employee]:
+        """Update employee by id (admin, no org check)."""
+        async with async_session_factory() as session:
+            stmt = select(models.Employee).where(models.Employee.id == employee_id)
+            result = await session.execute(stmt)
+            employee = result.scalars().first()
+            if not employee:
+                return None
+            if full_name is not None:
+                employee.full_name = full_name
+            if positions is not None:
+                employee.position = positions
+            if academic_degree is not None:
+                employee.academic_degree = academic_degree
+            if photo_url is not None:
+                employee.photo_url = photo_url
+            if research_interests is not None:
+                employee.research_interests = research_interests
+            if education is not None:
+                employee.education = education
+            if publications is not None:
+                employee.publications = publications
+            if hindex_wos is not None:
+                employee.hindex_wos = hindex_wos
+            if hindex_scopus is not None:
+                employee.hindex_scopus = hindex_scopus
+            if hindex_rsci is not None:
+                employee.hindex_rsci = hindex_rsci
+            if hindex_openalex is not None:
+                employee.hindex_openalex = hindex_openalex
+            if contacts is not None:
+                employee.contacts = contacts
+            if laboratory_ids is not None:
+                await session.execute(
+                    delete(models.employee_laboratories).where(
+                        models.employee_laboratories.c.employee_id == employee.id
+                    )
+                )
+                if employee.organization_id is not None:
+                    labs = await helpers.get_labs_by_ids(
+                        session, employee.organization_id, laboratory_ids
+                    )
+                elif employee.creator_user_id is not None:
+                    labs = await helpers.get_labs_by_ids_for_creator(
+                        session, employee.creator_user_id, laboratory_ids
+                    )
+                else:
+                    labs = []
+                if labs:
+                    await session.execute(
+                        insert(models.employee_laboratories),
+                        [
+                            {"employee_id": employee.id, "laboratory_id": lab.id}
+                            for lab in labs
+                        ],
+                    )
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            stmt = (
+                select(models.Employee)
+                .options(selectinload(models.Employee.laboratories))
+                .where(models.Employee.id == employee.id)
             )
             result = await session.execute(stmt)
             return result.scalars().first()

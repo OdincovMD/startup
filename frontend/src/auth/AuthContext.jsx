@@ -85,6 +85,12 @@ export function AuthProvider({ children }) {
     return () => setOnUnauthorized(() => {});
   }, []);
 
+  useEffect(() => {
+    if (auth?.token && auth?.user && auth.user.role_name == null) {
+      refreshUser();
+    }
+  }, [auth?.token, auth?.user]);
+
   const value = useMemo(
     () => ({ auth, loading, error, login, register, logout, loginWithToken, refreshUser, updateUser }),
     [auth, loading, error]

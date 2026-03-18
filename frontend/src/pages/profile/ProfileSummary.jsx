@@ -1,68 +1,36 @@
-import React, { useRef, useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import OrcidProfileSection from "./OrcidProfileSection";
-import OpenAlexProfileSection from "./OpenAlexProfileSection";
-import { formatPhoneRU } from "../../utils/validation";
-import { apiRequest } from "../../api/client";
-
-const RESEND_COOLDOWN_SEC = 60;
-
-const ROLE_DESCRIPTIONS = {
-  researcher: "Ищете научные команды, лаборатории и позиции, развиваете личный научный профиль.",
-  lab_admin: "Администрируете профиль организации, управляете лабораториями, оборудованием и вакансиями.",
-  lab_representative: "Представляете конкретную лабораторию, обновляете её профиль и публикуете вакансии.",
-  student: "Делаете первые шаги в науке: стажировки, учебные проекты и первые роли.",
-};
+/**
+ * Компактная карточка пользователя для сайдбара профиля.
+ * Аватар, имя, роль/email.
+ */
+import React, { useRef } from "react";
+import { Camera } from "lucide-react";
+import { Card } from "../../components/ui/Card";
 
 export default function ProfileSummary({
-  loading,
-  error,
   profile,
   roleName,
-  roles,
-  selectedRoleId,
-  onRoleChange,
-  onRoleSave,
-  roleSaving,
-  roleLabelByName,
-  orcidError,
-  orcidLinked,
-  onOrcidLinked,
-  onOrcidErrorDismiss,
-  onOpenAlexLinked,
   onAvatarUpload,
   uploading,
+  loading,
 }) {
   const avatarInputRef = useRef(null);
   const initial = profile?.full_name?.[0]?.toUpperCase() || profile?.mail?.[0]?.toUpperCase() || "?";
-  const contacts = profile?.contacts || {};
 
-  const [resendVerifyStatus, setResendVerifyStatus] = useState(null); // null | sending | sent | error
-  const [resendCooldownUntil, setResendCooldownUntil] = useState(null);
-  const [cooldownSecondsLeft, setCooldownSecondsLeft] = useState(0);
+  if (loading) {
+    return (
+      <Card variant="solid" padding="md" style={{ border: "1px solid var(--border-light)" }}>
+        <div className="profile-summary-compact" style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <div className="profile-skeleton" style={{ width: "56px", height: "56px", borderRadius: "16px", background: "var(--nav-active-bg)", animation: "pulse 2s infinite" }} />
+          <div className="profile-summary-compact__info" style={{ flex: 1 }}>
+            <div className="profile-skeleton" style={{ height: "18px", width: "70%", marginBottom: "8px", background: "var(--nav-active-bg)", borderRadius: "4px" }} />
+            <div className="profile-skeleton" style={{ height: "14px", width: "50%", background: "var(--nav-active-bg)", borderRadius: "4px" }} />
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
-  useEffect(() => {
-    if (!resendCooldownUntil || resendCooldownUntil <= Date.now()) {
-      setCooldownSecondsLeft(0);
-      return;
-    }
-    const tick = () => {
-      const left = Math.ceil((resendCooldownUntil - Date.now()) / 1000);
-      if (left <= 0) {
-        setCooldownSecondsLeft(0);
-        setResendCooldownUntil(null);
-        return;
-      }
-      setCooldownSecondsLeft(left);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [resendCooldownUntil]);
-
-  const hasOrcid = Boolean(profile?.orcid);
-  const hasPassword = profile?.has_password !== false;
-  const needsPasswordSetup = hasOrcid && !hasPassword;
+  if (!profile) return null;
 
   const handleAvatarClick = () => {
     avatarInputRef.current?.click();
@@ -76,226 +44,68 @@ export default function ProfileSummary({
     e.target.value = "";
   };
 
-  const handleResendVerification = async () => {
-    if (cooldownSecondsLeft > 0) return;
-    setResendVerifyStatus("sending");
-    try {
-      await apiRequest("/auth/resend-verification", { method: "POST" });
-      setResendVerifyStatus("sent");
-      setResendCooldownUntil(Date.now() + RESEND_COOLDOWN_SEC * 1000);
-    } catch (e) {
-      setResendVerifyStatus("error");
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="profile-summary-card">
-        <div className="profile-summary-header">
-          <div className="profile-skeleton profile-summary-avatar--skeleton" />
-          <div className="profile-summary-info" style={{ flex: 1 }}>
-            <div className="profile-skeleton" style={{ height: 24, width: "60%", marginBottom: 8 }} />
-            <div className="profile-skeleton" style={{ height: 16, width: "40%" }} />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!profile) return null;
-
-  const fieldItems = [
-    { key: "email", label: "Email", value: profile.mail },
-    { key: "phone", label: "Телефон", value: contacts.phone ? formatPhoneRU(contacts.phone) : null },
-    { key: "telegram", label: "Telegram", value: contacts.telegram },
-  ].filter((f) => f.value);
-
   return (
-    <div className="profile-summary-card">
-      <div className="profile-summary-header">
-        <button
-          type="button"
-          className={`profile-summary-avatar profile-summary-avatar--clickable ${uploading ? "profile-summary-avatar--uploading" : ""}`}
-          onClick={handleAvatarClick}
-          disabled={uploading}
-          aria-label="Сменить фото профиля"
-        >
-          {profile.photo_url ? (
-            <img src={profile.photo_url} alt="Аватар" />
-          ) : (
-            <span className="profile-summary-avatar__initial">{initial}</span>
-          )}
-          <span className="profile-summary-avatar__overlay">
-            {uploading ? "..." : "📷"}
-          </span>
-          <input
-            ref={avatarInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            onChange={handleAvatarChange}
-            style={{ display: "none" }}
-          />
-        </button>
-        <div className="profile-summary-info">
-          <h2 className="profile-summary-name">
-            {profile.full_name?.trim() || profile.mail || "Профиль"}
-          </h2>
-          {fieldItems.length > 0 && (
-            <ul className="profile-summary-fields">
-              {fieldItems.map((f) => (
-                <li key={f.key} className="profile-summary-field">
-                  <span className="profile-summary-field__label">{f.label}:</span>
-                  {f.isLink ? (
-                    <a
-                      href={f.value.startsWith("http") ? f.value : `https://${f.value}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="profile-summary-field__value profile-summary-field__value--link"
-                    >
-                      {f.value}
-                    </a>
-                  ) : (
-                    <span className="profile-summary-field__value">{f.value}</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      <div className="profile-summary-account">
-        <span className="profile-summary-block-label">Управление аккаунтом</span>
-        <div className="profile-summary-account-grid">
-          <div
-            className={
-              "profile-summary-account-item" +
-              (profile.email_verified ? " profile-summary-account-item--success" : "")
-            }
+    <Card variant="solid" padding="md" style={{ border: "1px solid var(--border-light)", background: "linear-gradient(to bottom right, #fff, var(--page-bg-alt))" }}>
+      <div className="profile-summary-compact" style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+        <div style={{ position: "relative" }}>
+          <button
+            type="button"
+            className={`profile-summary-compact__avatar ${uploading ? "uploading" : ""}`}
+            onClick={handleAvatarClick}
+            disabled={uploading}
+            style={{ 
+              width: "56px", 
+              height: "56px", 
+              borderRadius: "16px", 
+              overflow: "hidden", 
+              border: "2px solid #fff", 
+              boxShadow: "0 4px 12px rgba(26, 35, 50, 0.1)",
+              background: "var(--accent-bg)",
+              color: "var(--accent)",
+              display: "flex",
+              alignItems: "center",
+              justifyCenter: "center",
+              cursor: "pointer",
+              padding: 0,
+              transition: "all 0.2s"
+            }}
           >
-            <span className="profile-summary-account-title">Email</span>
-            <p className="profile-summary-account-text">
-              {profile.email_verified
-                ? "Адрес подтверждён. Можно использовать его для входа и уведомлений."
-                : "Email не подтверждён. Подтвердите адрес, чтобы получить полный доступ и уведомления."}
-            </p>
-            {!profile.email_verified && (
-              <>
-                <button
-                  type="button"
-                  className="profile-summary-account-btn"
-                  onClick={handleResendVerification}
-                  disabled={resendVerifyStatus === "sending" || cooldownSecondsLeft > 0}
-                >
-                  {resendVerifyStatus === "sending"
-                    ? "Отправка…"
-                    : cooldownSecondsLeft > 0
-                      ? `Запросить ещё раз (${cooldownSecondsLeft} сек)`
-                      : "Отправить письмо ещё раз"}
-                </button>
-                {resendVerifyStatus === "sent" && (
-                  <p className="profile-summary-account-hint profile-summary-account-hint--success">
-                    Письмо отправлено. Проверьте почту.
-                  </p>
-                )}
-                {resendVerifyStatus === "error" && (
-                  <p className="profile-summary-account-hint profile-summary-account-hint--error">
-                    Не удалось отправить письмо. Попробуйте позже.
-                  </p>
-                )}
-              </>
+            {profile?.photo_url ? (
+              <img src={profile.photo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              <div style={{ fontSize: "1.5rem", fontWeight: 700, width: "100%", textAlign: "center" }}>{initial}</div>
             )}
-          </div>
-
-          {profile?.has_password && profile.email_verified && (
-            <div className="profile-summary-account-item">
-              <span className="profile-summary-account-title">Пароль</span>
-              <p className="profile-summary-account-text">
-                Сбросьте пароль, если забыли его или хотите сменить доступ.
-              </p>
-              <Link to="/forgot-password" className="profile-summary-account-link">
-                Сбросить пароль
-              </Link>
+            
+            <div className="avatar-hover-overlay" style={{ position: "absolute", inset: 0, background: "rgba(26, 35, 50, 0.4)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.2s", color: "#fff" }}>
+              <Camera size={18} />
+            </div>
+          </button>
+          {uploading && (
+            <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.7)", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 5 }}>
+              <div className="loader-mini" style={{ width: "16px", height: "16px", border: "2px solid var(--accent)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
             </div>
           )}
         </div>
+        
+        <div className="profile-summary-compact__info" style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+          <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {profile?.full_name?.trim() || "Пользователь"}
+          </h3>
+          <div style={{ marginTop: "0.125rem" }}>
+            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {roleName || "Роль не выбрана"}
+            </span>
+          </div>
+        </div>
+        
+        <input
+          ref={avatarInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={handleAvatarChange}
+          style={{ display: "none" }}
+        />
       </div>
-
-      {roles?.length > 0 && (
-        <div className="profile-summary-role-block">
-          <span className="profile-summary-block-label">Роль</span>
-          <p className="profile-summary-role-desc">
-            Роль определяет доступ к управлению аккаунтом.
-          </p>
-          <div className="profile-summary-role-grid">
-            {roles.map((role) => {
-              const idStr = String(role.id);
-              const isActive = String(selectedRoleId ?? profile.role_id) === idStr;
-              const label = roleLabelByName?.(role.name) ?? role.name;
-              const description =
-                ROLE_DESCRIPTIONS[role.name] || "Роль определяет видимые разделы и права в системе.";
-              return (
-                <button
-                  key={role.id}
-                  type="button"
-                  className={`profile-role-card ${isActive ? "profile-role-card--selected" : ""}`}
-                  onClick={() => onRoleChange(idStr)}
-                  disabled={roleSaving}
-                  title={description}
-                >
-                  <span className="profile-role-card__title">{label}</span>
-                  <span className="profile-role-card__description">{description}</span>
-                </button>
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            className="primary-btn profile-role-save-btn"
-            onClick={onRoleSave}
-            disabled={
-              roleSaving ||
-              String(selectedRoleId ?? profile.role_id) === String(profile.role_id)
-            }
-          >
-            {roleSaving ? "Сохраняем..." : "Сохранить роль"}
-          </button>
-        </div>
-      )}
-
-      {profile && (
-        <div className="profile-summary-integrations">
-          <span className="profile-summary-block-label">Научные профили</span>
-          <p className="profile-summary-integrations-desc">
-            ORCID и OpenAlex для отображения публикаций и идентификации.
-          </p>
-          <div className="profile-integration-cards">
-            <OrcidProfileSection
-              profile={profile}
-              orcidError={orcidError}
-              orcidLinked={orcidLinked}
-              onOrcidLinked={onOrcidLinked}
-              onOrcidErrorDismiss={onOrcidErrorDismiss}
-              compact
-              hidePasswordForm
-            />
-            <OpenAlexProfileSection profile={profile} onOpenAlexLinked={onOpenAlexLinked} compact />
-          </div>
-        </div>
-      )}
-
-      {needsPasswordSetup && profile?.email_verified === true && (
-        <div className="profile-summary-password-block">
-          <span className="profile-summary-block-label">Установка пароля</span>
-          <p className="profile-summary-integrations-desc">
-            Вы зарегистрировались через ORCID. Установите пароль, чтобы иметь альтернативный способ входа.
-          </p>
-          <Link to="/set-password" className="profile-password-btn">
-            <span className="profile-password-btn__icon">🔐</span>
-            Установить пароль
-          </Link>
-        </div>
-      )}
-    </div>
+    </Card>
   );
 }

@@ -14,6 +14,7 @@
 from .client import get_es_client
 from .laboratories import (
     delete_laboratory,
+    get_laboratories_ranking_for_featured,
     index_laboratory,
     reindex_laboratories_by_ids,
     reindex_laboratories_if_empty,
@@ -22,6 +23,7 @@ from .laboratories import (
 )
 from .organizations import (
     delete_organization,
+    get_organizations_ranking_for_featured,
     index_organization,
     reindex_organizations_by_ids,
     reindex_organizations_if_empty,
@@ -30,6 +32,7 @@ from .organizations import (
 )
 from .queries import (
     delete_query,
+    get_queries_ranking_for_featured,
     index_query,
     reindex_queries_if_empty,
     search_queries,
@@ -37,28 +40,45 @@ from .queries import (
 )
 from .vacancies import (
     delete_vacancy,
+    get_vacancies_ranking_for_featured,
     index_vacancy,
     reindex_vacancies_if_empty,
     search_vacancies,
     suggest_vacancies,
+)
+from .applicants import (
+    delete_applicant,
+    index_applicant,
+    reindex_applicants_if_empty,
+    search_applicants,
+    suggest_applicants,
 )
 from .global_search import suggest_global
 
 __all__ = [
     "get_es_client",
     # Vacancies
+    "get_vacancies_ranking_for_featured",
     "search_vacancies",
     "suggest_vacancies",
     "index_vacancy",
     "delete_vacancy",
     "reindex_vacancies_if_empty",
+    # Applicants
+    "search_applicants",
+    "suggest_applicants",
+    "index_applicant",
+    "delete_applicant",
+    "reindex_applicants_if_empty",
     # Queries
+    "get_queries_ranking_for_featured",
     "search_queries",
     "suggest_queries",
     "index_query",
     "delete_query",
     "reindex_queries_if_empty",
     # Laboratories
+    "get_laboratories_ranking_for_featured",
     "search_laboratories",
     "suggest_laboratories",
     "index_laboratory",
@@ -66,6 +86,7 @@ __all__ = [
     "reindex_laboratories_by_ids",
     "reindex_laboratories_if_empty",
     # Organizations
+    "get_organizations_ranking_for_featured",
     "search_organizations",
     "suggest_organizations",
     "index_organization",

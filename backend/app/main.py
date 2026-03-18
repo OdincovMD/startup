@@ -20,10 +20,13 @@ from app.bootstrap import (
     ensure_elasticsearch_indexes,
 )
 from app.middleware import StorageUrlRewriteMiddleware
-from app.api import profile, storage, analytics, search
+from app.api import home, profile, storage, analytics, search
+from app.api.admin import router as admin_router
 from app.core.api import auth, users, roles
 from app.jobs.openalex_sync import sync_openalex_data
+from app.jobs.subscription_expiry import check_subscription_expiry
 from app.roles.representative.api import (
+    applicants_public,
     laboratories_public,
     queries_public,
     labs,
@@ -35,7 +38,7 @@ scheduler = BackgroundScheduler()
 
 app = FastAPI(
     title="Синтезум",
-    version="release/D-01.004.00.0",
+    version="release/D-01.006.00.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None
@@ -62,6 +65,7 @@ async def on_startup():
     ensure_storage()
     await ensure_elasticsearch_indexes()
     scheduler.add_job(sync_openalex_data, "cron", hour=3, minute=0)
+    scheduler.add_job(check_subscription_expiry, "cron", hour=4, minute=0)
     scheduler.start()
 
 
@@ -70,11 +74,13 @@ def health_check():
     return {"status": "ok"}
 
 
+app.include_router(home.router, prefix="/api")
 app.include_router(labs.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(laboratories_public.router, prefix="/api")
 app.include_router(queries_public.router, prefix="/api")
 app.include_router(vacancies_public.router, prefix="/api")
+app.include_router(applicants_public.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
@@ -82,3 +88,4 @@ app.include_router(roles.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(storage.router, prefix="/api")
+app.include_router(admin_router, prefix="/api")

@@ -2,6 +2,13 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { 
+  LockIcon, 
+  CheckCircleIcon, 
+  AuthAlert, 
+  AuthButton, 
+  PasswordField 
+} from "../components/auth";
 
 /**
  * Установка пароля для пользователя, зарегистрированного через ORCID (уже в системе, без отправки письма).
@@ -14,6 +21,8 @@ export default function SetPassword() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [status, setStatus] = useState("idle"); // idle | sending | success | error
   const [errorMessage, setErrorMessage] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
   useEffect(() => {
     if (auth === null) {
@@ -55,11 +64,14 @@ export default function SetPassword() {
 
   if (status === "success") {
     return (
-      <main className="main auth-page">
-        <div className="auth-wrapper">
-          <div className="auth-card-modern">
-            <h1>Пароль установлен</h1>
-            <p className="auth-subtitle">
+      <div className="auth-page auth-page--centered">
+        <div className="auth-icon-card">
+          <div className="auth-icon-card__icon auth-icon-card__icon--success">
+            <CheckCircleIcon />
+          </div>
+          <div className="auth-icon-card__body">
+            <h1 className="auth-icon-card__title">Пароль установлен</h1>
+            <p className="auth-subtitle auth-subtitle--center">
               Теперь вы можете входить по email и паролю.
             </p>
             <div className="auth-actions">
@@ -69,56 +81,56 @@ export default function SetPassword() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="main auth-page">
-      <div className="auth-wrapper">
-        <div className="auth-card-modern">
-          <h1>Установка пароля</h1>
-          <p className="auth-subtitle">
+    <div className="auth-page auth-page--centered">
+      <div className="auth-icon-card">
+        <div className="auth-icon-card__icon">
+          <LockIcon />
+        </div>
+        <div className="auth-icon-card__body">
+          <h1 className="auth-icon-card__title">Установка пароля</h1>
+          <p className="auth-subtitle auth-subtitle--center">
             Вы зарегистрировались через ORCID. Введите пароль для входа по email (не менее 8 символов).
           </p>
 
           <form className="auth-form-modern" onSubmit={handleSubmit}>
-            {status === "error" && errorMessage && (
-              <div className="auth-alert auth-alert-error" role="alert">
-                {errorMessage}
-              </div>
-            )}
-            <div className="field-group">
-              <label htmlFor="set-password">Новый пароль</label>
-              <input
-                id="set-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                minLength={8}
-                required
-                autoComplete="new-password"
-              />
-              <span className="auth-hint-inline">Не менее 8 символов</span>
-            </div>
-            <div className="field-group">
-              <label htmlFor="set-password-confirm">Повторите пароль</label>
-              <input
-                id="set-password-confirm"
-                type="password"
-                value={passwordConfirm}
-                onChange={(e) => setPasswordConfirm(e.target.value)}
-                placeholder="••••••••"
-                minLength={8}
-                required
-                autoComplete="new-password"
-              />
-            </div>
+            <AuthAlert message={errorMessage} />
+            
+            <PasswordField
+              id="set-password"
+              label="Новый пароль"
+              value={password}
+              onChange={(v) => { setPassword(v); setErrorMessage(null); }}
+              showPassword={showPassword}
+              onToggleShow={() => setShowPassword(!showPassword)}
+              placeholder="••••••••"
+              minLength={8}
+              required
+              autoComplete="new-password"
+              hint="Не менее 8 символов"
+            />
+
+            <PasswordField
+              id="set-password-confirm"
+              label="Повторите пароль"
+              value={passwordConfirm}
+              onChange={(v) => { setPasswordConfirm(v); setErrorMessage(null); }}
+              showPassword={showPasswordConfirm}
+              onToggleShow={() => setShowPasswordConfirm(!showPasswordConfirm)}
+              placeholder="••••••••"
+              minLength={8}
+              required
+              autoComplete="new-password"
+            />
+
             <div className="auth-actions">
-              <button type="submit" className="primary-btn auth-btn-primary auth-actions__primary" disabled={status === "sending"}>
-                {status === "sending" ? "Сохранение…" : "Сохранить пароль"}
-              </button>
+              <AuthButton loading={status === "sending"} className="primary-btn auth-btn-primary auth-actions__primary">
+                Сохранить пароль
+              </AuthButton>
               <div className="auth-actions__secondary">
                 <Link to="/profile">Вернуться в профиль</Link>
               </div>
@@ -126,6 +138,6 @@ export default function SetPassword() {
           </form>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

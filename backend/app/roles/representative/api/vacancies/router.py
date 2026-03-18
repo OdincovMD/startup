@@ -38,40 +38,43 @@ async def create_org_vacancy(
     payload: VacancyOrganizationCreate,
     current_user=Depends(get_current_user),
 ):
-    org = await Orm.get_organization_for_user(current_user.id)
-    if org:
-        return await Orm.create_vacancy(
-            org.id,
-            creator_user_id=current_user.id,
-            name=payload.name,
-            requirements=payload.requirements,
-            description=payload.description,
-            employment_type=payload.employment_type,
-            query_id=payload.query_id,
-            laboratory_id=payload.laboratory_id,
-            contact_employee_id=payload.contact_employee_id,
-            contact_email=payload.contact_email,
-            contact_phone=payload.contact_phone,
-        )
-    if is_lab_representative(current_user):
-        require_lab_link_for_lab_rep(
-            laboratory_ids=None,
-            laboratory_id=payload.laboratory_id,
-            query_id=payload.query_id,
-        )
-        return await Orm.create_vacancy(
-            None,
-            creator_user_id=current_user.id,
-            name=payload.name,
-            requirements=payload.requirements,
-            description=payload.description,
-            employment_type=payload.employment_type,
-            query_id=payload.query_id,
-            laboratory_id=payload.laboratory_id,
-            contact_employee_id=payload.contact_employee_id,
-            contact_email=payload.contact_email,
-            contact_phone=payload.contact_phone,
-        )
+    try:
+        org = await Orm.get_organization_for_user(current_user.id)
+        if org:
+            return await Orm.create_vacancy(
+                org.id,
+                creator_user_id=current_user.id,
+                name=payload.name,
+                requirements=payload.requirements,
+                description=payload.description,
+                employment_type=payload.employment_type,
+                query_id=payload.query_id,
+                laboratory_id=payload.laboratory_id,
+                contact_employee_id=payload.contact_employee_id,
+                contact_email=payload.contact_email,
+                contact_phone=payload.contact_phone,
+            )
+        if is_lab_representative(current_user):
+            require_lab_link_for_lab_rep(
+                laboratory_ids=None,
+                laboratory_id=payload.laboratory_id,
+                query_id=payload.query_id,
+            )
+            return await Orm.create_vacancy(
+                None,
+                creator_user_id=current_user.id,
+                name=payload.name,
+                requirements=payload.requirements,
+                description=payload.description,
+                employment_type=payload.employment_type,
+                query_id=payload.query_id,
+                laboratory_id=payload.laboratory_id,
+                contact_employee_id=payload.contact_employee_id,
+                contact_email=payload.contact_email,
+                contact_phone=payload.contact_phone,
+            )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Сначала заполните и сохраните профиль организации.",

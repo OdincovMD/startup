@@ -1,10 +1,44 @@
 /**
  * Иконка уведомлений с бейджем и выпадающей панелью.
- * Стиль в духе проекта: карточка, список-карточки, типография profile-list.
+ * Современный стиль: карточки, иконки по типам, читаемая иерархия.
  */
 import React, { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { apiRequest } from "../api/client";
+
+function NotificationIcon({ type }) {
+  const iconClass = `notifications-item-icon notifications-item-icon--${type?.split("_")[0] || "default"}`;
+  if (type?.startsWith("vacancy")) {
+    return (
+      <span className={iconClass} aria-hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      </span>
+    );
+  }
+  if (type?.startsWith("lab_") || type?.startsWith("org_")) {
+    return (
+      <span className={iconClass} aria-hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m2 8 10 7 10-7v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2Z" />
+          <path d="M22 8 12 15 2 8" />
+        </svg>
+      </span>
+    );
+  }
+  return (
+    <span className={iconClass} aria-hidden>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" />
+      </svg>
+    </span>
+  );
+}
 
 const TYPE_LABELS = {
   lab_join_request_created: "Новая заявка в лабораторию",
@@ -18,6 +52,12 @@ const TYPE_LABELS = {
   org_join_left: "Лаборатория покинула организацию",
   vacancy_response_created: "Отклик на вакансию",
   vacancy_response_status_changed: "Статус отклика на вакансию",
+  subscription_request_created: "Запрос на подключение подписки",
+  subscription_request_sent: "Запрос на подписку отправлен",
+  subscription_request_approved: "Подписка подключена",
+  subscription_request_rejected: "Запрос на подписку отклонён",
+  subscription_cancelled: "Подписка отключена",
+  subscription_expired: "Подписка закончилась",
 };
 
 function formatNotification(n) {
@@ -53,6 +93,24 @@ function formatNotification(n) {
     const statusLabels = { accepted: "принят", rejected: "отклонён", new: "новый" };
     const statusText = statusLabels[d.status] || d.status || "";
     return `«${d.vacancy_name || "вакансия"}» — ${statusText}`;
+  }
+  if (n.type === "subscription_request_created") {
+    return `${d.user_full_name || d.user_mail || "Пользователь"} → ${d.tier || ""} ${d.is_trial ? "(Trial)" : ""}`;
+  }
+  if (n.type === "subscription_request_sent") {
+    return `Тариф ${d.tier || ""} ${d.is_trial ? "(Trial)" : ""} — ожидайте ответа администратора`;
+  }
+  if (n.type === "subscription_request_approved") {
+    return `Тариф ${d.tier || ""} ${d.is_trial ? "(Trial)" : ""} подключён`;
+  }
+  if (n.type === "subscription_request_rejected") {
+    return `Тариф ${d.tier || ""}${d.reason ? `: ${d.reason}` : ""}`;
+  }
+  if (n.type === "subscription_cancelled") {
+    return `Тариф ${d.tier || ""} — подписка отключена администратором`;
+  }
+  if (n.type === "subscription_expired") {
+    return `Тариф ${d.tier || ""} — срок подписки истёк`;
   }
   return label;
 }
@@ -94,6 +152,14 @@ function getNotificationLink(n) {
     case "vacancy_response_created":
     case "vacancy_response_status_changed":
       return { path: "/profile", tab: "vacancy-responses" };
+    case "subscription_request_created":
+      return { path: "/admin", tab: "subscriptions" };
+    case "subscription_request_sent":
+    case "subscription_request_approved":
+    case "subscription_request_rejected":
+    case "subscription_cancelled":
+    case "subscription_expired":
+      return { path: "/profile", section: "subscription" };
     default:
       return { path: "/profile" };
   }
@@ -111,6 +177,12 @@ const NAVIGABLE_NOTIFICATION_TYPES = new Set([
   "org_join_left",
   "vacancy_response_created",
   "vacancy_response_status_changed",
+  "subscription_request_created",
+  "subscription_request_sent",
+  "subscription_request_approved",
+  "subscription_request_rejected",
+  "subscription_cancelled",
+  "subscription_expired",
 ]);
 
 const PANEL_ANIMATION_MS = 250;
@@ -161,7 +233,7 @@ export default function NotificationsDropdown() {
   const loadNotifications = async () => {
     setLoading(true);
     try {
-      const list = await apiRequest("/profile/notifications");
+      const list = await apiRequest("/profile/notifications?unread_only=true");
       setNotifications(list || []);
     } catch {
       setNotifications([]);
@@ -173,7 +245,12 @@ export default function NotificationsDropdown() {
   useEffect(() => {
     loadUnread();
     const t = setInterval(loadUnread, 60000);
-    return () => clearInterval(t);
+    const onRefresh = () => loadUnread();
+    window.addEventListener("profile-refresh", onRefresh);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("profile-refresh", onRefresh);
+    };
   }, []);
 
   useEffect(() => {
@@ -181,18 +258,24 @@ export default function NotificationsDropdown() {
   }, [open]);
 
   const handleNotificationClick = async (n) => {
+    const id = n.id;
+    setNotifications((prev) => prev.filter((x) => x.id !== id));
+    loadUnread();
     try {
-      await apiRequest(`/profile/notifications/${n.id}/read`, { method: "PATCH" });
-      setNotifications((prev) => prev.filter((x) => x.id !== n.id));
-      loadUnread();
+      await apiRequest(`/profile/notifications/${id}/read`, {
+        method: "PATCH",
+        body: JSON.stringify({}),
+      });
       if (NAVIGABLE_NOTIFICATION_TYPES.has(n.type)) {
         closePanel();
-        const { path, tab } = getNotificationLink(n);
-        navigate(tab ? `${path}?tab=${tab}` : path);
+        const link = getNotificationLink(n);
+        const q = link.section ? `?section=${link.section}` : link.tab ? `?tab=${link.tab}` : "";
+        navigate(link.path + q);
         setTimeout(() => window.dispatchEvent(new CustomEvent("profile-refresh")), 100);
       }
     } catch {
-      /* ignore */
+      setNotifications((prev) => [...prev.filter((x) => x.id !== id), n]);
+      loadUnread();
     }
   };
 
@@ -249,9 +332,20 @@ export default function NotificationsDropdown() {
           </div>
           <div className="notifications-panel-body">
             {loading ? (
-              <div className="notifications-empty">Загрузка…</div>
+              <div className="notifications-loading">
+                <div className="notifications-skeleton" />
+                <div className="notifications-skeleton" />
+                <div className="notifications-skeleton" />
+              </div>
             ) : notifications.length === 0 ? (
-              <div className="notifications-empty">Нет новых уведомлений</div>
+              <div className="notifications-empty">
+                <span className="notifications-empty-icon" aria-hidden>✓</span>
+                <p className="notifications-empty-title">Всё прочитано</p>
+                <p className="notifications-empty-hint">Здесь появятся новые заявки, отклики и обновления</p>
+                <Link to="/profile" className="notifications-empty-link" onClick={closePanel}>
+                  Перейти в профиль
+                </Link>
+              </div>
             ) : (
               <ul className="notifications-list" role="list">
                 {notifications.map((n) => (
@@ -261,10 +355,16 @@ export default function NotificationsDropdown() {
                       className={`notifications-item ${n.read_at ? "notifications-item--read" : "notifications-item--unread"}`}
                       onClick={() => handleNotificationClick(n)}
                     >
-                      <span className="notifications-item-type">{getTypeLabel(n)}</span>
-                      <span className="notifications-item-text">{formatNotification(n)}</span>
-                      <span className="notifications-item-meta">
-                        <span className="notifications-item-date">{formatDate(n.created_at)}</span>
+                      <NotificationIcon type={n.type} />
+                      <span className="notifications-item-content">
+                        <span className="notifications-item-type">{getTypeLabel(n)}</span>
+                        <span className="notifications-item-text">{formatNotification(n)}</span>
+                        <span className="notifications-item-meta">
+                          <span className="notifications-item-date">{formatDate(n.created_at)}</span>
+                          {NAVIGABLE_NOTIFICATION_TYPES.has(n.type) && (
+                            <span className="notifications-item-cta">Открыть →</span>
+                          )}
+                        </span>
                       </span>
                     </button>
                   </li>
@@ -272,6 +372,13 @@ export default function NotificationsDropdown() {
               </ul>
             )}
           </div>
+          {!loading && notifications.length > 0 && (
+            <div className="notifications-panel-footer">
+              <Link to="/profile" className="notifications-panel-footer-link" onClick={closePanel}>
+                Все уведомления в профиле
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </div>

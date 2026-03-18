@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { apiRequest } from "../../api/client";
 import { useToast } from "../../ToastContext";
+import { ORCID_ICON_URL } from "../../components/auth";
 
 const ORCID_ERROR_MESSAGES = {
   link_failed: "Не удалось привязать ORCID. Попробуйте снова.",
@@ -162,7 +163,7 @@ export default function OrcidProfileSection({ profile, orcidError, orcidLinked, 
       {hasOrcid ? (
         <div className="orcid-status orcid-status--connected">
           <img
-            src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
+            src={ORCID_ICON_URL}
             alt=""
             width="24"
             height="24"
@@ -262,7 +263,7 @@ export default function OrcidProfileSection({ profile, orcidError, orcidLinked, 
             style={{ marginTop: "0.5rem" }}
           >
             <img
-              src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
+              src={ORCID_ICON_URL}
               alt=""
               width="20"
               height="20"

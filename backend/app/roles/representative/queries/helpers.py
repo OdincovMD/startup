@@ -70,6 +70,16 @@ async def ensure_unique_vacancy_public_id(session: AsyncSession) -> str:
             return candidate
 
 
+async def ensure_unique_user_public_id(session: AsyncSession) -> str:
+    """Уникальный public_id для User (соискатели)."""
+    while True:
+        candidate = generate_public_id()
+        stmt = select(models.User).where(models.User.public_id == candidate)
+        result = await session.execute(stmt)
+        if result.scalars().first() is None:
+            return candidate
+
+
 async def get_employees_by_ids(
     session: AsyncSession,
     organization_id: int,

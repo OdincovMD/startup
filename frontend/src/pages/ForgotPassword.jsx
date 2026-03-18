@@ -2,6 +2,13 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { 
+  LockIcon, 
+  MailCheckIcon, 
+  SpinnerIcon, 
+  AuthAlert, 
+  AuthButton 
+} from "../components/auth";
 
 const COOLDOWN_SEC = 120;
 const COOLDOWN_STORAGE_KEY = "forgot_password_cooldown_until";
@@ -96,67 +103,72 @@ export default function ForgotPassword() {
     }
   };
 
+  /* ── Sent state ── */
   if (status === "sent") {
     return (
-      <main className="main auth-page">
-        <div className="auth-wrapper">
-          <div className="auth-card-modern">
-            <h1>Проверьте почту</h1>
-            <p className="auth-subtitle">
+      <div className="auth-page auth-page--centered">
+        <div className="auth-icon-card">
+          <div className="auth-icon-card__icon auth-icon-card__icon--success">
+            <MailCheckIcon />
+          </div>
+          <div className="auth-icon-card__body">
+            <h1 className="auth-icon-card__title">Проверьте почту</h1>
+            <div className="auth-subtitle auth-subtitle--center">
               {effectiveMail
-                ? `На ${effectiveMail} отправлено письмо с инструкциями для сброса пароля.`
-                : "Если аккаунт с таким email существует и подтверждён, на него отправлено письмо с инструкциями для сброса пароля."}
-            </p>
-            <div className="auth-actions">
-              <Link
-                to={isAuthenticated ? "/profile" : "/login"}
-                className="primary-btn auth-btn-primary auth-actions__primary"
-              >
-                {isAuthenticated ? "В профиль" : "К входу"}
-              </Link>
-              {!isAuthenticated && (
-                <div className="auth-actions__secondary">
-                  <Link to="/login">Вернуться к входу</Link>
-                </div>
-              )}
+                ? <>На <strong>{effectiveMail}</strong> отправлено письмо с&nbsp;инструкциями по сбросу пароля.</>
+                : "Если аккаунт с таким email существует и подтверждён, на него отправлено письмо с инструкциями."}
             </div>
+            <p className="auth-icon-card__hint">
+              Не нашли письмо? Проверьте папку «Спам».
+            </p>
+            <Link
+              to={isAuthenticated ? "/profile" : "/login"}
+              className="primary-btn auth-btn-primary"
+            >
+              {isAuthenticated ? "В профиль" : "Вернуться к входу"}
+            </Link>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
+  /* ── Sending (auto-send for authenticated user) ── */
   if (status === "sending" && effectiveMail) {
     return (
-      <main className="main auth-page">
-        <div className="auth-wrapper">
-          <div className="auth-card-modern auth-card-modern--loading">
-            <h1>Сброс пароля</h1>
-            <p className="auth-subtitle">Отправляем письмо на <strong>{effectiveMail}</strong>…</p>
-            <div className="auth-loading-dots" aria-hidden="true">
-              <span /><span /><span />
-            </div>
+      <div className="auth-page auth-page--centered">
+        <div className="auth-icon-card">
+          <div className="auth-icon-card__icon auth-icon-card__icon--loading">
+            <SpinnerIcon />
+          </div>
+          <div className="auth-icon-card__body">
+            <h1 className="auth-icon-card__title">Сброс пароля</h1>
+            <p className="auth-subtitle auth-subtitle--center">
+              Отправляем письмо на&nbsp;<strong>{effectiveMail}</strong>…
+            </p>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
+  /* ── Idle / Error state (main form) ── */
   return (
-    <main className="main auth-page">
-      <div className="auth-wrapper">
-        <div className="auth-card-modern">
-          <h1>Забыли пароль?</h1>
-          <p className="auth-subtitle">
+    <div className="auth-page auth-page--centered">
+      <div className="auth-icon-card">
+        <div className="auth-icon-card__icon">
+          <LockIcon />
+        </div>
+        <div className="auth-icon-card__body">
+          <h1 className="auth-icon-card__title">Забыли пароль?</h1>
+          <p className="auth-subtitle auth-subtitle--center">
             {isAuthenticated
-              ? "Мы отправим ссылку для сброса пароля на ваш подтверждённый email."
-              : "Введите email вашего аккаунта. Мы отправим ссылку для сброса пароля на подтверждённый email."}
+              ? "Отправим ссылку для сброса пароля на ваш подтверждённый email."
+              : "Введите email аккаунта — мы пришлём ссылку для сброса пароля."}
           </p>
-          {status === "error" && errorMessage && (
-            <div className="auth-alert auth-alert-error" role="alert">
-              {errorMessage}
-            </div>
-          )}
+
+          <AuthAlert message={errorMessage} />
+
           <form className="auth-form-modern" onSubmit={handleSubmit}>
             {!isAuthenticated && (
               <div className="field-group">
@@ -165,34 +177,35 @@ export default function ForgotPassword() {
                   id="forgot-mail"
                   type="email"
                   value={mail}
-                  onChange={(e) => setMail(e.target.value)}
+                  onChange={(e) => { setMail(e.target.value); setErrorMessage(null); }}
                   placeholder="name@lab.org"
                   required
                   autoComplete="email"
+                  autoFocus
                 />
               </div>
             )}
-            <div className="auth-actions">
-              <button
-                type="submit"
-                className="primary-btn auth-btn-primary auth-actions__primary"
-                disabled={status === "sending" || cooldownLeft > 0 || (!isAuthenticated && !mail.trim())}
-              >
-                {status === "sending"
-                  ? "Отправка…"
-                  : cooldownLeft > 0
-                    ? `Через ${formatCountdown(cooldownLeft)}`
-                    : "Отправить ссылку"}
-              </button>
-              <div className="auth-actions__secondary">
-                <Link to={isAuthenticated ? "/profile" : "/login"}>
-                  {isAuthenticated ? "В профиль" : "Вернуться к входу"}
-                </Link>
-              </div>
-            </div>
+
+            <AuthButton
+              loading={status === "sending"}
+              disabled={cooldownLeft > 0 || (!isAuthenticated && !mail.trim())}
+            >
+              {cooldownLeft > 0
+                ? `Повторить через ${formatCountdown(cooldownLeft)}`
+                : "Отправить ссылку"}
+            </AuthButton>
           </form>
+
+          <div className="auth-icon-card__back">
+            <Link to={isAuthenticated ? "/profile" : "/login"} className="auth-icon-card__back-link">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+              {isAuthenticated ? "В профиль" : "Вернуться к входу"}
+            </Link>
+          </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

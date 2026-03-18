@@ -135,19 +135,6 @@ def fetch_institution_by_ror(ror_id: str) -> Optional[dict]:
         return resp.json()
 
 
-def fetch_institution_by_openalex_id(openalex_id: str) -> Optional[dict]:
-    """GET /institutions/{id}"""
-    clean_id = _extract_openalex_id(openalex_id)
-    path = f"/institutions/{clean_id}"
-    url, params = _api_url(path)
-    with httpx.Client(timeout=30.0) as client:
-        resp = client.get(url, params=params)
-        if resp.status_code != 200:
-            logger.warning("OpenAlex fetch_institution_by_openalex_id failed: openalex_id=%s status=%s", openalex_id, resp.status_code)
-            return None
-        return resp.json()
-
-
 def map_institution_to_organization(institution: dict) -> dict:
     """
     Map OpenAlex institution to Organization fields.

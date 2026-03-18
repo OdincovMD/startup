@@ -10,6 +10,7 @@ import {
 } from "./org";
 import JoinRequestsIncomingTab from "./JoinRequestsIncomingTab";
 import VacancyResponsesIncomingTab from "./VacancyResponsesIncomingTab";
+import MyJoinRequestsSection from "./MyJoinRequestsSection";
 import EmployerDashboard from "./EmployerDashboard";
 
 export default function OrganizationProfileSection({
@@ -138,6 +139,7 @@ export default function OrganizationProfileSection({
   toggleQueryPublish,
   toggleVacancyPublish,
   toggleEquipmentLab,
+  onNavigateToSubscription,
   showProfileTab = true,
   hideTitle = false,
   onOrgRorLinked,
@@ -147,13 +149,16 @@ export default function OrganizationProfileSection({
   return (
     <div className="profile-section profile-section--no-border">
       {!hideTitle && <h3 className="profile-section-title">{title}</h3>}
-      <div className="org-section-content">
       {orgTab === "dashboard" && (
-        <EmployerDashboard onError={onError} />
+        <EmployerDashboard onError={onError} onNavigateToSubscription={onNavigateToSubscription} />
+      )}
+
+      {orgTab === "my-requests" && roleKey === "lab_representative" && (
+        <MyJoinRequestsSection roleKey="lab_representative" onError={onError} creatorLabs={orgLabs} />
       )}
 
       {showProfileTab && orgTab === "profile" && (
-        <>
+        <div className="profile-form-section">
           <p className="profile-tab-desc">Название, описание и контакты организации. Опубликуйте профиль, чтобы он был виден на платформе.</p>
           <ProfileTab
           orgProfile={orgProfile}
@@ -166,11 +171,10 @@ export default function OrganizationProfileSection({
           onAvatarInputRefReady={onOrgAvatarInputRefReady}
           onOrgRorLinked={onOrgRorLinked}
         />
-        </>
+        </div>
       )}
 
       {orgTab === "labs" && (
-        <>
         <LaboratoriesTab
           labDraft={labDraft}
           handleLabDraft={handleLabDraft}
@@ -202,11 +206,9 @@ export default function OrganizationProfileSection({
           saving={saving}
           onFileInputRefsReady={onOrgLabFileInputRefsReady}
         />
-        </>
       )}
 
       {orgTab === "equipment" && (
-        <>
         <EquipmentTab
           equipmentDraft={equipmentDraft}
           handleEquipmentDraft={handleEquipmentDraft}
@@ -232,11 +234,9 @@ export default function OrganizationProfileSection({
           saving={saving}
           onFileInputRefsReady={onOrgEquipmentFileInputRefsReady}
         />
-        </>
       )}
 
       {orgTab === "staff" && (
-        <>
         <StaffTab
           employeeDraft={employeeDraft}
           handleEmployeeDraftChange={handleEmployeeDraftChange}
@@ -276,11 +276,9 @@ export default function OrganizationProfileSection({
           saving={saving}
           onFileInputRefsReady={onOrgStaffFileInputRefsReady}
         />
-        </>
       )}
 
       {orgTab === "tasks" && (
-        <>
         <TasksTab
           taskDraft={taskDraft}
           setTaskDraft={setTaskDraft}
@@ -297,11 +295,9 @@ export default function OrganizationProfileSection({
           deleteTask={deleteTask}
           saving={saving}
         />
-        </>
       )}
 
       {orgTab === "queries" && (
-        <>
         <QueriesTab
           queryDraft={queryDraft}
           setQueryDraft={setQueryDraft}
@@ -322,11 +318,9 @@ export default function OrganizationProfileSection({
           toggleQueryPublish={toggleQueryPublish}
           saving={saving}
         />
-        </>
       )}
 
       {orgTab === "vacancies" && (
-        <>
         <VacanciesTab
           vacancyDraft={vacancyDraft}
           setVacancyDraft={setVacancyDraft}
@@ -346,7 +340,6 @@ export default function OrganizationProfileSection({
           saving={saving}
           onError={onError}
         />
-        </>
       )}
 
       {orgTab === "join-requests" && (
@@ -355,7 +348,6 @@ export default function OrganizationProfileSection({
       {orgTab === "vacancy-responses" && (
         <VacancyResponsesIncomingTab onError={onError} />
       )}
-      </div>
     </div>
   );
 }

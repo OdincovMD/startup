@@ -168,37 +168,20 @@ async def list_vacancies(
 ):
     """
     Список опубликованных вакансий.
-    При q или фильтрах — поиск через Elasticsearch.
-    Иначе — все из PostgreSQL.
+    Всегда через Elasticsearch для корректной сортировки: paid_active, rank_score, created_at.
     """
     q_stripped = (q or "").strip()
-    use_es = bool(q_stripped) or employment_type or organization_id is not None or laboratory_id is not None
-
-    if use_es:
-        try:
-            result = await search_vacancies(
-                q=q_stripped,
-                page=page,
-                size=size,
-                employment_type=employment_type,
-                organization_id=organization_id,
-                laboratory_id=laboratory_id,
-                sort_by=sort_by,
-            )
-            return result
-        except Exception:
-            return {"items": [], "total": 0, "page": page, "size": size}
-
     try:
-        vacancies = await Orm.list_published_vacancies()
-        if sort_by == "date_asc":
-            vacancies = sorted(vacancies, key=lambda v: getattr(v, "created_at") or "", reverse=False)
-        else:
-            vacancies = sorted(vacancies, key=lambda v: getattr(v, "created_at") or "", reverse=True)
-        total = len(vacancies)
-        start = (page - 1) * size
-        items = vacancies[start : start + size]
-        return {"items": items, "total": total, "page": page, "size": size}
+        result = await search_vacancies(
+            q=q_stripped,
+            page=page,
+            size=size,
+            employment_type=employment_type,
+            organization_id=organization_id,
+            laboratory_id=laboratory_id,
+            sort_by=sort_by,
+        )
+        return result
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -297,31 +280,26 @@ async def respond_to_vacancy(public_id: str, current_user=Depends(get_current_us
             if getattr(vacancy, "public_id", None)
             else f"{settings.FRONTEND_URL.rstrip('/')}/vacancies"
         )
-        profile_url = ""
         profile_block = ""
-        if settings.PROFILE_PUBLIC_URL_TEMPLATE:
-            profile_url = settings.PROFILE_PUBLIC_URL_TEMPLATE.format(user_id=current_user.id)
+        applicant_public_id = getattr(current_user, "public_id", None)
+        if applicant_public_id:
+            profile_url = f"{settings.FRONTEND_URL.rstrip('/')}/applicants/{applicant_public_id}"
             profile_block = (
                 '<p style="margin: 0 0 20px; padding: 16px 20px; background-color: #f0fdf4; border-radius: 8px; '
                 'border-left: 4px solid #22c55e; font-size: 0.875rem; color: #166534;">'
                 f'<strong>Профиль кандидата:</strong> '
                 f'<a href="{profile_url}" target="_blank" rel="noopener" style="color: #2563eb; font-weight: 600;">открыть ссылку</a></p>'
             )
-        profile_block_txt = (
-            f"Профиль кандидата: {profile_url}" if profile_url else ""
-        )
         resume_url = _get_resume_url(student, researcher, role_name=role_name)
         if resume_url:
             resume_block = (
                 f'<strong>Скачать резюме:</strong> '
                 f'<a href="{resume_url}" target="_blank" rel="noopener" style="color: #2563eb; font-weight: 600;">открыть ссылку</a>'
             )
-            resume_block_txt = f"Скачать резюме: {resume_url}"
         else:
             resume_block = "Резюме не указано в профиле кандидата."
-            resume_block_txt = "Резюме не указано в профиле кандидата."
         subject = f"Отклик на вакансию «{vacancy.name}» — Синтезум"
-        body_html, body_text = render_vacancy_response(
+        body_html = render_vacancy_response(
             applicant_type=applicant_type,
             applicant_name=applicant_name,
             applicant_email=applicant_email,
@@ -331,17 +309,9 @@ async def respond_to_vacancy(public_id: str, current_user=Depends(get_current_us
             vacancy_url=vacancy_url,
             candidate_info=candidate_info,
             profile_block=profile_block,
-            profile_block_txt=profile_block_txt,
             resume_block=resume_block,
-            resume_block_txt=resume_block_txt,
         )
-        await asyncio.to_thread(
-            send_vacancy_response_email,
-            contact_email,
-            subject,
-            body_html,
-            body_text,
-        )
+        await asyncio.to_thread(send_vacancy_response_email, contact_email, subject, body_html)
 
     return {"id": resp.id, "status": resp.status}
 

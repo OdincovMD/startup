@@ -13,17 +13,20 @@ from app.config import settings
 
 from .client import get_es_client
 from .mappings import ORGANIZATIONS_INDEX_MAPPING
-from .utils import significant_words, sort_by_date
+from .utils import significant_words, sort_with_ranking
 
 logger = logging.getLogger(__name__)
 
 
-def _organization_to_doc(org: Any) -> dict:
+def _organization_to_doc(org: Any, org_analytics: Optional[dict] = None) -> dict:
     """Преобразовать ORM-организацию в документ для индекса."""
     name = getattr(org, "name", None) or ""
     description = getattr(org, "description", None) or ""
     ror_id = getattr(org, "ror_id", None) or ""
     created = getattr(org, "created_at", None)
+    first_created = getattr(org, "first_created_at", None) or created
+    website = getattr(org, "website", None)
+    address = getattr(org, "address", None)
 
     laboratory_names = []
     employee_names = []
@@ -58,6 +61,10 @@ def _organization_to_doc(org: Any) -> dict:
 
     laboratories_count = len(laboratory_names)
     employees_count = len(employee_names)
+    vacancies = getattr(org, "vacancies", None) or []
+    queries = getattr(org, "queries", None) or []
+    vacancies_count = sum(1 for v in vacancies if getattr(v, "is_published", False))
+    queries_count = sum(1 for q in queries if getattr(q, "is_published", False))
 
     laboratory_names_str = " ".join(laboratory_names)
     employee_names_str = " ".join(employee_names)
@@ -66,21 +73,34 @@ def _organization_to_doc(org: Any) -> dict:
     name_inputs = [name] + significant_words(name) + significant_words(description)
     name_inputs = list(dict.fromkeys(s for s in name_inputs if s and len(s) <= 50))
 
+    analytics = org_analytics or {}
     doc = {
         "id": org.id,
         "public_id": getattr(org, "public_id", None) or "",
         "name": name,
         "description": description,
         "ror_id": ror_id,
+        "website": website,
+        "address": address,
         "laboratory_names": laboratory_names_str,
         "employee_names": employee_names_str,
         "equipment_names": equipment_names_str,
         "laboratories_count": laboratories_count,
         "employees_count": employees_count,
+        "vacancies_count": vacancies_count,
+        "queries_count": queries_count,
         "avatar_url": getattr(org, "avatar_url", None),
         "is_published": getattr(org, "is_published", False),
         "created_at": created.isoformat() if created else None,
+        "first_created_at": first_created.isoformat() if first_created else None,
+        "paid_active": False,
+        "rank_score": 0.0,
+        "creator_user_id": getattr(org, "creator_user_id", None),
+        "unique_views_30d": analytics.get("unique_views_30d", 0),
+        "avg_time_on_page_sec": analytics.get("avg_time_on_page_sec"),
     }
+    from .utils import calc_organization_score
+    doc["rank_score"] = calc_organization_score(doc)
     if name_inputs:
         doc["name_suggest"] = {"input": name_inputs, "weight": 2}
     if laboratory_names:
@@ -124,12 +144,33 @@ async def ensure_organizations_index() -> None:
         logger.warning("Could not ensure organizations index: %s", e)
 
 
-async def index_organization(org: Any) -> None:
+async def _resolve_paid_active(doc: dict, paid_user_ids: set = None) -> None:
+    """Set paid_active on doc based on creator's subscription or grace period."""
+    creator_id = doc.get("creator_user_id")
+    if creator_id is None:
+        return
+    if paid_user_ids is not None:
+        paid = creator_id in paid_user_ids
+        # Note: grace period not applied in batch mode (would require extra DB calls)
+    else:
+        from app.core.queries.orm import Orm as CoreOrm
+        paid = await CoreOrm.has_active_subscription(creator_id)
+        if not paid and await CoreOrm.is_creator_in_grace_period(creator_id):
+            paid = True
+    doc["paid_active"] = paid
+
+
+async def index_organization(
+    org: Any,
+    paid_user_ids: set = None,
+    org_analytics: Optional[dict] = None,
+) -> None:
     """Проиндексировать организацию в Elasticsearch."""
     if not getattr(org, "is_published", False):
         return
     client = get_es_client()
-    doc = _organization_to_doc(org)
+    doc = _organization_to_doc(org, org_analytics=org_analytics)
+    await _resolve_paid_active(doc, paid_user_ids)
     last_err = None
     for attempt in range(3):
         try:
@@ -351,7 +392,7 @@ async def search_organizations(
             "equipment_names",
             "public_id",
         ]
-        es_query = {
+        base_query = {
             "bool": {
                 "must": [
                     {
@@ -366,10 +407,27 @@ async def search_organizations(
                 "filter": filters,
             }
         }
+        es_query = {
+            "function_score": {
+                "query": base_query,
+                "functions": [
+                    {
+                        "script_score": {
+                            "script": {
+                                "source": "if (doc['paid_active'].size() > 0 && doc['paid_active'].value) { double rs = doc['rank_score'].size() > 0 ? doc['rank_score'].value : 0.0; return 1.0 + (rs / 100.0) * 1.5; } return 1.0;",
+                                "lang": "painless",
+                            }
+                        }
+                    }
+                ],
+                "boost_mode": "multiply",
+                "score_mode": "sum",
+            }
+        }
     else:
         es_query = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
 
-    sort_clause = sort_by_date(sort_by)
+    sort_clause = sort_with_ranking(sort_by)
     try:
         resp = await client.search(
             index=index,
@@ -408,6 +466,54 @@ async def search_organizations(
     return {"items": items, "total": total, "page": page, "size": size}
 
 
+async def get_organizations_ranking_for_featured(size: int = 30) -> list[dict]:
+    """
+    Возвращает список {id, rank_score, paid_active} для главной страницы.
+    Сортировка: paid_active DESC, rank_score DESC.
+    """
+    client = get_es_client()
+    index = settings.ORGANIZATIONS_INDEX
+    filters = [{"term": {"is_published": True}}]
+    es_query = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
+    sort_clause = sort_with_ranking(None)
+    try:
+        resp = await client.search(
+            index=index,
+            query=es_query,
+            from_=0,
+            size=size,
+            sort=sort_clause,
+        )
+    except NotFoundError:
+        await ensure_organizations_index()
+        try:
+            resp = await client.search(
+                index=index,
+                query=es_query,
+                from_=0,
+                size=size,
+                sort=sort_clause,
+            )
+        except Exception as e:
+            logger.exception("get_organizations_ranking_for_featured failed: %s", e)
+            return []
+    except Exception as e:
+        logger.exception("get_organizations_ranking_for_featured failed: %s", e)
+        return []
+
+    result = []
+    for h in resp.get("hits", {}).get("hits", []):
+        source = h.get("_source", h)
+        oid = source.get("id")
+        if oid is not None:
+            result.append({
+                "id": oid,
+                "rank_score": float(source.get("rank_score") or 0),
+                "paid_active": bool(source.get("paid_active", False)),
+            })
+    return result
+
+
 async def reindex_organizations_by_ids(org_ids: List[int]) -> None:
     """
     Переиндексировать указанные организации (при изменении лабораторий/сотрудников/оборудования).
@@ -418,9 +524,15 @@ async def reindex_organizations_by_ids(org_ids: List[int]) -> None:
     from app.roles.representative.queries.orm import Orm
 
     orgs = await Orm.get_organizations_by_ids(org_ids)
+    creator_ids = [o.creator_user_id for o in orgs if o.creator_user_id]
+    from app.core.queries.orm import Orm as CoreOrm
+    paid_ids = await CoreOrm.get_paid_user_ids(creator_ids)
+    public_ids = [o.public_id for o in orgs if o.public_id]
+    org_analytics_map = await Orm.get_organization_analytics_30d(public_ids)
     for org in orgs:
         try:
-            await index_organization(org)
+            analytics = org_analytics_map.get(org.public_id, {}) if org.public_id else {}
+            await index_organization(org, paid_user_ids=paid_ids, org_analytics=analytics)
         except Exception as e:
             logger.warning("Failed to reindex organization id=%s: %s", org.id, e)
 
@@ -455,13 +567,23 @@ async def reindex_organizations(force: bool = False) -> int:
                 return count
         except Exception:
             pass
+    creator_ids = [o.creator_user_id for o in orgs if o.creator_user_id]
+    from app.core.queries.orm import Orm as CoreOrm
+    paid_ids = await CoreOrm.get_paid_user_ids(creator_ids)
+    public_ids = [o.public_id for o in orgs if o.public_id]
+    org_analytics_map = await Orm.get_organization_analytics_30d(public_ids)
     logger.info("Organizations reindex: %d published organizations", len(orgs))
     indexed = 0
     for org in orgs:
         try:
             org_with_relations = await Orm.get_organizations_by_ids([org.id])
             if org_with_relations:
-                await index_organization(org_with_relations[0])
+                analytics = org_analytics_map.get(org.public_id, {}) if org.public_id else {}
+                await index_organization(
+                    org_with_relations[0],
+                    paid_user_ids=paid_ids,
+                    org_analytics=analytics,
+                )
                 indexed += 1
         except Exception as e:
             logger.warning("Failed to index organization id=%s: %s", org.id, e)

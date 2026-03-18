@@ -16,8 +16,9 @@ const TYPE_ROUTES = {
   query: "queries",
 };
 
-export default function GlobalSearch() {
+export default function GlobalSearch({ size }) {
   const navigate = useNavigate();
+  const isLarge = size === "large";
   const [query, setQuery] = useState("");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -91,7 +92,7 @@ export default function GlobalSearch() {
   }, [hideDropdown]);
 
   return (
-    <div className="global-search" ref={wrapRef}>
+    <div className={`global-search ${isLarge ? "global-search--large" : ""}`} ref={wrapRef}>
       <div className="global-search__field">
       <div
         className={`global-search__bar ${loading ? "global-search__bar--loading" : ""}`}

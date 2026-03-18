@@ -1,42 +1,35 @@
 import React from "react";
+import { MapPin, Globe } from "lucide-react";
 import WebsiteLink from "../WebsiteLink";
+import { EntityAvatar } from "../ui";
 
 export default function OrganizationDetailHero({ details }) {
+  const displayName = details.name || "Организация";
+
   return (
     <div className="org-detail-hero">
       <div className="org-detail-hero__media">
-        {details.avatar_url ? (
-          <img
-            className="org-detail-hero__avatar"
-            src={details.avatar_url}
-            alt=""
-          />
-        ) : (
-          <div className="org-detail-hero__avatar-placeholder">
-            {details.name ? details.name.charAt(0).toUpperCase() : "?"}
-          </div>
-        )}
+        <EntityAvatar src={details.avatar_url} alt="" className="org-detail-hero__avatar" />
       </div>
       <div className="org-detail-hero__body">
-        <h1 className="org-detail-hero__title">{details.name}</h1>
+        <h1 className="org-detail-hero__title">{displayName}</h1>
         <div className="org-detail-hero__meta">
           {details.address && (
-            <span className="org-detail-hero__meta-item">{details.address}</span>
+            <span className="org-detail-hero__meta-item org-detail-hero__meta-item--with-icon">
+              <MapPin size={14} className="org-detail-hero__meta-icon" />
+              {details.address}
+            </span>
           )}
           {details.website && (
             <span
-              className="org-detail-hero__meta-item"
+              className="org-detail-hero__meta-item org-detail-hero__meta-item--with-icon"
               onClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => e.stopPropagation()}
             >
+              <Globe size={14} className="org-detail-hero__meta-icon" />
               <WebsiteLink url={details.website} className="org-detail-hero__link" />
             </span>
           )}
-        </div>
-        <div className="org-detail-hero__summary">
-          <span>Лабораторий: {details.laboratories.length}</span>
-          <span>Сотрудников: {details.employees.length}</span>
-          <span>Вакансий: {details.vacancies.length}</span>
         </div>
         {details.description && (
           <p className="org-detail-hero__description">{details.description}</p>

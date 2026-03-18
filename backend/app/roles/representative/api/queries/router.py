@@ -35,44 +35,47 @@ async def create_org_query(
     payload: OrganizationQueryCreate,
     current_user=Depends(get_current_user),
 ):
-    org = await Orm.get_organization_for_user(current_user.id)
-    if org:
-        query = await Orm.create_query_for_org(
-            org.id,
-            creator_user_id=current_user.id,
-            title=payload.title,
-            task_description=payload.task_description,
-            completed_examples=payload.completed_examples,
-            grant_info=payload.grant_info,
-            budget=payload.budget,
-            deadline=payload.deadline,
-            status=payload.status,
-            linked_task_solution_id=payload.linked_task_solution_id,
-            laboratory_ids=payload.laboratory_ids,
-            employee_ids=payload.employee_ids,
-        )
-        if getattr(query, "is_published", False):
-            await index_query(query.id)
-        return query
-    if is_lab_representative(current_user):
-        require_lab_link_for_lab_rep(payload.laboratory_ids)
-        query = await Orm.create_query_for_org(
-            None,
-            creator_user_id=current_user.id,
-            title=payload.title,
-            task_description=payload.task_description,
-            completed_examples=payload.completed_examples,
-            grant_info=payload.grant_info,
-            budget=payload.budget,
-            deadline=payload.deadline,
-            status=payload.status,
-            linked_task_solution_id=payload.linked_task_solution_id,
-            laboratory_ids=payload.laboratory_ids,
-            employee_ids=payload.employee_ids,
-        )
-        if getattr(query, "is_published", False):
-            await index_query(query.id)
-        return query
+    try:
+        org = await Orm.get_organization_for_user(current_user.id)
+        if org:
+            query = await Orm.create_query_for_org(
+                org.id,
+                creator_user_id=current_user.id,
+                title=payload.title,
+                task_description=payload.task_description,
+                completed_examples=payload.completed_examples,
+                grant_info=payload.grant_info,
+                budget=payload.budget,
+                deadline=payload.deadline,
+                status=payload.status,
+                linked_task_solution_id=payload.linked_task_solution_id,
+                laboratory_ids=payload.laboratory_ids,
+                employee_ids=payload.employee_ids,
+            )
+            if getattr(query, "is_published", False):
+                await index_query(query.id)
+            return query
+        if is_lab_representative(current_user):
+            require_lab_link_for_lab_rep(payload.laboratory_ids)
+            query = await Orm.create_query_for_org(
+                None,
+                creator_user_id=current_user.id,
+                title=payload.title,
+                task_description=payload.task_description,
+                completed_examples=payload.completed_examples,
+                grant_info=payload.grant_info,
+                budget=payload.budget,
+                deadline=payload.deadline,
+                status=payload.status,
+                linked_task_solution_id=payload.linked_task_solution_id,
+                laboratory_ids=payload.laboratory_ids,
+                employee_ids=payload.employee_ids,
+            )
+            if getattr(query, "is_published", False):
+                await index_query(query.id)
+            return query
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Сначала заполните и сохраните профиль организации.",

@@ -35,8 +35,10 @@ htmlcov/
 .ruff_cache/
 
 # Node / Frontend
+node_modules/
 frontend/node_modules/
 frontend/dist/
+frontend/unused-css-report.txt
 frontend/.vite/
 frontend/.cache/
 *.local
@@ -78,3 +80,4 @@ scratch/
 *.bak
 *.tmp
 .cache/
+*.cursor

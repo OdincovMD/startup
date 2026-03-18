@@ -131,6 +131,7 @@ class VacancyResponseRead(ORMModel):
     vacancy_public_id: Optional[str] = None
     applicant_name: Optional[str] = None
     applicant_preview: Optional[str] = None
+    applicant_public_id: Optional[str] = None
 
 
 # =========================
@@ -252,6 +253,7 @@ class LaboratoryDetails(ORMModel, OrganizationLaboratoryBase):
     task_solutions: List["OrganizationTaskSolutionRead"] = []
     queries: List["OrganizationQueryRead"] = []
     vacancies: List[VacancyOrganizationRead] = []
+    contact_email: Optional[str] = None
 
 
 class OrganizationLaboratoryUpdate(BaseModel):
@@ -414,6 +416,69 @@ class OrganizationDetails(OrganizationRead):
     task_solutions: List[OrganizationTaskSolutionRead] = []
     queries: List[OrganizationQueryRead] = []
     vacancies: List[VacancyOrganizationRead] = []
+    representative_email: Optional[str] = None
+
+
+# =========================
+#       APPLICANTS (public view for lab_admin/lab_representative)
+# =========================
+
+class LabShort(BaseModel):
+    """Краткая информация о лаборатории."""
+
+    public_id: Optional[str] = None
+    name: str
+
+
+class ApplicantListItem(BaseModel):
+    public_id: str
+    full_name: str
+    photo_url: Optional[str] = None
+    role: str
+    summary: Optional[str] = None
+
+
+class ApplicantDetail(BaseModel):
+    """Детальная карточка соискателя."""
+
+    public_id: str
+    full_name: str
+    photo_url: Optional[str] = None
+    role: str
+    mail: Optional[str] = None
+    contacts: Optional[Dict[str, Any]] = None
+    # Student
+    status: Optional[str] = None
+    summary: Optional[str] = None
+    education: Optional[List[str]] = None
+    skills: Optional[List[str]] = None
+    research_interests: Optional[List[str]] = None
+    resume_url: Optional[str] = None
+    document_urls: Optional[List[str]] = None
+    # Researcher
+    position: Optional[str] = None
+    academic_degree: Optional[str] = None
+    publications: Optional[List[Dict[str, Any]]] = None
+    hindex_wos: Optional[int] = None
+    hindex_scopus: Optional[int] = None
+    hindex_rsci: Optional[int] = None
+    hindex_openalex: Optional[int] = None
+    laboratories: Optional[List[LabShort]] = None
+    # Поиск работы
+    job_search_status: Optional[str] = None
+    desired_positions: Optional[str] = None
+    employment_type_preference: Optional[str] = None
+    preferred_region: Optional[str] = None
+    availability_date: Optional[str] = None
+    salary_expectation: Optional[str] = None
+    job_search_notes: Optional[str] = None
+
+
+class ApplicantListResponse(BaseModel):
+    items: List[ApplicantListItem]
+    total: int
+    page: int
+    size: int
 
 
 # Resolve forward refs

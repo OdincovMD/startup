@@ -14,6 +14,7 @@ from sqlalchemy import (
     Index,
     Boolean,
     func,
+    text,
 )
 from sqlalchemy.orm import relationship
 
@@ -39,6 +40,7 @@ class User(BaseModel):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
+    public_id = Column(String(32), unique=True, nullable=True, index=True)
     mail = Column("email", String(255), unique=True, nullable=False, index=True)
     hash_parameter = Column("hashed_password", String(255), nullable=True)
     orcid = Column(String(19), unique=True, nullable=True, index=True)
@@ -51,6 +53,7 @@ class User(BaseModel):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     email_verified = Column(Boolean, nullable=False, server_default="false")
     token_version = Column(Integer, nullable=False, server_default="0")
+    is_blocked = Column(Boolean, nullable=False, server_default="false")
 
     @property
     def has_password(self) -> bool:
@@ -156,4 +159,84 @@ class AnalyticsEvent(BaseModel):
         Index("idx_analytics_events_entity", "entity_type", "entity_id"),
         Index("idx_analytics_events_user_created", "user_id", "created_at"),
         Index("idx_analytics_events_type_created", "event_type", "created_at"),
+    )
+
+
+# =========================
+#    USER SUBSCRIPTIONS
+# =========================
+
+class UserSubscription(BaseModel):
+    __tablename__ = "user_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    audience = Column(String(30), nullable=False, server_default="representative")
+    tier = Column(String(20), nullable=False, server_default="pro")  # basic | pro
+    status = Column(String(20), nullable=False, server_default="active")
+    started_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    trial_ends_at = Column(DateTime(timezone=True), nullable=True)
+    activated_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    discount_percent = Column(Integer, nullable=True)
+    renewal_count = Column(Integer, nullable=False, server_default="0")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+    __table_args__ = (
+        Index("idx_user_subscriptions_user", "user_id"),
+        Index("idx_user_subscriptions_status", "status"),
+        Index("idx_user_subscriptions_audience", "audience"),
+    )
+
+
+class SubscriptionEvent(BaseModel):
+    __tablename__ = "subscription_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subscription_id = Column(Integer, ForeignKey("user_subscriptions.id", ondelete="CASCADE"), nullable=False)
+    event_type = Column(String(30), nullable=False)
+    performed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    details = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    subscription = relationship("UserSubscription")
+
+    __table_args__ = (
+        Index("idx_subscription_events_sub", "subscription_id"),
+        Index("idx_subscription_events_type", "event_type"),
+    )
+
+
+class SubscriptionRequest(BaseModel):
+    """User request to connect a subscription. Admin approves/rejects."""
+
+    __tablename__ = "subscription_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    audience = Column(String(30), nullable=False, server_default="representative")
+    tier = Column(String(20), nullable=False, server_default="pro")  # basic | pro
+    is_trial = Column(Boolean, nullable=False, server_default="false")
+    status = Column(String(20), nullable=False, server_default="pending")  # pending | approved | rejected | cancelled
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    resolved_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+    __table_args__ = (
+        Index("idx_subscription_requests_user", "user_id"),
+        Index("idx_subscription_requests_status", "status"),
+        Index("idx_subscription_requests_pending", "user_id", "audience", "tier", "is_trial"),
+        Index(
+            "idx_sub_request_unique_pending",
+            "user_id", "audience", "tier", "is_trial",
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
+        ),
     )

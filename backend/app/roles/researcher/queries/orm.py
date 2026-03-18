@@ -10,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app import models
 from app.database import async_session_factory
+from app.roles.representative.queries import helpers
 
 
 class Orm:
@@ -46,8 +47,12 @@ class Orm:
         job_search_notes: Optional[str] = None,
         resume_url: Optional[str] = None,
         document_urls: Optional[List[str]] = None,
+        is_published: Optional[bool] = None,
     ) -> models.Researcher:
         async with async_session_factory() as session:
+            user = await session.get(models.User, user_id)
+            if user and not user.public_id:
+                user.public_id = await helpers.ensure_unique_user_public_id(session)
             stmt = select(models.Researcher).where(models.Researcher.user_id == user_id)
             result = await session.execute(stmt)
             researcher = result.scalars().first()
@@ -73,6 +78,7 @@ class Orm:
                     job_search_notes=job_search_notes,
                     resume_url=resume_url,
                     document_urls=document_urls or [],
+                    is_published=is_published if is_published is not None else False,
                 )
                 session.add(researcher)
                 await session.flush()
@@ -115,6 +121,8 @@ class Orm:
                     researcher.resume_url = resume_url
                 if document_urls is not None:
                     researcher.document_urls = document_urls
+                if is_published is not None:
+                    researcher.is_published = is_published
             try:
                 await session.commit()
             except SQLAlchemyError:
@@ -128,3 +136,24 @@ class Orm:
             )
             result = await session.execute(stmt)
             return result.scalars().first()
+
+    @staticmethod
+    async def delete_researcher_profile(user_id: int) -> bool:
+        """Delete researcher profile by user_id (admin). Returns True if deleted."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.Researcher)
+                .options(selectinload(models.Researcher.laboratories))
+                .where(models.Researcher.user_id == user_id)
+            )
+            result = await session.execute(stmt)
+            researcher = result.scalars().first()
+            if not researcher:
+                return False
+            await session.delete(researcher)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            return True
