@@ -41,7 +41,7 @@
 |------|----------|
 | id | Идентификатор |
 | public_id | Публичный идентификатор для URL профиля (например /applicants/abc123) |
-| email | Email (логин) |
+| email (mail) | Email (логин) |
 | hashed_password | Хэш пароля (если регистрация через email) |
 | orcid | Идентификатор ORCID |
 | openalex_id | Идентификатор в OpenAlex |
@@ -52,6 +52,7 @@
 | contacts | JSON: телефон, telegram и др. |
 | email_verified | Подтверждён ли email |
 | token_version | Версия токена (для инвалидации сессий) |
+| is_blocked | Заблокирован ли пользователь (admin) |
 | created_at | Дата регистрации |
 
 **Связи:**
@@ -86,7 +87,26 @@
 
 ---
 
-### 1.4 События подписок (`subscription_events`)
+### 1.4 Заявки на подписку (`subscription_requests`)
+
+Пользователь подаёт заявку на активацию подписки; администратор одобряет или отклоняет.
+
+| Поле | Описание |
+|------|----------|
+| id | Идентификатор |
+| user_id | Пользователь |
+| audience | Аудитория (representative) |
+| tier | Тариф: basic или pro |
+| is_trial | Заявка на пробный период |
+| status | Статус: pending, approved, rejected, cancelled |
+| created_at | Дата создания |
+| resolved_at | Дата рассмотрения |
+| resolved_by | Кто рассмотрел (admin) |
+| rejection_reason | Причина отклонения |
+
+---
+
+### 1.5 События подписок (`subscription_events`)
 
 Аудит изменений подписки.
 

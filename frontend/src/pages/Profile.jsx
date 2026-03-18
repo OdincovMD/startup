@@ -11,7 +11,6 @@ import ResearcherProfileSection from "./profile/ResearcherProfileSection";
 import OrganizationProfileSection from "./profile/OrganizationProfileSection";
 import MyJoinRequestsSection from "./profile/MyJoinRequestsSection";
 import MyVacancyResponsesSection from "./profile/MyVacancyResponsesSection";
-import JoinRequestsIncomingTab from "./profile/JoinRequestsIncomingTab";
 import GalleryModal from "./profile/GalleryModal";
 import EmployeeModal from "./profile/EmployeeModal";
 import PersonalProfileSection from "./profile/PersonalProfileSection";

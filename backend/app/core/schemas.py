@@ -14,10 +14,6 @@ from app.common import ORMModel
 #          ROLES
 # =========================
 
-class RoleCreate(BaseModel):
-    name: str
-
-
 _ROLE_DISPLAY_NAMES = {
     "student": "Студент",
     "researcher": "Исследователь",
