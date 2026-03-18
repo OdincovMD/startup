@@ -20,9 +20,11 @@ from app.bootstrap import (
     ensure_elasticsearch_indexes,
 )
 from app.middleware import StorageUrlRewriteMiddleware
-from app.api import admin, home, profile, storage, analytics, search
+from app.api import home, profile, storage, analytics, search
+from app.api.admin import router as admin_router
 from app.core.api import auth, users, roles
 from app.jobs.openalex_sync import sync_openalex_data
+from app.jobs.subscription_expiry import check_subscription_expiry
 from app.roles.representative.api import (
     applicants_public,
     laboratories_public,
@@ -63,6 +65,7 @@ async def on_startup():
     ensure_storage()
     await ensure_elasticsearch_indexes()
     scheduler.add_job(sync_openalex_data, "cron", hour=3, minute=0)
+    scheduler.add_job(check_subscription_expiry, "cron", hour=4, minute=0)
     scheduler.start()
 
 
@@ -85,4 +88,4 @@ app.include_router(roles.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(storage.router, prefix="/api")
-app.include_router(admin.router, prefix="/api")
+app.include_router(admin_router, prefix="/api")

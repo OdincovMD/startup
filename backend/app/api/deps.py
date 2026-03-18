@@ -37,6 +37,9 @@ async def get_current_user(
     if not user:
         logger.warning("Auth failed: user not found user_id=%s", user_id)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if getattr(user, "is_blocked", False):
+        logger.warning("Auth failed: user blocked user_id=%s", user_id)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account blocked")
     token_version = payload.get("v", 0)
     if getattr(user, "token_version", 0) != token_version:
         logger.warning("Auth failed: token version mismatch user_id=%s", user_id)
@@ -60,4 +63,6 @@ async def get_current_user_optional(
     except Exception:
         return None
     user = await Orm.get_user(user_id)
+    if user and getattr(user, "is_blocked", False):
+        return None
     return user

@@ -1,21 +1,18 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import { User, GraduationCap, Briefcase, ChevronRight } from "lucide-react";
-import { Card, Button } from "../ui";
+import { Card, Button, EntityAvatar } from "../ui";
 
 const ROLE_LABELS = { student: "Студент", researcher: "Исследователь" };
 const DESCRIPTION_MAX = 140;
 
 export default function ApplicantCard({ applicant, onOpen }) {
-  const [avatarError, setAvatarError] = useState(false);
   const hasLink = !!applicant.public_id;
   const roleLabel = ROLE_LABELS[applicant.role] || applicant.role;
   const displayName = applicant.full_name || "Соискатель";
-  const initial = displayName.charAt(0).toUpperCase();
   const summary = applicant.summary || "";
   const truncatedDesc =
     summary.length > DESCRIPTION_MAX ? `${summary.slice(0, DESCRIPTION_MAX)}…` : summary;
-  const showAvatar = applicant.photo_url && !avatarError;
   const RoleIcon = applicant.role === "researcher" ? Briefcase : GraduationCap;
 
   return (
@@ -35,19 +32,7 @@ export default function ApplicantCard({ applicant, onOpen }) {
       }}
     >
       <div className="modern-entity-card__media">
-        {showAvatar ? (
-          <img
-            src={applicant.photo_url}
-            alt=""
-            loading="lazy"
-            onError={() => setAvatarError(true)}
-          />
-        ) : (
-          <div className="modern-entity-card__fallback modern-entity-card__fallback--applicant" aria-hidden="true">
-            <User size={32} className="modern-entity-card__fallback-icon" />
-            <span className="modern-entity-card__fallback-initial">{initial}</span>
-          </div>
-        )}
+        <EntityAvatar src={applicant.photo_url} alt="" loading="lazy" />
       </div>
 
       <div className="modern-entity-card__body">

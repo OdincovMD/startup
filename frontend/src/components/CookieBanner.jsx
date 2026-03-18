@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Cookie } from "lucide-react";
 
 const STORAGE_KEY = "synthesium_cookie_consent";
 
@@ -34,6 +35,9 @@ export default function CookieBanner() {
   return (
     <div className="cookie-banner" role="dialog" aria-live="polite" aria-label="Уведомление об использовании файлов cookie">
       <div className="cookie-banner__inner">
+        <div className="cookie-banner__icon" aria-hidden>
+          <Cookie size={20} />
+        </div>
         <p className="cookie-banner__text">
           Мы используем файлы cookie для работы сайта, аналитики и улучшения сервиса. Продолжая пользоваться сайтом, вы
           соглашаетесь с использованием cookie. Подробнее&nbsp;— в{" "}

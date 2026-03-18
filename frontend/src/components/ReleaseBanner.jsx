@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { Sparkles } from "lucide-react";
 
-const RELEASE_VERSION = "D-01.006.00.0";
+const RELEASE_VERSION = "D-01.007.00";
 const STORAGE_KEY = `synthesium_release_banner_${RELEASE_VERSION}`;
 
 export default function ReleaseBanner() {
@@ -30,14 +31,19 @@ export default function ReleaseBanner() {
   return (
     <div className="release-banner" role="dialog" aria-live="polite" aria-label="Что нового">
       <div className="release-banner__inner">
+        <div className="release-banner__icon" aria-hidden>
+          <Sparkles size={20} />
+        </div>
         <div className="release-banner__content">
-          <strong className="release-banner__title">Что нового</strong>
-          <span className="release-banner__version">release/{RELEASE_VERSION}</span>
+          <div className="release-banner__header">
+            <strong className="release-banner__title">Что нового</strong>
+            <span className="release-banner__version">{RELEASE_VERSION}</span>
+          </div>
           <ul className="release-banner__list">
-            <li><strong>Поиск:</strong> при пустых результатах — блок «Посмотрите другие» с рекомендованными вакансиями, запросами, лабораториями и организациями</li>
-            <li><strong>Соискатели:</strong> доступ только с активной подпиской; исправлены подсказки (имена вместо ID) и отображение аватаров при поиске</li>
-            <li><strong>Подписка:</strong> добавлен доступ к каталогу соискателей в Basic и Pro; FAQ о требованиях подписки</li>
-            <li><strong>Профиль:</strong> вкладка «Подписка» перенесена после «Личные данные»</li>
+            <li><strong>Брендинг:</strong> единый плейсхолдер для сущностей без фото; favicon в табе браузера</li>
+            <li><strong>Соискатели:</strong> страница доступна администраторам без подписки; исправлено overlap кнопок</li>
+            <li><strong>Политика конфиденциальности:</strong> новая страница с оглавлением и актуальным текстом</li>
+            <li><strong>Подписка:</strong> исправлена вёрстка блока «Оформить подписку»</li>
           </ul>
         </div>
         <button type="button" className="release-banner__btn" onClick={handleDismiss}>

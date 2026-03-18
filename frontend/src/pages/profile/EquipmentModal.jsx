@@ -1,6 +1,6 @@
 import React from "react";
 import { X, Wrench, Info, FileText, Globe } from "lucide-react";
-import { Badge } from "../../components/ui";
+import { Badge, EntityAvatar } from "../../components/ui";
 
 export default function EquipmentModal({
   equipment,
@@ -41,9 +41,7 @@ export default function EquipmentModal({
                   style={{ cursor: 'pointer' }}
                 />
               ) : (
-                <div className="employee-modal__avatar-fallback">
-                  <Wrench size={40} />
-                </div>
+                <EntityAvatar src={null} alt={equipment.name} className="employee-modal__avatar" />
               )}
             </div>
             <div className="employee-modal__title-group">

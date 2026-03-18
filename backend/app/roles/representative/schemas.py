@@ -253,6 +253,7 @@ class LaboratoryDetails(ORMModel, OrganizationLaboratoryBase):
     task_solutions: List["OrganizationTaskSolutionRead"] = []
     queries: List["OrganizationQueryRead"] = []
     vacancies: List[VacancyOrganizationRead] = []
+    contact_email: Optional[str] = None
 
 
 class OrganizationLaboratoryUpdate(BaseModel):
@@ -415,6 +416,7 @@ class OrganizationDetails(OrganizationRead):
     task_solutions: List[OrganizationTaskSolutionRead] = []
     queries: List[OrganizationQueryRead] = []
     vacancies: List[VacancyOrganizationRead] = []
+    representative_email: Optional[str] = None
 
 
 # =========================

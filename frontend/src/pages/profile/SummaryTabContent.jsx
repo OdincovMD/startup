@@ -28,6 +28,7 @@ export default function SummaryTabContent({
   onRoleSave,
   roleSaving,
   roleLabelByName,
+  isPlatformAdmin = false,
   orcidError,
   orcidLinked,
   onOrcidLinked,
@@ -143,7 +144,7 @@ export default function SummaryTabContent({
         </div>
       </div>
 
-      {roles?.length > 0 && (
+      {roles?.length > 0 && !isPlatformAdmin && (
         <div className="profile-summary-role-block">
           <span className="profile-summary-block-label">Роль</span>
           <p className="profile-summary-role-desc">
@@ -187,7 +188,7 @@ export default function SummaryTabContent({
         </div>
       )}
 
-      {profile && (
+      {profile && !isPlatformAdmin && (
         <div className="profile-summary-integrations">
           <span className="profile-summary-block-label">Научные профили</span>
           <p className="profile-summary-integrations-desc">

@@ -1,6 +1,6 @@
 import React from "react";
 import { User, Building2, MapPin } from "lucide-react";
-import { Card, Button } from "../ui";
+import { Card, Button, EntityAvatar } from "../ui";
 
 export default function LabDetailSidebar({
   details,
@@ -36,13 +36,7 @@ export default function LabDetailSidebar({
                 }
               }}
             >
-              {head.photo_url ? (
-                <img className="org-detail-hero__head-avatar" src={head.photo_url} alt="" />
-              ) : (
-                <div className="org-detail-hero__head-avatar-placeholder">
-                  {head.full_name ? head.full_name.charAt(0).toUpperCase() : "?"}
-                </div>
-              )}
+              <EntityAvatar src={head.photo_url} alt="" className="org-detail-hero__head-avatar" />
               <div className="org-detail-hero__head-info">
                 <span className="org-detail-hero__head-name">{head.full_name}</span>
                 <div className="org-detail-hero__head-meta">
@@ -90,13 +84,19 @@ export default function LabDetailSidebar({
         )}
 
         <div className="detail-sidebar__actions">
-          <Button
-            variant="primary"
-            size="default"
-            onClick={() => {}}
-          >
-            Связаться
-          </Button>
+          {details?.contact_email ? (
+            <a
+              href={`mailto:${details.contact_email}`}
+              className="primary-btn"
+              rel="noopener noreferrer"
+            >
+              Связаться
+            </a>
+          ) : (
+            <Button variant="primary" size="default" disabled title="Контакт недоступен">
+              Связаться
+            </Button>
+          )}
         </div>
       </div>
     </Card>

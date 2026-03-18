@@ -1,17 +1,15 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { HelpCircle, Building2, Layers } from "lucide-react";
+import { EntityAvatar } from "../ui";
 
 export default function QueryDetailHero({ details }) {
-  const initial = details.title ? details.title.charAt(0).toUpperCase() : "Q";
+  const avatarSrc = details.organization?.avatar_url || (details.laboratory?.image_urls?.[0] ?? null);
 
   return (
     <div className="org-detail-hero">
       <div className="org-detail-hero__media">
-        <div className="org-detail-hero__avatar-placeholder org-detail-hero__avatar-placeholder--query" aria-hidden="true">
-          <HelpCircle size={28} className="org-detail-hero__avatar-placeholder-icon" />
-          <span>{initial}</span>
-        </div>
+        <EntityAvatar src={avatarSrc} alt="" className="org-detail-hero__avatar" />
       </div>
       <div className="org-detail-hero__body">
         <h1 className="org-detail-hero__title">{details.title}</h1>

@@ -136,3 +136,24 @@ class Orm:
             )
             result = await session.execute(stmt)
             return result.scalars().first()
+
+    @staticmethod
+    async def delete_researcher_profile(user_id: int) -> bool:
+        """Delete researcher profile by user_id (admin). Returns True if deleted."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.Researcher)
+                .options(selectinload(models.Researcher.laboratories))
+                .where(models.Researcher.user_id == user_id)
+            )
+            result = await session.execute(stmt)
+            researcher = result.scalars().first()
+            if not researcher:
+                return False
+            await session.delete(researcher)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            return True

@@ -2120,18 +2120,20 @@ export default function Profile() {
                 uploading={uploading}
                 loading={loading}
               />
-              <ProfileSidebar
-                roleKey={roleKey}
-                currentSection={profileSection}
-                onSectionChange={setProfileSection}
-                orgTab={orgTab}
-                onOrgTabChange={(tabId) => {
-                  setProfileSection("organization");
-                  setOrgTab(tabId);
-                }}
-                showProfileTab={roleKey === "lab_admin"}
-                emailVerified={emailVerified}
-              />
+              {roleKey !== "platform_admin" && (
+                <ProfileSidebar
+                  roleKey={roleKey}
+                  currentSection={profileSection}
+                  onSectionChange={setProfileSection}
+                  orgTab={orgTab}
+                  onOrgTabChange={(tabId) => {
+                    setProfileSection("organization");
+                    setOrgTab(tabId);
+                  }}
+                  showProfileTab={roleKey === "lab_admin"}
+                  emailVerified={emailVerified}
+                />
+              )}
             </>
           )}
           <div className="profile-actions profile-actions--sidebar">
@@ -2161,6 +2163,7 @@ export default function Profile() {
                 onRoleSave={saveRole}
                 roleSaving={roleSaving}
                 roleLabelByName={roleLabelByName}
+                isPlatformAdmin={roleKey === "platform_admin"}
                 orcidError={orcidError}
                 orcidLinked={orcidLinked}
                 onOrcidLinked={() => apiRequest("/users/me").then(setProfile)}

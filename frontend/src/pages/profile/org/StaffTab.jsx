@@ -19,7 +19,7 @@ import {
   Globe
 } from "lucide-react";
 import { formatPhoneRU, normalizeWebsiteInput } from "../../../utils/validation";
-import { Card } from "../../../components/ui/Card";
+import { Card, EntityAvatar } from "../../../components/ui";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Badge } from "../../../components/ui/Badge";
@@ -215,11 +215,7 @@ export default function StaffTab({
               <div className="employee-dashboard-card__header">
                 <div className="employee-dashboard-card__avatar-section">
                   <div className="employee-dashboard-card__avatar">
-                    {employee.photo_url ? (
-                      <img src={employee.photo_url} alt="" />
-                    ) : (
-                      <span className="employee-dashboard-card__initials">{initials}</span>
-                    )}
+                    <EntityAvatar src={employee.photo_url} alt="" />
                   </div>
                   <div className="employee-dashboard-card__title-group">
                     <h4 className="employee-dashboard-card__name">{employee.full_name}</h4>
@@ -367,13 +363,7 @@ export default function StaffTab({
                 </div>
                 <div className="employee-photo-edit">
                   <div className="employee-photo-edit__avatar">
-                    {employeeEdit.photo_url ? (
-                      <img src={employeeEdit.photo_url} alt="" />
-                    ) : (
-                      <span className="employee-dashboard-card__initials">
-                        {employeeEdit.full_name?.charAt(0).toUpperCase()}
-                      </span>
-                    )}
+                    <EntityAvatar src={employeeEdit.photo_url} alt="" />
                     <button 
                       type="button" 
                       className="employee-photo-edit__remove"
@@ -542,13 +532,7 @@ export default function StaffTab({
               </div>
               <div className="employee-photo-edit">
                 <div className="employee-photo-edit__avatar">
-                  {employeeDraft.photo_url ? (
-                    <img src={employeeDraft.photo_url} alt="" />
-                  ) : (
-                    <div className="employee-dashboard-card__avatar-fallback-large">
-                      {employeeDraft.full_name?.charAt(0).toUpperCase() || "?"}
-                    </div>
-                  )}
+                  <EntityAvatar src={employeeDraft.photo_url} alt="" />
                 </div>
                 <div className="employee-photo-edit__actions">
                   <label className="file-upload-label">

@@ -91,7 +91,9 @@ export default function MainLayout() {
 
   const showApplicants =
     auth?.user?.role_name === "lab_admin" ||
-    auth?.user?.role_name === "lab_representative";
+    auth?.user?.role_name === "lab_representative" ||
+    auth?.user?.role_name === "platform_admin";
+  const showAdmin = auth?.user?.role_name === "platform_admin";
 
   return (
     <div className="main-layout">
@@ -131,6 +133,11 @@ export default function MainLayout() {
               {showApplicants && (
                 <NavLink className={navLinkClass} to="/applicants" end={false}>
                   Соискатели
+                </NavLink>
+              )}
+              {showAdmin && (
+                <NavLink className={navLinkClass} to="/admin" end={true}>
+                  Админ
                 </NavLink>
               )}
               <NavLink className={navLinkClass} to="/" end={true}>
@@ -256,6 +263,16 @@ export default function MainLayout() {
                   Соискатели
                 </NavLink>
               )}
+              {showAdmin && (
+                <NavLink
+                  className={navLinkClass}
+                  to="/admin"
+                  end={true}
+                  onClick={closeMenu}
+                >
+                  Админ
+                </NavLink>
+              )}
               {auth ? (
                 <div className="nav-drawer__user">
                   <NavLink
@@ -332,6 +349,14 @@ export default function MainLayout() {
           to="/privacy"
         >
           Политика конфиденциальности
+        </NavLink>
+        <NavLink
+          className={({ isActive }) =>
+            `main-layout__footer-link${isActive ? " main-layout__footer-link--active" : ""}`
+          }
+          to="/about"
+        >
+          О нас
         </NavLink>
         <span className="main-layout__footer-copy">© 2026 Синтезум</span>
       </footer>

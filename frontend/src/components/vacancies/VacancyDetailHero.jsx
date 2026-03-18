@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Briefcase, Building2, Beaker, Calendar } from "lucide-react";
-import { Badge } from "../ui";
+import { Badge, EntityAvatar } from "../ui";
 
 function formatVacancyDate(iso) {
   if (!iso) return "";
@@ -9,16 +9,19 @@ function formatVacancyDate(iso) {
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
 }
 
+function getFirstLabImage(imageUrls) {
+  if (!imageUrls) return null;
+  const list = Array.isArray(imageUrls) ? imageUrls : (typeof imageUrls === "string" ? imageUrls.split("\n").map((s) => s.trim()).filter(Boolean) : []);
+  return list[0] || null;
+}
+
 export default function VacancyDetailHero({ details }) {
-  const initial = details.name ? details.name.charAt(0).toUpperCase() : "V";
+  const avatarSrc = details.organization?.avatar_url || getFirstLabImage(details.laboratory?.image_urls);
 
   return (
     <div className="org-detail-hero">
       <div className="org-detail-hero__media">
-        <div className="org-detail-hero__avatar-placeholder org-detail-hero__avatar-placeholder--vacancy" aria-hidden="true">
-          <Briefcase size={28} className="org-detail-hero__avatar-placeholder-icon" />
-          <span>{initial}</span>
-        </div>
+        <EntityAvatar src={avatarSrc} alt="" className="org-detail-hero__avatar" />
       </div>
       <div className="org-detail-hero__body">
         <h1 className="org-detail-hero__title">{details.name}</h1>

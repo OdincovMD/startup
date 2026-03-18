@@ -3,7 +3,7 @@ API для страницы «Соискатели».
 GET /applicants/ — список опубликованных соискателей (поиск q, фильтры, пагинация).
 GET /applicants/suggest — подсказки для автодополнения.
 GET /applicants/public/{public_id}/details — детальная карточка по public_id.
-Доступ: только lab_admin и lab_representative.
+Доступ: lab_admin, lab_representative, platform_admin (админ без проверки подписки).
 """
 
 from typing import Optional
@@ -14,7 +14,7 @@ from app.api.deps import get_current_user
 from app.core.queries.orm import Orm as CoreOrm
 from app.queries.orm import Orm
 from app.roles.representative.api._helpers import (
-    require_lab_admin_or_representative,
+    require_applicants_access,
     require_subscription_for_applicants,
 )
 from app.roles.representative.schemas import ApplicantDetail, ApplicantListItem, ApplicantListResponse
@@ -30,7 +30,7 @@ async def suggest_applicants_endpoint(
     current_user=Depends(get_current_user),
 ):
     """Подсказки для автодополнения поиска соискателей."""
-    require_lab_admin_or_representative(current_user)
+    require_applicants_access(current_user)
     await require_subscription_for_applicants(current_user)
     suggestions = await suggest_applicants(q=q.strip(), limit=limit)
     return {"suggestions": suggestions}
@@ -52,7 +52,7 @@ async def list_applicants(
     Иначе — все из PostgreSQL.
     Доступ только с активной подпиской.
     """
-    require_lab_admin_or_representative(current_user)
+    require_applicants_access(current_user)
     await require_subscription_for_applicants(current_user)
     q_stripped = (q or "").strip()
     role_filter = role if role in ("student", "researcher") else None
@@ -107,7 +107,7 @@ async def get_applicant_details(
     current_user=Depends(get_current_user),
 ):
     """Детальная карточка соискателя по public_id. Только lab_admin/lab_representative с подпиской."""
-    require_lab_admin_or_representative(current_user)
+    require_applicants_access(current_user)
     await require_subscription_for_applicants(current_user)
     detail_dict = await Orm.get_applicant_detail_by_public_id(public_id)
     if not detail_dict:

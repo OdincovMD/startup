@@ -19,7 +19,9 @@ const Laboratories = lazy(() => import("./Laboratories"));
 const Queries = lazy(() => import("./Queries"));
 const Vacancies = lazy(() => import("./Vacancies"));
 const Applicants = lazy(() => import("./Applicants"));
+const Admin = lazy(() => import("./admin/Admin"));
 const Privacy = lazy(() => import("./Privacy"));
+const About = lazy(() => import("./About"));
 
 export default function App() {
   const location = useLocation();
@@ -80,18 +82,20 @@ export default function App() {
         <Routes>
           <Route element={<MainLayout />}>
             <Route path="/" element={<Home />} />
-            <Route path="/laboratories" element={<Laboratories />} />
             <Route path="/laboratories/:publicId" element={<Laboratories />} />
-            <Route path="/organizations" element={<Organizations />} />
+            <Route path="/laboratories" element={<Laboratories />} />
             <Route path="/organizations/:publicId" element={<Organizations />} />
-            <Route path="/vacancies" element={<Vacancies />} />
+            <Route path="/organizations" element={<Organizations />} />
             <Route path="/vacancies/:publicId" element={<Vacancies />} />
-            <Route path="/queries" element={<Queries />} />
+            <Route path="/vacancies" element={<Vacancies />} />
             <Route path="/queries/:publicId" element={<Queries />} />
-            <Route path="/applicants" element={<Applicants />} />
+            <Route path="/queries" element={<Queries />} />
             <Route path="/applicants/:publicId" element={<Applicants />} />
+            <Route path="/applicants" element={<Applicants />} />
+            <Route path="/admin" element={<Admin />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/about" element={<About />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/auth/callback" element={<AuthCallback />} />

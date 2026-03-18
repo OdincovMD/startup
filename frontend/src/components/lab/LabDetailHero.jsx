@@ -1,30 +1,17 @@
-import React, { useState } from "react";
+import React from "react";
 import { User, Building2 } from "lucide-react";
+import { EntityAvatar } from "../ui";
 
 export default function LabDetailHero({ details, labImages, onOrgClick, onHeadClick }) {
-  const [avatarError, setAvatarError] = useState(false);
   const images = labImages(details.image_urls);
   const head = details.head_employee;
   const avatarUrl = images[0];
-  const showAvatar = avatarUrl && !avatarError;
   const displayName = details.name || "Лаборатория";
-  const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <div className="org-detail-hero">
       <div className="org-detail-hero__media">
-        {showAvatar ? (
-          <img
-            className="org-detail-hero__avatar"
-            src={avatarUrl}
-            alt=""
-            onError={() => setAvatarError(true)}
-          />
-        ) : (
-          <div className="org-detail-hero__avatar-placeholder" aria-hidden="true">
-            {initial}
-          </div>
-        )}
+        <EntityAvatar src={avatarUrl} alt="" className="org-detail-hero__avatar" />
       </div>
       <div className="org-detail-hero__body">
         <h1 className="org-detail-hero__title">{displayName}</h1>
@@ -67,13 +54,7 @@ export default function LabDetailHero({ details, labImages, onOrgClick, onHeadCl
                 }
               }}
             >
-              {head.photo_url ? (
-                <img className="org-detail-hero__head-avatar" src={head.photo_url} alt="" />
-              ) : (
-                <div className="org-detail-hero__head-avatar-placeholder">
-                  {head.full_name ? head.full_name.charAt(0).toUpperCase() : "?"}
-                </div>
-              )}
+              <EntityAvatar src={head.photo_url} alt="" className="org-detail-hero__head-avatar" />
               <div className="org-detail-hero__head-info">
                 <span className="org-detail-hero__head-name">{head.full_name}</span>
                 <div className="org-detail-hero__head-meta">

@@ -17,8 +17,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "../../api/client";
 import { useToast } from "../../ToastContext";
-import { Card } from "../../components/ui/Card";
-import { Badge } from "../../components/ui/Badge";
+import { Card, Badge, EntityAvatar } from "../../components/ui";
 
 const STATUS_OPTIONS = [
   { value: "new", label: "Новый", icon: Clock },
@@ -28,16 +27,6 @@ const STATUS_OPTIONS = [
 
 const STATUS_CHIP = { new: "Новый", accepted: "Принят", rejected: "Отклонён" };
 const BADGE_VARIANT = { new: "accent", accepted: "success", rejected: "rejected" };
-
-function getInitials(name) {
-  if (!name) return "?";
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 export default function VacancyResponsesIncomingTab({ onError }) {
   const { showToast } = useToast();
@@ -149,12 +138,12 @@ export default function VacancyResponsesIncomingTab({ onError }) {
           {list.map((item) => (
             <Card key={item.id} variant="elevated" padding="none" className="response-modern-card" style={{ transition: "all 0.2s" }}>
               <div className="response-card-inner" style={{ padding: "1.25rem", display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
-                <div className="applicant-avatar-container" style={{ flexShrink: 0 }}>
-                  <div className="applicant-avatar-circle" style={{ width: "56px", height: "56px", borderRadius: "50%", background: "var(--accent-bg)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "1.25rem", border: "2px solid var(--page-bg)", boxShadow: "0 0 0 1px var(--border-light)" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
-                      {getInitials(item.applicant_name)}
-                    </div>
-                  </div>
+                <div className="applicant-avatar-container" style={{ flexShrink: 0, width: "56px", height: "56px", borderRadius: "50%", overflow: "hidden", border: "2px solid var(--page-bg)", boxShadow: "0 0 0 1px var(--border-light)" }}>
+                  <EntityAvatar
+                    src={item.applicant_photo_url}
+                    alt={item.applicant_name}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
                 </div>
                 
                 <div className="response-card-content" style={{ flex: 1, minWidth: "200px" }}>

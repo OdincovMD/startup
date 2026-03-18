@@ -2,6 +2,7 @@
 Orm — асинхронный слой для ядра: User, Role, Notifications (asyncpg, SQLAlchemy AsyncSession).
 """
 
+import asyncio
 import secrets
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any, Tuple
@@ -79,6 +80,108 @@ class Orm:
                 .where(models.User.id == user.id)
             )
             return (await session.execute(stmt)).scalars().first()
+
+    @staticmethod
+    async def search_users_admin(query: str, limit: int = 20) -> List:
+        """Search users by mail or full_name for admin (e.g. subscription creation)."""
+        if not query or len(query.strip()) < 2:
+            return []
+        q = f"%{query.strip()}%"
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.User)
+                .options(selectinload(models.User.role))
+                .where(
+                    or_(
+                        models.User.mail.ilike(q),
+                        models.User.full_name.ilike(q),
+                    )
+                )
+                .order_by(models.User.mail)
+                .limit(limit)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
+    @staticmethod
+    async def list_users_admin(
+        page: int = 1,
+        size: int = 20,
+        role_filter: Optional[str] = None,
+        q: Optional[str] = None,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """List users for admin with pagination, role filter, and search. Returns (items, total)."""
+        async with async_session_factory() as session:
+            role_cond = True
+            if role_filter:
+                role_cond = models.Role.name == role_filter
+            search_cond = True
+            if q and q.strip():
+                pattern = f"%{q.strip()}%"
+                search_cond = or_(
+                    models.User.mail.ilike(pattern),
+                    models.User.full_name.ilike(pattern),
+                )
+            base_stmt = (
+                select(models.User.id)
+                .join(models.Role, models.User.role_id == models.Role.id)
+                .where(role_cond, search_cond)
+            )
+            count_stmt = select(func.count()).select_from(base_stmt.subquery())
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.User)
+                .options(selectinload(models.User.role))
+                .join(models.Role, models.User.role_id == models.Role.id)
+                .where(role_cond, search_cond)
+                .order_by(models.User.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            users = list(result.unique().scalars().all())
+            items = [
+                {
+                    "id": u.id,
+                    "mail": u.mail or "",
+                    "full_name": u.full_name or "",
+                    "role_name": u.role.name if u.role else "",
+                    "is_blocked": getattr(u, "is_blocked", False),
+                    "created_at": u.created_at,
+                }
+                for u in users
+            ]
+            return items, int(total)
+
+    @staticmethod
+    async def set_user_blocked(user_id: int, blocked: bool) -> Optional[models.User]:
+        """Set user is_blocked. When blocking, increment token_version to invalidate JWT."""
+        async with async_session_factory() as session:
+            user = await session.get(models.User, user_id)
+            if not user:
+                return None
+            user.is_blocked = blocked
+            if blocked:
+                user.token_version = getattr(user, "token_version", 0) + 1
+            await session.commit()
+            await session.refresh(user)
+            return user
+
+    @staticmethod
+    async def admin_trigger_password_reset(user_id: int) -> Optional[str]:
+        """
+        Admin-triggered password reset. Creates token and sends email.
+        Returns reset_url on success, None if user not found or not verified.
+        """
+        from app.services.email import send_password_reset_email
+
+        user = await Orm.get_user(user_id)
+        if not user or not user.email_verified:
+            return None
+        token = await Orm.create_password_reset_token(user_id)
+        reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?token={token}"
+        await asyncio.to_thread(send_password_reset_email, user.mail, reset_url)
+        return reset_url
 
     @staticmethod
     async def get_user(user_id: int) -> Optional[models.User]:
@@ -204,6 +307,94 @@ class Orm:
                     "photo_url": u.photo_url,
                     "role": role_name,
                     "summary": summary,
+                })
+            return items, int(total)
+
+    @staticmethod
+    async def list_students_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """List all students (admin, no is_published filter). Returns (items, total)."""
+        async with async_session_factory() as session:
+            base_stmt = (
+                select(models.User.id)
+                .join(models.Role, models.User.role_id == models.Role.id)
+                .join(models.Student, models.User.id == models.Student.user_id)
+                .where(models.Role.name == "student")
+            )
+            count_stmt = select(func.count()).select_from(base_stmt.subquery())
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.User)
+                .options(
+                    selectinload(models.User.role),
+                    selectinload(models.User.student_profile),
+                )
+                .join(models.Role, models.User.role_id == models.Role.id)
+                .join(models.Student, models.User.id == models.Student.user_id)
+                .where(models.Role.name == "student")
+                .order_by(models.User.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            users = list(result.unique().scalars().all())
+            items = []
+            for u in users:
+                profile = u.student_profile
+                full_name = (profile.full_name if profile else None) or u.full_name or ""
+                items.append({
+                    "user_id": u.id,
+                    "id": u.id,
+                    "public_id": u.public_id,
+                    "full_name": full_name,
+                    "is_published": getattr(profile, "is_published", False),
+                    "created_at": u.created_at,
+                })
+            return items, int(total)
+
+    @staticmethod
+    async def list_researchers_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """List all researchers (admin, no is_published filter). Returns (items, total)."""
+        async with async_session_factory() as session:
+            base_stmt = (
+                select(models.User.id)
+                .join(models.Role, models.User.role_id == models.Role.id)
+                .join(models.Researcher, models.User.id == models.Researcher.user_id)
+                .where(models.Role.name == "researcher")
+            )
+            count_stmt = select(func.count()).select_from(base_stmt.subquery())
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.User)
+                .options(
+                    selectinload(models.User.role),
+                    selectinload(models.User.researcher_profile),
+                )
+                .join(models.Role, models.User.role_id == models.Role.id)
+                .join(models.Researcher, models.User.id == models.Researcher.user_id)
+                .where(models.Role.name == "researcher")
+                .order_by(models.User.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            users = list(result.unique().scalars().all())
+            items = []
+            for u in users:
+                profile = u.researcher_profile
+                full_name = (profile.full_name if profile else None) or u.full_name or ""
+                items.append({
+                    "user_id": u.id,
+                    "id": u.id,
+                    "public_id": u.public_id,
+                    "full_name": full_name,
+                    "is_published": getattr(profile, "is_published", False),
+                    "created_at": u.created_at,
                 })
             return items, int(total)
 
@@ -704,7 +895,7 @@ class Orm:
 
     @staticmethod
     async def get_notifications_for_user(
-        user_id: int, limit: int = 50
+        user_id: int, limit: int = 50, unread_only: bool = False
     ) -> List[models.Notification]:
         async with async_session_factory() as session:
             stmt = (
@@ -713,6 +904,8 @@ class Orm:
                 .order_by(models.Notification.created_at.desc())
                 .limit(limit)
             )
+            if unread_only:
+                stmt = stmt.where(models.Notification.read_at.is_(None))
             result = await session.execute(stmt)
             return list(result.scalars().all())
 
@@ -745,6 +938,18 @@ class Orm:
             return n
 
     @staticmethod
+    async def mark_notification_read_and_delete(notification_id: int, user_id: int) -> bool:
+        """Mark as read and delete in one transaction. Returns True if found and deleted."""
+        async with async_session_factory() as session:
+            stmt = delete(models.Notification).where(
+                models.Notification.id == notification_id,
+                models.Notification.user_id == user_id,
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            return result.rowcount > 0
+
+    @staticmethod
     async def delete_notification(notification_id: int, user_id: int) -> bool:
         async with async_session_factory() as session:
             stmt = select(models.Notification).where(
@@ -758,6 +963,26 @@ class Orm:
             session.delete(n)
             await session.commit()
             return True
+
+    @staticmethod
+    async def delete_subscription_request_notifications(request_id: int) -> int:
+        """Delete subscription-related notifications after request is resolved.
+        - subscription_request_created (admin): stale 'user wants subscription'
+        - subscription_request_sent (user): redundant after approved/rejected"""
+        async with async_session_factory() as session:
+            stmt = select(models.Notification).where(
+                models.Notification.type.in_(
+                    ("subscription_request_created", "subscription_request_sent"),
+                ),
+            )
+            result = await session.execute(stmt)
+            notifications = result.scalars().all()
+            to_delete = [n for n in notifications if (n.data or {}).get("request_id") == request_id]
+            for n in to_delete:
+                session.delete(n)
+            if to_delete:
+                await session.commit()
+            return len(to_delete)
 
     @staticmethod
     async def get_lab_admin_user_ids_for_organization(organization_id: int) -> List[int]:
@@ -780,7 +1005,7 @@ class Orm:
 
     @staticmethod
     def _subscription_paid_filter(now):
-        """Filter for paid (active or trial) subscription."""
+        """Filter for paid (active or trial) subscription. Requires status=active."""
         return or_(
             and_(
                 models.UserSubscription.status == "active",
@@ -790,6 +1015,7 @@ class Orm:
                 ),
             ),
             and_(
+                models.UserSubscription.status == "active",
                 models.UserSubscription.trial_ends_at.isnot(None),
                 models.UserSubscription.trial_ends_at > now,
             ),
@@ -909,6 +1135,52 @@ class Orm:
             return result.scalars().first()
 
     @staticmethod
+    async def _cancel_active_subscriptions_in_session(session, user_id: int, now, performed_by: int = None) -> list:
+        """Cancel all active subscriptions for a user within the given session. Caller must commit."""
+        stmt = select(models.UserSubscription).where(
+            models.UserSubscription.user_id == user_id,
+            Orm._subscription_paid_filter(now),
+        )
+        result = await session.execute(stmt)
+        subs = list(result.scalars().all())
+        for sub in subs:
+            sub.status = "cancelled"
+            sub.cancelled_at = now
+            session.add(models.SubscriptionEvent(
+                subscription_id=sub.id,
+                event_type="cancelled",
+                performed_by=performed_by,
+                details={"reason": "replaced_by_new_subscription"},
+            ))
+        return subs
+
+    @staticmethod
+    async def _create_subscription_in_session(
+        session, user_id: int, audience: str, tier: str,
+        expires_at=None, trial_ends_at=None, activated_by: int = None, details: dict = None,
+    ):
+        """Create UserSubscription and SubscriptionEvent within session. Caller must flush/commit. Returns sub."""
+        sub = models.UserSubscription(
+            user_id=user_id,
+            audience=audience,
+            tier=tier,
+            status="active",
+            expires_at=expires_at,
+            trial_ends_at=trial_ends_at,
+            activated_by=activated_by,
+        )
+        session.add(sub)
+        await session.flush()  # get sub.id
+        event = models.SubscriptionEvent(
+            subscription_id=sub.id,
+            event_type="activated",
+            performed_by=activated_by,
+            details=details or {"audience": audience, "tier": tier, "trial_ends_at": trial_ends_at.isoformat() if trial_ends_at else None},
+        )
+        session.add(event)
+        return sub
+
+    @staticmethod
     async def create_subscription(
         user_id: int,
         audience: str = "representative",
@@ -920,33 +1192,16 @@ class Orm:
         """Create a new active subscription for a user. Returns the subscription."""
         from sqlalchemy.exc import SQLAlchemyError
         async with async_session_factory() as session:
-            sub = models.UserSubscription(
-                user_id=user_id,
-                audience=audience,
-                tier=tier,
-                status="active",
-                expires_at=expires_at,
-                trial_ends_at=trial_ends_at,
-                activated_by=activated_by,
+            sub = await Orm._create_subscription_in_session(
+                session, user_id=user_id, audience=audience, tier=tier,
+                expires_at=expires_at, trial_ends_at=trial_ends_at, activated_by=activated_by,
             )
-            session.add(sub)
             try:
                 await session.commit()
             except SQLAlchemyError:
                 await session.rollback()
                 raise
             await session.refresh(sub)
-            event = models.SubscriptionEvent(
-                subscription_id=sub.id,
-                event_type="activated",
-                performed_by=activated_by,
-                details={"audience": audience, "tier": tier, "trial_ends_at": trial_ends_at.isoformat() if trial_ends_at else None},
-            )
-            session.add(event)
-            try:
-                await session.commit()
-            except SQLAlchemyError:
-                await session.rollback()
             return sub
 
     @staticmethod
@@ -978,13 +1233,15 @@ class Orm:
 
     @staticmethod
     async def cancel_subscription(subscription_id: int, performed_by: int = None):
-        """Cancel an active subscription."""
+        """Cancel an active subscription. Idempotent: returns sub if already cancelled."""
         from datetime import datetime, timezone
         from sqlalchemy.exc import SQLAlchemyError
         async with async_session_factory() as session:
             sub = await session.get(models.UserSubscription, subscription_id)
             if not sub:
                 return None
+            if sub.status == "cancelled":
+                return sub
             sub.status = "cancelled"
             sub.cancelled_at = datetime.now(timezone.utc)
             event = models.SubscriptionEvent(
@@ -1000,6 +1257,66 @@ class Orm:
                 raise
             await session.refresh(sub)
             return sub
+
+    @staticmethod
+    async def cancel_active_subscriptions_for_user(user_id: int, performed_by: int = None) -> list:
+        """Cancel all active subscriptions for a user (to enforce single active sub)."""
+        from datetime import datetime, timezone
+        from sqlalchemy.exc import SQLAlchemyError
+        async with async_session_factory() as session:
+            now = datetime.now(timezone.utc)
+            subs = await Orm._cancel_active_subscriptions_in_session(session, user_id, now, performed_by)
+            if subs:
+                try:
+                    await session.commit()
+                    for s in subs:
+                        await session.refresh(s)
+                except SQLAlchemyError:
+                    await session.rollback()
+                    raise
+            return subs
+
+    @staticmethod
+    async def list_expired_subscriptions_to_notify() -> List[dict]:
+        """Subscriptions that just expired: status=active and (expires_at <= now or trial ended).
+        Marks them expired and returns list of {user_id, tier, ...} for notification."""
+        from datetime import datetime, timezone
+        async with async_session_factory() as session:
+            now = datetime.now(timezone.utc)
+            stmt = select(models.UserSubscription).where(
+                models.UserSubscription.status == "active",
+                or_(
+                    and_(
+                        models.UserSubscription.expires_at.isnot(None),
+                        models.UserSubscription.expires_at <= now,
+                    ),
+                    and_(
+                        models.UserSubscription.trial_ends_at.isnot(None),
+                        models.UserSubscription.trial_ends_at <= now,
+                    ),
+                ),
+            )
+            result = await session.execute(stmt)
+            subs = list(result.scalars().all())
+            items = [
+                {
+                    "id": s.id,
+                    "user_id": s.user_id,
+                    "tier": s.tier,
+                    "expires_at": s.expires_at,
+                    "trial_ends_at": s.trial_ends_at,
+                }
+                for s in subs
+            ]
+            for sub in subs:
+                sub.status = "expired"
+            if subs:
+                try:
+                    await session.commit()
+                except Exception:
+                    await session.rollback()
+                    raise
+            return items
 
     @staticmethod
     async def list_subscriptions_for_user(user_id: int) -> list:
@@ -1024,3 +1341,220 @@ class Orm:
             )
             result = await session.execute(stmt)
             return list(result.scalars().all())
+
+    # =============================
+    #   SUBSCRIPTION REQUESTS
+    # =============================
+
+    @staticmethod
+    async def has_active_paid_subscription(user_id: int) -> bool:
+        """True if user has active subscription that is NOT trial-only.
+        Trial exemption: user with only trial can still request."""
+        from datetime import datetime, timezone
+        async with async_session_factory() as session:
+            now = datetime.now(timezone.utc)
+            # Active paid = status active, (expires_at null or > now), and NOT in trial (trial_ends_at null or <= now)
+            stmt = select(models.UserSubscription.id).where(
+                models.UserSubscription.user_id == user_id,
+                models.UserSubscription.status == "active",
+                or_(
+                    models.UserSubscription.expires_at.is_(None),
+                    models.UserSubscription.expires_at > now,
+                ),
+                or_(
+                    models.UserSubscription.trial_ends_at.is_(None),
+                    models.UserSubscription.trial_ends_at <= now,
+                ),
+            ).limit(1)
+            result = await session.execute(stmt)
+            return result.scalars().first() is not None
+
+    @staticmethod
+    async def get_pending_subscription_requests_for_user(user_id: int) -> List[models.SubscriptionRequest]:
+        """List pending requests for a user."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.SubscriptionRequest)
+                .where(
+                    models.SubscriptionRequest.user_id == user_id,
+                    models.SubscriptionRequest.status == "pending",
+                )
+                .order_by(models.SubscriptionRequest.created_at.desc())
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
+    @staticmethod
+    async def has_ever_had_trial_subscription(user_id: int) -> bool:
+        """True if user has ever had a trial subscription (any approved or past)."""
+        async with async_session_factory() as session:
+            stmt = select(models.UserSubscription.id).where(
+                models.UserSubscription.user_id == user_id,
+                models.UserSubscription.trial_ends_at.isnot(None),
+            ).limit(1)
+            result = await session.execute(stmt)
+            return result.scalars().first() is not None
+
+    @staticmethod
+    async def has_ever_had_paid_subscription(user_id: int) -> bool:
+        """True if user ever had Basic or Pro that was NOT trial-only (trial_ends_at null)."""
+        async with async_session_factory() as session:
+            stmt = select(models.UserSubscription.id).where(
+                models.UserSubscription.user_id == user_id,
+                models.UserSubscription.trial_ends_at.is_(None),
+            ).limit(1)
+            result = await session.execute(stmt)
+            return result.scalars().first() is not None
+
+    @staticmethod
+    async def get_pending_subscription_request(user_id: int, audience: str, tier: str, is_trial: bool):
+        """Get pending request for same subscription type."""
+        async with async_session_factory() as session:
+            stmt = select(models.SubscriptionRequest).where(
+                models.SubscriptionRequest.user_id == user_id,
+                models.SubscriptionRequest.audience == audience,
+                models.SubscriptionRequest.tier == tier,
+                models.SubscriptionRequest.is_trial == is_trial,
+                models.SubscriptionRequest.status == "pending",
+            ).limit(1)
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def create_subscription_request(
+        user_id: int,
+        audience: str = "representative",
+        tier: str = "pro",
+        is_trial: bool = False,
+    ) -> models.SubscriptionRequest:
+        async with async_session_factory() as session:
+            req = models.SubscriptionRequest(
+                user_id=user_id,
+                audience=audience,
+                tier=tier,
+                is_trial=is_trial,
+                status="pending",
+            )
+            session.add(req)
+            await session.commit()
+            await session.refresh(req)
+            return req
+
+    @staticmethod
+    async def list_subscription_requests(
+        status_filter: Optional[str] = None,
+        limit: int = 100,
+    ) -> List:
+        """List subscription requests, optionally filtered by status."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.SubscriptionRequest, models.User)
+                .join(models.User, models.SubscriptionRequest.user_id == models.User.id)
+                .order_by(models.SubscriptionRequest.created_at.desc())
+                .limit(limit)
+            )
+            if status_filter:
+                stmt = stmt.where(models.SubscriptionRequest.status == status_filter)
+            result = await session.execute(stmt)
+            rows = result.all()
+            return list(rows)
+
+    @staticmethod
+    async def get_subscription_request_by_id(request_id: int):
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.SubscriptionRequest, models.User)
+                .join(models.User, models.SubscriptionRequest.user_id == models.User.id)
+                .where(models.SubscriptionRequest.id == request_id)
+            )
+            result = await session.execute(stmt)
+            row = result.first()
+            if not row:
+                return None
+            return {"request": row[0], "user": row[1]}
+
+    @staticmethod
+    async def get_platform_admin_user_ids() -> List[int]:
+        """Return user IDs of all platform admins (for notifications)."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.User.id)
+                .join(models.Role, models.User.role_id == models.Role.id)
+                .where(models.Role.name == "platform_admin")
+            )
+            result = await session.execute(stmt)
+            return [r for r, in result.all()]
+
+    @staticmethod
+    async def approve_subscription_request(
+        request_id: int,
+        resolved_by: int,
+        expires_at=None,
+        trial_ends_at=None,
+    ):
+        """Approve request: create subscription, mark request resolved.
+        Cancels any existing active subscription (one sub per user).
+        Single transaction with SELECT FOR UPDATE to prevent race conditions."""
+        from datetime import datetime, timezone, timedelta
+        from sqlalchemy.exc import SQLAlchemyError
+        async with async_session_factory() as session:
+            now = datetime.now(timezone.utc)
+            stmt = (
+                select(models.SubscriptionRequest)
+                .where(
+                    models.SubscriptionRequest.id == request_id,
+                    models.SubscriptionRequest.status == "pending",
+                )
+                .with_for_update()
+            )
+            result = await session.execute(stmt)
+            req = result.scalars().first()
+            if not req:
+                return None
+            await Orm._cancel_active_subscriptions_in_session(
+                session, req.user_id, now, performed_by=resolved_by
+            )
+            if req.is_trial and trial_ends_at is None:
+                trial_ends_at = now + timedelta(days=14)
+            sub = await Orm._create_subscription_in_session(
+                session,
+                user_id=req.user_id,
+                audience=req.audience,
+                tier=req.tier,
+                expires_at=expires_at,
+                trial_ends_at=trial_ends_at if req.is_trial else None,
+                activated_by=resolved_by,
+                details={"from_request": request_id, "audience": req.audience, "tier": req.tier},
+            )
+            req.status = "approved"
+            req.resolved_at = now
+            req.resolved_by = resolved_by
+            try:
+                await session.commit()
+                await session.refresh(sub)
+                await session.refresh(req)
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            return {"request": req, "subscription": sub}
+
+    @staticmethod
+    async def reject_subscription_request(request_id: int, resolved_by: int, rejection_reason: str = None):
+        """Reject a subscription request."""
+        from datetime import datetime, timezone
+        from sqlalchemy.exc import SQLAlchemyError
+        async with async_session_factory() as session:
+            req = await session.get(models.SubscriptionRequest, request_id)
+            if not req or req.status != "pending":
+                return None
+            req.status = "rejected"
+            req.resolved_at = datetime.now(timezone.utc)
+            req.resolved_by = resolved_by
+            req.rejection_reason = rejection_reason
+            try:
+                await session.commit()
+                await session.refresh(req)
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            return req

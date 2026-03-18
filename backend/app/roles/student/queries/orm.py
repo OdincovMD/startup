@@ -80,3 +80,20 @@ class Orm:
                 raise
             await session.refresh(student)
             return student
+
+    @staticmethod
+    async def delete_student_profile(user_id: int) -> bool:
+        """Delete student profile by user_id (admin). Returns True if deleted."""
+        async with async_session_factory() as session:
+            stmt = select(models.Student).where(models.Student.user_id == user_id)
+            result = await session.execute(stmt)
+            student = result.scalars().first()
+            if not student:
+                return False
+            await session.delete(student)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            return True

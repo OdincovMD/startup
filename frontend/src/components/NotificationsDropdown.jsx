@@ -52,6 +52,12 @@ const TYPE_LABELS = {
   org_join_left: "Лаборатория покинула организацию",
   vacancy_response_created: "Отклик на вакансию",
   vacancy_response_status_changed: "Статус отклика на вакансию",
+  subscription_request_created: "Запрос на подключение подписки",
+  subscription_request_sent: "Запрос на подписку отправлен",
+  subscription_request_approved: "Подписка подключена",
+  subscription_request_rejected: "Запрос на подписку отклонён",
+  subscription_cancelled: "Подписка отключена",
+  subscription_expired: "Подписка закончилась",
 };
 
 function formatNotification(n) {
@@ -87,6 +93,24 @@ function formatNotification(n) {
     const statusLabels = { accepted: "принят", rejected: "отклонён", new: "новый" };
     const statusText = statusLabels[d.status] || d.status || "";
     return `«${d.vacancy_name || "вакансия"}» — ${statusText}`;
+  }
+  if (n.type === "subscription_request_created") {
+    return `${d.user_full_name || d.user_mail || "Пользователь"} → ${d.tier || ""} ${d.is_trial ? "(Trial)" : ""}`;
+  }
+  if (n.type === "subscription_request_sent") {
+    return `Тариф ${d.tier || ""} ${d.is_trial ? "(Trial)" : ""} — ожидайте ответа администратора`;
+  }
+  if (n.type === "subscription_request_approved") {
+    return `Тариф ${d.tier || ""} ${d.is_trial ? "(Trial)" : ""} подключён`;
+  }
+  if (n.type === "subscription_request_rejected") {
+    return `Тариф ${d.tier || ""}${d.reason ? `: ${d.reason}` : ""}`;
+  }
+  if (n.type === "subscription_cancelled") {
+    return `Тариф ${d.tier || ""} — подписка отключена администратором`;
+  }
+  if (n.type === "subscription_expired") {
+    return `Тариф ${d.tier || ""} — срок подписки истёк`;
   }
   return label;
 }
@@ -128,6 +152,14 @@ function getNotificationLink(n) {
     case "vacancy_response_created":
     case "vacancy_response_status_changed":
       return { path: "/profile", tab: "vacancy-responses" };
+    case "subscription_request_created":
+      return { path: "/admin", tab: "subscriptions" };
+    case "subscription_request_sent":
+    case "subscription_request_approved":
+    case "subscription_request_rejected":
+    case "subscription_cancelled":
+    case "subscription_expired":
+      return { path: "/profile", section: "subscription" };
     default:
       return { path: "/profile" };
   }
@@ -145,6 +177,12 @@ const NAVIGABLE_NOTIFICATION_TYPES = new Set([
   "org_join_left",
   "vacancy_response_created",
   "vacancy_response_status_changed",
+  "subscription_request_created",
+  "subscription_request_sent",
+  "subscription_request_approved",
+  "subscription_request_rejected",
+  "subscription_cancelled",
+  "subscription_expired",
 ]);
 
 const PANEL_ANIMATION_MS = 250;
@@ -195,7 +233,7 @@ export default function NotificationsDropdown() {
   const loadNotifications = async () => {
     setLoading(true);
     try {
-      const list = await apiRequest("/profile/notifications");
+      const list = await apiRequest("/profile/notifications?unread_only=true");
       setNotifications(list || []);
     } catch {
       setNotifications([]);
@@ -207,7 +245,12 @@ export default function NotificationsDropdown() {
   useEffect(() => {
     loadUnread();
     const t = setInterval(loadUnread, 60000);
-    return () => clearInterval(t);
+    const onRefresh = () => loadUnread();
+    window.addEventListener("profile-refresh", onRefresh);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("profile-refresh", onRefresh);
+    };
   }, []);
 
   useEffect(() => {
@@ -215,18 +258,24 @@ export default function NotificationsDropdown() {
   }, [open]);
 
   const handleNotificationClick = async (n) => {
+    const id = n.id;
+    setNotifications((prev) => prev.filter((x) => x.id !== id));
+    loadUnread();
     try {
-      await apiRequest(`/profile/notifications/${n.id}/read`, { method: "PATCH" });
-      setNotifications((prev) => prev.filter((x) => x.id !== n.id));
-      loadUnread();
+      await apiRequest(`/profile/notifications/${id}/read`, {
+        method: "PATCH",
+        body: JSON.stringify({}),
+      });
       if (NAVIGABLE_NOTIFICATION_TYPES.has(n.type)) {
         closePanel();
-        const { path, tab } = getNotificationLink(n);
-        navigate(tab ? `${path}?tab=${tab}` : path);
+        const link = getNotificationLink(n);
+        const q = link.section ? `?section=${link.section}` : link.tab ? `?tab=${link.tab}` : "";
+        navigate(link.path + q);
         setTimeout(() => window.dispatchEvent(new CustomEvent("profile-refresh")), 100);
       }
     } catch {
-      /* ignore */
+      setNotifications((prev) => [...prev.filter((x) => x.id !== id), n]);
+      loadUnread();
     }
   };
 

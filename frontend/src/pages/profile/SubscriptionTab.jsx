@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
+import { useToast } from "../../ToastContext";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
@@ -111,25 +112,35 @@ function daysUntil(iso) {
 }
 
 export default function SubscriptionTab({ onError, orgProfile, orgLabs, orgVacancies, orgQueries }) {
+  const { showToast } = useToast();
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [requesting, setRequesting] = useState(null);
+
+  const loadSubscription = async () => {
+    try {
+      const res = await apiRequest("/profile/subscription");
+      setSubscription(res || null);
+    } catch (e) {
+      onError?.(e.message);
+      setSubscription(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
-    async function load() {
-      try {
-        const res = await apiRequest("/profile/subscription");
-        if (!cancelled) setSubscription(res || null);
-      } catch (e) {
-        if (!cancelled) onError?.(e.message);
-        setSubscription(null);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    load();
+    setLoading(true);
+    loadSubscription().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
     return () => { cancelled = true; };
   }, [onError]);
+
+  useEffect(() => {
+    const handler = () => loadSubscription();
+    window.addEventListener("profile-refresh", handler);
+    return () => window.removeEventListener("profile-refresh", handler);
+  }, []);
 
   if (loading) {
     return (
@@ -169,6 +180,39 @@ export default function SubscriptionTab({ onError, orgProfile, orgLabs, orgVacan
   };
 
   const currentTierLimits = tier === "pro" && active ? limits.pro : limits.basic;
+
+  const pendingRequests = subscription?.pending_requests || {};
+  const hasActivePaid = active && !isTrial;
+  const hasPending = (t, trial) => !!pendingRequests[`${t}_${trial}`];
+  const hasUsedTrial = subscription?.has_used_trial === true;
+  const hasEverHadPaid = subscription?.has_ever_had_paid === true;
+  const canUpgradeToPro = hasActivePaid && tier === "basic";
+
+  const handleRequestSubscription = async (tierId, isTrial) => {
+    const tier = tierId === "trial" ? "basic" : tierId;
+    const trial = tierId === "trial";
+    if (hasActivePaid && !(tier === "basic" && tierId === "pro")) return;
+    if (hasPending(tier, trial)) return;
+    setRequesting(tierId);
+    try {
+      await apiRequest("/profile/subscription/request", {
+        method: "POST",
+        body: JSON.stringify({ tier, is_trial: trial }),
+      });
+      showToast("Запрос отправлен. Ожидайте ответа администратора.");
+      await loadSubscription();
+      window.dispatchEvent(new CustomEvent("profile-refresh"));
+    } catch (e) {
+      onError?.(e.message);
+    } finally {
+      setRequesting(null);
+    }
+  };
+
+  const canRequestTier = (tierId) => {
+    if (!hasActivePaid) return true;
+    return tierId === "pro" && tier === "basic";
+  };
 
   return (
     <div className="profile-form-section subscription-tab">
@@ -236,16 +280,9 @@ export default function SubscriptionTab({ onError, orgProfile, orgLabs, orgVacan
               <div className="subscription-status-body">
                 <strong className="subscription-status-title">Без подписки</strong>
                 <p className="subscription-status-desc">
-                  Ваши карточки участвуют в каталоге. Подписка повышает их позицию.
+                  Ваши карточки участвуют в каталоге. Подписка повышает их позицию. Выберите тариф ниже.
                 </p>
               </div>
-              <a
-                href="mailto:?subject=Подключение подписки"
-                className="secondary-btn subscription-cta-btn"
-                aria-label="Связаться с администратором"
-              >
-                Связаться с администратором
-              </a>
             </>
           )}
         </div>
@@ -314,22 +351,45 @@ export default function SubscriptionTab({ onError, orgProfile, orgLabs, orgVacan
                 ))}
               </ul>
               {card.isTrial ? (
-                <a
-                  href="mailto:?subject=Запрос пробного периода подписки"
-                  className="secondary-btn subscription-tier-cta"
-                  aria-label="Запросить пробный период"
-                >
-                  {card.cta}
-                </a>
+                hasUsedTrial || hasEverHadPaid ? (
+                  <span className="subscription-tier-pending">
+                    {hasEverHadPaid
+                      ? "Триал недоступен после платной подписки"
+                      : "Пробная подписка подключается только один раз"}
+                  </span>
+                ) : hasPending("basic", true) ? (
+                  <span className="subscription-tier-pending">
+                    Запрос отправлен, ожидайте решения администратора
+                  </span>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    className="subscription-tier-cta"
+                    onClick={() => handleRequestSubscription("trial", true)}
+                    disabled={!canRequestTier("trial")}
+                    loading={requesting === "trial"}
+                    aria-label="Запросить пробный период"
+                  >
+                    {card.cta}
+                  </Button>
+                )
               ) : (
-                <Button
-                  variant={card.accent ? "primary" : "secondary"}
-                  disabled
-                  className="subscription-tier-cta"
-                  aria-label={`Подключить тариф ${card.name} (пока недоступно)`}
-                >
-                  {card.cta}
-                </Button>
+                hasPending(card.id, false) ? (
+                  <span className="subscription-tier-pending">
+                    Запрос отправлен, ожидайте решения администратора
+                  </span>
+                ) : (
+                  <Button
+                    variant={card.accent ? "primary" : "secondary"}
+                    className="subscription-tier-cta"
+                    onClick={() => handleRequestSubscription(card.id, false)}
+                    disabled={!canRequestTier(card.id)}
+                    loading={requesting === card.id}
+                    aria-label={card.id === "pro" && canUpgradeToPro ? "Перейти на Pro" : `Запросить тариф ${card.name}`}
+                  >
+                    {card.id === "pro" && canUpgradeToPro ? "Перейти на Pro" : card.cta}
+                  </Button>
+                )
               )}
             </Card>
           ))}

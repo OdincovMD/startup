@@ -1,28 +1,15 @@
-import React, { useState } from "react";
+import React from "react";
 import { MapPin, Globe } from "lucide-react";
 import WebsiteLink from "../WebsiteLink";
+import { EntityAvatar } from "../ui";
 
 export default function OrganizationDetailHero({ details }) {
-  const [avatarError, setAvatarError] = useState(false);
-  const showAvatar = details.avatar_url && !avatarError;
   const displayName = details.name || "Организация";
-  const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <div className="org-detail-hero">
       <div className="org-detail-hero__media">
-        {showAvatar ? (
-          <img
-            className="org-detail-hero__avatar"
-            src={details.avatar_url}
-            alt=""
-            onError={() => setAvatarError(true)}
-          />
-        ) : (
-          <div className="org-detail-hero__avatar-placeholder" aria-hidden="true">
-            {initial}
-          </div>
-        )}
+        <EntityAvatar src={details.avatar_url} alt="" className="org-detail-hero__avatar" />
       </div>
       <div className="org-detail-hero__body">
         <h1 className="org-detail-hero__title">{displayName}</h1>

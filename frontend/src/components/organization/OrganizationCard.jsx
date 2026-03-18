@@ -1,18 +1,14 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import { MapPin, Globe, Building2, ChevronRight } from "lucide-react";
 import WebsiteLink from "../WebsiteLink";
-import { Card, Button } from "../ui";
+import { Card, Button, EntityAvatar } from "../ui";
 
 const DESCRIPTION_MAX = 140;
 
 export default function OrganizationCard({ org, onOpen }) {
-  const [avatarError, setAvatarError] = useState(false);
-  const avatarUrl = org.avatar_url;
   const hasLink = !!org.public_id;
-  const showAvatar = avatarUrl && !avatarError;
   const displayName = org.name || "Организация";
-  const initial = displayName.charAt(0).toUpperCase();
   const description = org.description || "";
   const truncatedDesc = description.length > DESCRIPTION_MAX ? `${description.slice(0, DESCRIPTION_MAX)}…` : description;
 
@@ -33,19 +29,7 @@ export default function OrganizationCard({ org, onOpen }) {
       }}
     >
       <div className="modern-entity-card__media">
-        {showAvatar ? (
-          <img
-            src={avatarUrl}
-            alt=""
-            loading="lazy"
-            onError={() => setAvatarError(true)}
-          />
-        ) : (
-          <div className="modern-entity-card__fallback modern-entity-card__fallback--org" aria-hidden="true">
-            <Building2 size={32} className="modern-entity-card__fallback-icon" />
-            <span className="modern-entity-card__fallback-initial">{initial}</span>
-          </div>
-        )}
+        <EntityAvatar src={org.avatar_url} alt="" loading="lazy" />
       </div>
 
       <div className="modern-entity-card__body">

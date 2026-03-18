@@ -368,9 +368,11 @@ export default function Applicants() {
 
   const roleKey = auth?.user?.role_name;
   const hasLabRole = roleKey === "lab_admin" || roleKey === "lab_representative";
+  const isPlatformAdmin = roleKey === "platform_admin";
+  const canViewPage = hasLabRole || isPlatformAdmin;
   const [subscription, setSubscription] = useState(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
-  const canAccess = hasLabRole && subscription?.active === true;
+  const canAccess = isPlatformAdmin || (hasLabRole && subscription?.active === true);
 
   const search = useApplicantSearch(apiRequest, navigate, () => setSubscription({ active: false }));
 
@@ -383,16 +385,16 @@ export default function Applicants() {
       refreshUser();
       return;
     }
-    if (auth && !hasLabRole) {
+    if (auth && !canViewPage) {
       navigate("/", { replace: true });
       return;
     }
-  }, [auth, hasLabRole, navigate, refreshUser]);
+  }, [auth, canViewPage, navigate, refreshUser]);
 
   useEffect(() => {
     if (!hasLabRole || !auth?.token) {
       setSubscriptionLoading(false);
-      setSubscription(null);
+      setSubscription(isPlatformAdmin ? { active: true } : null);
       return;
     }
     let cancelled = false;
@@ -408,7 +410,7 @@ export default function Applicants() {
         if (!cancelled) setSubscriptionLoading(false);
       });
     return () => { cancelled = true; };
-  }, [hasLabRole, auth?.token]);
+  }, [hasLabRole, isPlatformAdmin, auth?.token]);
 
   const hasFilters = search.searchDebounced || roleFilter || statusFilter;
 
@@ -539,10 +541,10 @@ export default function Applicants() {
   };
 
   if (!auth) return <PageLoader />;
-  if (auth && !hasLabRole) return <PageLoader />;
-  if (hasLabRole && subscriptionLoading) return <PageLoader />;
+  if (auth && !canViewPage) return <PageLoader />;
+  if (canViewPage && subscriptionLoading) return <PageLoader />;
 
-  if (hasLabRole && !canAccess) {
+  if (canViewPage && !canAccess) {
     return (
       <main className="main">
         <section className="section">

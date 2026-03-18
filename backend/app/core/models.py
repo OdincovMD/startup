@@ -14,6 +14,7 @@ from sqlalchemy import (
     Index,
     Boolean,
     func,
+    text,
 )
 from sqlalchemy.orm import relationship
 
@@ -52,6 +53,7 @@ class User(BaseModel):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     email_verified = Column(Boolean, nullable=False, server_default="false")
     token_version = Column(Integer, nullable=False, server_default="0")
+    is_blocked = Column(Boolean, nullable=False, server_default="false")
 
     @property
     def has_password(self) -> bool:
@@ -206,4 +208,35 @@ class SubscriptionEvent(BaseModel):
     __table_args__ = (
         Index("idx_subscription_events_sub", "subscription_id"),
         Index("idx_subscription_events_type", "event_type"),
+    )
+
+
+class SubscriptionRequest(BaseModel):
+    """User request to connect a subscription. Admin approves/rejects."""
+
+    __tablename__ = "subscription_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    audience = Column(String(30), nullable=False, server_default="representative")
+    tier = Column(String(20), nullable=False, server_default="pro")  # basic | pro
+    is_trial = Column(Boolean, nullable=False, server_default="false")
+    status = Column(String(20), nullable=False, server_default="pending")  # pending | approved | rejected | cancelled
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    resolved_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+    __table_args__ = (
+        Index("idx_subscription_requests_user", "user_id"),
+        Index("idx_subscription_requests_status", "status"),
+        Index("idx_subscription_requests_pending", "user_id", "audience", "tier", "is_trial"),
+        Index(
+            "idx_sub_request_unique_pending",
+            "user_id", "audience", "tier", "is_trial",
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
+        ),
     )

@@ -5,7 +5,7 @@ Orm — асинхронный слой для домена организаци
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple
 
-from sqlalchemy import insert, select, delete, exists, func, or_, cast, distinct, text
+from sqlalchemy import insert, select, delete, exists, func, or_, and_, cast, distinct, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import literal
 from sqlalchemy.orm import selectinload
@@ -71,7 +71,11 @@ class Orm:
     @staticmethod
     async def get_organization_by_public_id(public_id: str) -> Optional[models.Organization]:
         async with async_session_factory() as session:
-            stmt = select(models.Organization).where(models.Organization.public_id == public_id)
+            stmt = (
+                select(models.Organization)
+                .options(selectinload(models.Organization.creator))
+                .where(models.Organization.public_id == public_id)
+            )
             result = await session.execute(stmt)
             return result.scalars().first()
 
@@ -1423,8 +1427,13 @@ class Orm:
             stmt = (
                 select(models.OrganizationLaboratory)
                 .options(
-                    selectinload(models.OrganizationLaboratory.organization),
-                    selectinload(models.OrganizationLaboratory.head_employee),
+                    selectinload(models.OrganizationLaboratory.organization).selectinload(
+                        models.Organization.creator
+                    ),
+                    selectinload(models.OrganizationLaboratory.head_employee).selectinload(
+                        models.Employee.user
+                    ),
+                    selectinload(models.OrganizationLaboratory.creator),
                     selectinload(models.OrganizationLaboratory.employees).selectinload(
                         models.Employee.laboratories
                     ),
@@ -4273,6 +4282,58 @@ class Orm:
             return out
 
     @staticmethod
+    async def list_vacancy_responses_admin(
+        page: int = 1,
+        size: int = 20,
+        vacancy_id: Optional[int] = None,
+        status_filter: Optional[str] = None,
+    ) -> Tuple[List[dict], int]:
+        """List vacancy responses for admin with pagination. Returns (items, total)."""
+        async with async_session_factory() as session:
+            conditions = []
+            if vacancy_id is not None:
+                conditions.append(models.VacancyResponse.vacancy_id == vacancy_id)
+            if status_filter:
+                conditions.append(models.VacancyResponse.status == status_filter)
+            base_stmt = select(models.VacancyResponse.id)
+            if conditions:
+                base_stmt = base_stmt.where(and_(*conditions))
+            count_stmt = select(func.count()).select_from(base_stmt.subquery())
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.VacancyResponse)
+                .options(
+                    selectinload(models.VacancyResponse.user),
+                    selectinload(models.VacancyResponse.vacancy),
+                )
+                .order_by(models.VacancyResponse.created_at.desc())
+            )
+            if conditions:
+                stmt = stmt.where(and_(*conditions))
+            stmt = stmt.offset((page - 1) * size).limit(size)
+            result = await session.execute(stmt)
+            rows = list(result.unique().scalars().all())
+            items = []
+            for r in rows:
+                applicant_name = (
+                    getattr(r.user, "full_name", None)
+                    or getattr(r.user, "mail", "")
+                    or "?"
+                )
+                items.append({
+                    "id": r.id,
+                    "user_id": r.user_id,
+                    "user_full_name": applicant_name,
+                    "user_public_id": getattr(r.user, "public_id", None) if r.user else None,
+                    "vacancy_id": r.vacancy_id,
+                    "vacancy_name": r.vacancy.name if r.vacancy else None,
+                    "vacancy_public_id": getattr(r.vacancy, "public_id", None) if r.vacancy else None,
+                    "status": r.status,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                })
+            return items, int(total)
+
+    @staticmethod
     async def list_my_vacancy_responses(user_id: int):
         async with async_session_factory() as session:
             stmt = (
@@ -4404,6 +4465,57 @@ class Orm:
                 "organizations": orgs_count,
                 "responses": responses_count,
                 "research_interests": interests,
+            }
+
+    @staticmethod
+    async def get_admin_dashboard_stats() -> dict:
+        """Admin dashboard: counts for organizations, labs, vacancies, queries, users, pending requests."""
+        async with async_session_factory() as session:
+            orgs_r = await session.execute(
+                select(func.count()).select_from(models.Organization).where(
+                    models.Organization.is_published.is_(True)
+                )
+            )
+            labs_r = await session.execute(
+                select(func.count()).select_from(models.OrganizationLaboratory).where(
+                    models.OrganizationLaboratory.is_published.is_(True)
+                )
+            )
+            vac_r = await session.execute(
+                select(func.count()).select_from(models.VacancyOrganization).where(
+                    models.VacancyOrganization.is_published.is_(True)
+                )
+            )
+            q_r = await session.execute(
+                select(func.count()).select_from(models.OrganizationQuery).where(
+                    models.OrganizationQuery.is_published.is_(True)
+                )
+            )
+            users_r = await session.execute(select(func.count()).select_from(models.User))
+            sub_req_r = await session.execute(
+                select(func.count()).select_from(models.SubscriptionRequest).where(
+                    models.SubscriptionRequest.status == "pending"
+                )
+            )
+            lab_join_r = await session.execute(
+                select(func.count()).select_from(models.LabJoinRequest).where(
+                    models.LabJoinRequest.status == "pending"
+                )
+            )
+            org_join_r = await session.execute(
+                select(func.count()).select_from(models.OrgJoinRequest).where(
+                    models.OrgJoinRequest.status == "pending"
+                )
+            )
+            return {
+                "organizations": orgs_r.scalar() or 0,
+                "laboratories": labs_r.scalar() or 0,
+                "vacancies": vac_r.scalar() or 0,
+                "queries": q_r.scalar() or 0,
+                "users_count": users_r.scalar() or 0,
+                "pending_subscription_requests": sub_req_r.scalar() or 0,
+                "pending_lab_join_requests": lab_join_r.scalar() or 0,
+                "pending_org_join_requests": org_join_r.scalar() or 0,
             }
 
     # =============================
@@ -4625,6 +4737,48 @@ class Orm:
             result = await session.execute(stmt)
             return result.scalars().first()
 
+    @staticmethod
+    async def list_all_lab_join_requests_admin(
+        status_filter: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[models.LabJoinRequest]:
+        """List all lab join requests for admin. status_filter: 'pending' or None for all."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.LabJoinRequest)
+                .options(
+                    selectinload(models.LabJoinRequest.researcher),
+                    selectinload(models.LabJoinRequest.laboratory).selectinload(models.OrganizationLaboratory.organization),
+                )
+                .order_by(models.LabJoinRequest.created_at.desc())
+                .limit(limit)
+            )
+            if status_filter == "pending":
+                stmt = stmt.where(models.LabJoinRequest.status == "pending")
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
+    @staticmethod
+    async def list_all_org_join_requests_admin(
+        status_filter: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[models.OrgJoinRequest]:
+        """List all org join requests for admin. status_filter: 'pending' or None for all."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.OrgJoinRequest)
+                .options(
+                    selectinload(models.OrgJoinRequest.laboratory),
+                    selectinload(models.OrgJoinRequest.organization),
+                )
+                .order_by(models.OrgJoinRequest.created_at.desc())
+                .limit(limit)
+            )
+            if status_filter == "pending":
+                stmt = stmt.where(models.OrgJoinRequest.status == "pending")
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
     # =============================
     #   ORG JOIN REQUESTS — native async
     # =============================
@@ -4836,6 +4990,752 @@ class Orm:
                     selectinload(models.OrgJoinRequest.organization),
                 )
                 .where(models.OrgJoinRequest.id == request_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    # =============================
+    #        ADMIN (platform_admin)
+    # =============================
+
+    @staticmethod
+    async def list_organizations_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[models.Organization], int]:
+        """List all organizations with pagination. Returns (items, total)."""
+        async with async_session_factory() as session:
+            count_stmt = select(func.count()).select_from(models.Organization)
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.Organization)
+                .order_by(models.Organization.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            items = list(result.scalars().all())
+            return items, total
+
+    @staticmethod
+    async def admin_update_organization(
+        org_id: int,
+        name: Optional[str] = None,
+        avatar_url: Optional[str] = None,
+        description: Optional[str] = None,
+        address: Optional[str] = None,
+        website: Optional[str] = None,
+        ror_id: Optional[str] = None,
+        is_published: Optional[bool] = None,
+    ) -> Optional[models.Organization]:
+        """Update organization by id (admin, no ownership check)."""
+        async with async_session_factory() as session:
+            org = await session.get(models.Organization, org_id)
+            if not org:
+                return None
+            if name is not None:
+                org.name = name
+            if avatar_url is not None:
+                org.avatar_url = avatar_url
+            if description is not None:
+                org.description = description
+            if address is not None:
+                org.address = address
+            if website is not None:
+                org.website = website
+            if ror_id is not None:
+                org.ror_id = ror_id
+            if is_published is not None:
+                org.is_published = bool(is_published)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            await session.refresh(org)
+            return org
+
+    @staticmethod
+    async def list_laboratories_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[models.OrganizationLaboratory], int]:
+        """List all laboratories with pagination. Returns (items, total)."""
+        async with async_session_factory() as session:
+            count_stmt = select(func.count()).select_from(models.OrganizationLaboratory)
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.OrganizationLaboratory)
+                .options(
+                    selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
+                    selectinload(models.OrganizationLaboratory.employees),
+                    selectinload(models.OrganizationLaboratory.equipment),
+                    selectinload(models.OrganizationLaboratory.task_solutions),
+                )
+                .order_by(models.OrganizationLaboratory.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all()), total
+
+    @staticmethod
+    async def get_laboratory_by_id(lab_id: int) -> Optional[models.OrganizationLaboratory]:
+        """Get laboratory by internal id."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.OrganizationLaboratory)
+                .options(
+                    selectinload(models.OrganizationLaboratory.organization),
+                    selectinload(models.OrganizationLaboratory.head_employee),
+                    selectinload(models.OrganizationLaboratory.employees),
+                    selectinload(models.OrganizationLaboratory.equipment),
+                    selectinload(models.OrganizationLaboratory.task_solutions),
+                )
+                .where(models.OrganizationLaboratory.id == lab_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def admin_update_laboratory(
+        lab_id: int,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        activities: Optional[str] = None,
+        image_urls: Optional[List[str]] = None,
+        is_published: Optional[bool] = None,
+        employee_ids: Optional[List[int]] = None,
+        head_employee_id: Optional[int] = None,
+        equipment_ids: Optional[List[int]] = None,
+        task_solution_ids: Optional[List[int]] = None,
+    ) -> Optional[models.OrganizationLaboratory]:
+        """Update laboratory by id (admin, no ownership check)."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.OrganizationLaboratory)
+                .options(selectinload(models.OrganizationLaboratory.employees))
+                .where(models.OrganizationLaboratory.id == lab_id)
+            )
+            result = await session.execute(stmt)
+            lab = result.scalars().first()
+            if not lab:
+                return None
+            org_id = lab.organization_id
+            creator_id = lab.creator_user_id
+            if name is not None:
+                lab.name = name
+            if description is not None:
+                lab.description = description
+            if activities is not None:
+                lab.activities = activities
+            if image_urls is not None:
+                lab.image_urls = image_urls
+            if is_published is not None:
+                lab.is_published = bool(is_published)
+            if employee_ids is not None or head_employee_id is not None:
+                eids = list(employee_ids) if employee_ids is not None else [e.id for e in (lab.employees or [])]
+                if head_employee_id is not None:
+                    lab.head_employee_id = head_employee_id
+                    if head_employee_id not in eids:
+                        eids = list(set(eids) | {head_employee_id})
+                else:
+                    lab.head_employee_id = None
+                await session.execute(
+                    delete(models.employee_laboratories).where(
+                        models.employee_laboratories.c.laboratory_id == lab.id
+                    )
+                )
+                if org_id is not None:
+                    emps = await helpers.get_employees_by_ids(session, org_id, eids)
+                elif creator_id is not None:
+                    emps = await helpers.get_employees_by_ids_for_creator(session, creator_id, eids)
+                else:
+                    emps = []
+                if emps:
+                    await session.execute(
+                        insert(models.employee_laboratories),
+                        [{"employee_id": e.id, "laboratory_id": lab.id} for e in emps],
+                    )
+            if equipment_ids is not None:
+                await session.execute(
+                    delete(models.laboratory_equipment).where(
+                        models.laboratory_equipment.c.laboratory_id == lab.id
+                    )
+                )
+                if org_id is not None:
+                    eqs = await helpers.get_equipment_by_ids(session, org_id, equipment_ids)
+                elif creator_id is not None:
+                    eqs = await helpers.get_equipment_by_ids_for_creator(session, creator_id, equipment_ids)
+                else:
+                    eqs = []
+                if eqs:
+                    await session.execute(
+                        insert(models.laboratory_equipment),
+                        [{"laboratory_id": lab.id, "equipment_id": e.id} for e in eqs],
+                    )
+            if task_solution_ids is not None:
+                await session.execute(
+                    delete(models.task_solution_laboratories).where(
+                        models.task_solution_laboratories.c.laboratory_id == lab.id
+                    )
+                )
+                if org_id is not None:
+                    tss = await helpers.get_task_solutions_by_ids(session, org_id, task_solution_ids)
+                elif creator_id is not None:
+                    tss = await helpers.get_task_solutions_by_ids_for_creator(session, creator_id, task_solution_ids)
+                else:
+                    tss = []
+                if tss:
+                    await session.execute(
+                        insert(models.task_solution_laboratories),
+                        [{"laboratory_id": lab.id, "task_solution_id": ts.id} for ts in tss],
+                    )
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            stmt = (
+                select(models.OrganizationLaboratory)
+                .options(*Orm._lab_select_options())
+                .where(models.OrganizationLaboratory.id == lab_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def list_vacancies_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[models.VacancyOrganization], int]:
+        """List all vacancies with pagination. Returns (items, total)."""
+        async with async_session_factory() as session:
+            count_stmt = select(func.count()).select_from(models.VacancyOrganization)
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.VacancyOrganization)
+                .options(
+                    selectinload(models.VacancyOrganization.organization),
+                    selectinload(models.VacancyOrganization.laboratory),
+                    selectinload(models.VacancyOrganization.query),
+                )
+                .order_by(models.VacancyOrganization.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all()), total
+
+    @staticmethod
+    async def admin_update_vacancy(
+        vacancy_id: int,
+        name: Optional[str] = None,
+        requirements: Optional[str] = None,
+        description: Optional[str] = None,
+        employment_type: Optional[str] = None,
+        is_published: Optional[bool] = None,
+        query_id: Optional[int] = None,
+        laboratory_id: Optional[int] = None,
+        contact_employee_id: Optional[int] = None,
+        contact_email: Optional[str] = None,
+        contact_phone: Optional[str] = None,
+    ) -> Optional[models.VacancyOrganization]:
+        """Update vacancy by id (admin, no ownership check)."""
+        async with async_session_factory() as session:
+            vacancy = await session.get(models.VacancyOrganization, vacancy_id)
+            if not vacancy:
+                return None
+            if name is not None:
+                vacancy.name = name
+            if requirements is not None:
+                vacancy.requirements = requirements
+            if description is not None:
+                vacancy.description = description
+            if employment_type is not None:
+                vacancy.employment_type = employment_type
+            if is_published is not None:
+                vacancy.is_published = bool(is_published)
+            if query_id is not None:
+                vacancy.query_id = query_id
+            if laboratory_id is not None:
+                vacancy.laboratory_id = laboratory_id
+            if contact_employee_id is not None:
+                vacancy.contact_employee_id = contact_employee_id
+            if contact_email is not None:
+                vacancy.contact_email = contact_email
+            if contact_phone is not None:
+                vacancy.contact_phone = contact_phone
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            stmt = (
+                select(models.VacancyOrganization)
+                .options(
+                    selectinload(models.VacancyOrganization.organization),
+                    selectinload(models.VacancyOrganization.laboratory),
+                    selectinload(models.VacancyOrganization.query),
+                )
+                .where(models.VacancyOrganization.id == vacancy_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def list_queries_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[models.OrganizationQuery], int]:
+        """List all queries with pagination. Returns (items, total)."""
+        async with async_session_factory() as session:
+            count_stmt = select(func.count()).select_from(models.OrganizationQuery)
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.OrganizationQuery)
+                .options(
+                    selectinload(models.OrganizationQuery.organization),
+                    selectinload(models.OrganizationQuery.laboratories),
+                    selectinload(models.OrganizationQuery.employees),
+                )
+                .order_by(models.OrganizationQuery.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all()), total
+
+    @staticmethod
+    async def get_query_by_id(query_id: int) -> Optional[models.OrganizationQuery]:
+        """Get query by internal id."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.OrganizationQuery)
+                .options(
+                    selectinload(models.OrganizationQuery.organization),
+                    selectinload(models.OrganizationQuery.laboratories),
+                    selectinload(models.OrganizationQuery.employees),
+                )
+                .where(models.OrganizationQuery.id == query_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def admin_update_query(
+        query_id: int,
+        title: Optional[str] = None,
+        task_description: Optional[str] = None,
+        completed_examples: Optional[str] = None,
+        grant_info: Optional[str] = None,
+        budget: Optional[str] = None,
+        deadline: Optional[str] = None,
+        status: Optional[str] = None,
+        linked_task_solution_id: Optional[int] = None,
+        laboratory_ids: Optional[List[int]] = None,
+        employee_ids: Optional[List[int]] = None,
+        is_published: Optional[bool] = None,
+    ) -> Optional[models.OrganizationQuery]:
+        """Update query by id (admin, no ownership check)."""
+        async with async_session_factory() as session:
+            query = await session.get(models.OrganizationQuery, query_id)
+            if not query:
+                return None
+            org_id = query.organization_id
+            creator_id = query.creator_user_id
+            if title is not None:
+                query.title = title
+            if task_description is not None:
+                query.task_description = task_description
+            if completed_examples is not None:
+                query.completed_examples = completed_examples
+            if grant_info is not None:
+                query.grant_info = grant_info
+            if budget is not None:
+                query.budget = budget
+            if deadline is not None:
+                query.deadline = deadline
+            if status is not None:
+                query.status = status
+            if linked_task_solution_id is not None:
+                query.linked_task_solution_id = linked_task_solution_id
+            if is_published is not None:
+                query.is_published = bool(is_published)
+            if laboratory_ids is not None:
+                await session.execute(
+                    delete(models.query_laboratories).where(
+                        models.query_laboratories.c.query_id == query.id
+                    )
+                )
+                if org_id is not None:
+                    labs = await helpers.get_labs_by_ids(session, org_id, laboratory_ids)
+                elif creator_id is not None:
+                    labs = await helpers.get_labs_by_ids_for_creator(session, creator_id, laboratory_ids)
+                else:
+                    labs = []
+                if labs:
+                    await session.execute(
+                        insert(models.query_laboratories),
+                        [{"query_id": query.id, "laboratory_id": lab.id} for lab in labs],
+                    )
+            if employee_ids is not None:
+                await session.execute(
+                    delete(models.query_employees).where(
+                        models.query_employees.c.query_id == query.id
+                    )
+                )
+                if org_id is not None:
+                    emps = await helpers.get_employees_by_ids(session, org_id, employee_ids)
+                elif creator_id is not None:
+                    emps = await helpers.get_employees_by_ids_for_creator(session, creator_id, employee_ids)
+                else:
+                    emps = []
+                if emps:
+                    await session.execute(
+                        insert(models.query_employees),
+                        [{"query_id": query.id, "employee_id": e.id} for e in emps],
+                    )
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            stmt = (
+                select(models.OrganizationQuery)
+                .options(
+                    selectinload(models.OrganizationQuery.organization),
+                    selectinload(models.OrganizationQuery.laboratories),
+                    selectinload(models.OrganizationQuery.employees),
+                )
+                .where(models.OrganizationQuery.id == query_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def list_equipment_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[models.OrganizationEquipment], int]:
+        """List all equipment with pagination (admin)."""
+        async with async_session_factory() as session:
+            count_stmt = select(func.count()).select_from(models.OrganizationEquipment)
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.OrganizationEquipment)
+                .options(
+                    selectinload(models.OrganizationEquipment.laboratories),
+                    selectinload(models.OrganizationEquipment.organization),
+                )
+                .order_by(models.OrganizationEquipment.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all()), total
+
+    @staticmethod
+    async def admin_get_equipment(equipment_id: int) -> Optional[models.OrganizationEquipment]:
+        """Get equipment by id (admin, no org check)."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.OrganizationEquipment)
+                .options(
+                    selectinload(models.OrganizationEquipment.laboratories),
+                    selectinload(models.OrganizationEquipment.organization),
+                )
+                .where(models.OrganizationEquipment.id == equipment_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def admin_update_equipment(
+        equipment_id: int,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        characteristics: Optional[str] = None,
+        image_urls: Optional[List[str]] = None,
+        laboratory_ids: Optional[List[int]] = None,
+    ) -> Optional[models.OrganizationEquipment]:
+        """Update equipment by id (admin, no org check)."""
+        async with async_session_factory() as session:
+            stmt = select(models.OrganizationEquipment).where(models.OrganizationEquipment.id == equipment_id)
+            result = await session.execute(stmt)
+            equipment = result.scalars().first()
+            if not equipment:
+                return None
+            if name is not None:
+                equipment.name = name
+            if description is not None:
+                equipment.description = description
+            if characteristics is not None:
+                equipment.characteristics = characteristics
+            if image_urls is not None:
+                equipment.image_urls = image_urls
+            if laboratory_ids is not None:
+                await session.execute(
+                    delete(models.laboratory_equipment).where(
+                        models.laboratory_equipment.c.equipment_id == equipment.id
+                    )
+                )
+                if equipment.organization_id is not None:
+                    labs = await helpers.get_labs_by_ids(session, equipment.organization_id, laboratory_ids)
+                elif equipment.creator_user_id is not None:
+                    labs = await helpers.get_labs_by_ids_for_creator(
+                        session, equipment.creator_user_id, laboratory_ids
+                    )
+                else:
+                    labs = []
+                if labs:
+                    await session.execute(
+                        insert(models.laboratory_equipment),
+                        [
+                            {"laboratory_id": lab.id, "equipment_id": equipment.id}
+                            for lab in labs
+                        ],
+                    )
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            stmt = (
+                select(models.OrganizationEquipment)
+                .options(selectinload(models.OrganizationEquipment.laboratories))
+                .where(models.OrganizationEquipment.id == equipment.id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def list_task_solutions_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[models.OrganizationTaskSolution], int]:
+        """List all task solutions with pagination (admin)."""
+        async with async_session_factory() as session:
+            count_stmt = select(func.count()).select_from(models.OrganizationTaskSolution)
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.OrganizationTaskSolution)
+                .options(
+                    selectinload(models.OrganizationTaskSolution.laboratories),
+                    selectinload(models.OrganizationTaskSolution.organization),
+                )
+                .order_by(models.OrganizationTaskSolution.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all()), total
+
+    @staticmethod
+    async def admin_get_task_solution(task_id: int) -> Optional[models.OrganizationTaskSolution]:
+        """Get task solution by id (admin, no org check)."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.OrganizationTaskSolution)
+                .options(
+                    selectinload(models.OrganizationTaskSolution.laboratories),
+                    selectinload(models.OrganizationTaskSolution.organization),
+                )
+                .where(models.OrganizationTaskSolution.id == task_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def admin_update_task_solution(
+        task_id: int,
+        title: Optional[str] = None,
+        task_description: Optional[str] = None,
+        solution_description: Optional[str] = None,
+        article_links: Optional[List[str]] = None,
+        solution_deadline: Optional[str] = None,
+        grant_info: Optional[str] = None,
+        cost: Optional[str] = None,
+        external_solutions: Optional[str] = None,
+        laboratory_ids: Optional[List[int]] = None,
+    ) -> Optional[models.OrganizationTaskSolution]:
+        """Update task solution by id (admin, no org check)."""
+        async with async_session_factory() as session:
+            stmt = select(models.OrganizationTaskSolution).where(models.OrganizationTaskSolution.id == task_id)
+            result = await session.execute(stmt)
+            task = result.scalars().first()
+            if not task:
+                return None
+            if title is not None:
+                task.title = title
+            if task_description is not None:
+                task.task_description = task_description
+            if solution_description is not None:
+                task.solution_description = solution_description
+            if article_links is not None:
+                task.article_links = article_links
+            if solution_deadline is not None:
+                task.solution_deadline = solution_deadline
+            if grant_info is not None:
+                task.grant_info = grant_info
+            if cost is not None:
+                task.cost = cost
+            if external_solutions is not None:
+                task.external_solutions = external_solutions
+            if laboratory_ids is not None:
+                await session.execute(
+                    delete(models.task_solution_laboratories).where(
+                        models.task_solution_laboratories.c.task_solution_id == task.id
+                    )
+                )
+                if task.organization_id is not None:
+                    labs = await helpers.get_labs_by_ids(session, task.organization_id, laboratory_ids)
+                elif task.creator_user_id is not None:
+                    labs = await helpers.get_labs_by_ids_for_creator(
+                        session, task.creator_user_id, laboratory_ids
+                    )
+                else:
+                    labs = []
+                if labs:
+                    await session.execute(
+                        insert(models.task_solution_laboratories),
+                        [
+                            {"task_solution_id": task.id, "laboratory_id": lab.id}
+                            for lab in labs
+                        ],
+                    )
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            stmt = (
+                select(models.OrganizationTaskSolution)
+                .options(selectinload(models.OrganizationTaskSolution.laboratories))
+                .where(models.OrganizationTaskSolution.id == task.id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def list_employees_admin(
+        page: int = 1,
+        size: int = 20,
+    ) -> Tuple[List[models.Employee], int]:
+        """List all employees with pagination (admin)."""
+        async with async_session_factory() as session:
+            count_stmt = select(func.count()).select_from(models.Employee)
+            total = (await session.execute(count_stmt)).scalar() or 0
+            stmt = (
+                select(models.Employee)
+                .options(
+                    selectinload(models.Employee.laboratories),
+                    selectinload(models.Employee.organization),
+                )
+                .order_by(models.Employee.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all()), total
+
+    @staticmethod
+    async def admin_get_employee(employee_id: int) -> Optional[models.Employee]:
+        """Get employee by id (admin, no org check)."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.Employee)
+                .options(
+                    selectinload(models.Employee.laboratories),
+                    selectinload(models.Employee.organization),
+                )
+                .where(models.Employee.id == employee_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().first()
+
+    @staticmethod
+    async def admin_update_employee(
+        employee_id: int,
+        full_name: Optional[str] = None,
+        positions: Optional[List[str]] = None,
+        academic_degree: Optional[str] = None,
+        photo_url: Optional[str] = None,
+        research_interests: Optional[List[str]] = None,
+        education: Optional[List[str]] = None,
+        publications: Optional[List[dict]] = None,
+        hindex_wos: Optional[int] = None,
+        hindex_scopus: Optional[int] = None,
+        hindex_rsci: Optional[int] = None,
+        hindex_openalex: Optional[int] = None,
+        contacts: Optional[dict] = None,
+        laboratory_ids: Optional[List[int]] = None,
+    ) -> Optional[models.Employee]:
+        """Update employee by id (admin, no org check)."""
+        async with async_session_factory() as session:
+            stmt = select(models.Employee).where(models.Employee.id == employee_id)
+            result = await session.execute(stmt)
+            employee = result.scalars().first()
+            if not employee:
+                return None
+            if full_name is not None:
+                employee.full_name = full_name
+            if positions is not None:
+                employee.position = positions
+            if academic_degree is not None:
+                employee.academic_degree = academic_degree
+            if photo_url is not None:
+                employee.photo_url = photo_url
+            if research_interests is not None:
+                employee.research_interests = research_interests
+            if education is not None:
+                employee.education = education
+            if publications is not None:
+                employee.publications = publications
+            if hindex_wos is not None:
+                employee.hindex_wos = hindex_wos
+            if hindex_scopus is not None:
+                employee.hindex_scopus = hindex_scopus
+            if hindex_rsci is not None:
+                employee.hindex_rsci = hindex_rsci
+            if hindex_openalex is not None:
+                employee.hindex_openalex = hindex_openalex
+            if contacts is not None:
+                employee.contacts = contacts
+            if laboratory_ids is not None:
+                await session.execute(
+                    delete(models.employee_laboratories).where(
+                        models.employee_laboratories.c.employee_id == employee.id
+                    )
+                )
+                if employee.organization_id is not None:
+                    labs = await helpers.get_labs_by_ids(
+                        session, employee.organization_id, laboratory_ids
+                    )
+                elif employee.creator_user_id is not None:
+                    labs = await helpers.get_labs_by_ids_for_creator(
+                        session, employee.creator_user_id, laboratory_ids
+                    )
+                else:
+                    labs = []
+                if labs:
+                    await session.execute(
+                        insert(models.employee_laboratories),
+                        [
+                            {"employee_id": employee.id, "laboratory_id": lab.id}
+                            for lab in labs
+                        ],
+                    )
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            stmt = (
+                select(models.Employee)
+                .options(selectinload(models.Employee.laboratories))
+                .where(models.Employee.id == employee.id)
             )
             result = await session.execute(stmt)
             return result.scalars().first()

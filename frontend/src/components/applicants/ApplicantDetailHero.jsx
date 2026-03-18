@@ -1,25 +1,18 @@
 import React from "react";
 import { User, GraduationCap, Briefcase, Mail, Phone, Send, FileDown } from "lucide-react";
+import { EntityAvatar } from "../ui";
 
 const ROLE_LABELS = { student: "Студент", researcher: "Исследователь" };
 
 export default function ApplicantDetailHero({ details }) {
   const roleLabel = ROLE_LABELS[details.role] || details.role;
   const contacts = details.contacts || {};
-  const initial = details.full_name ? details.full_name.charAt(0).toUpperCase() : "?";
   const RoleIcon = details.role === "researcher" ? Briefcase : GraduationCap;
 
   return (
     <div className="org-detail-hero applicant-detail-hero">
       <div className="org-detail-hero__media">
-        {details.photo_url ? (
-          <img className="org-detail-hero__avatar" src={details.photo_url} alt="" />
-        ) : (
-          <div className="org-detail-hero__avatar-placeholder org-detail-hero__avatar-placeholder--applicant">
-            <User size={28} className="org-detail-hero__avatar-placeholder-icon" />
-            <span>{initial}</span>
-          </div>
-        )}
+        <EntityAvatar src={details.photo_url} alt="" className="org-detail-hero__avatar" />
       </div>
       <div className="org-detail-hero__body applicant-detail-hero__body">
         <h1 className="org-detail-hero__title">{details.full_name || "Соискатель"}</h1>

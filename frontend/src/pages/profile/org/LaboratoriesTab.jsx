@@ -17,7 +17,7 @@ import {
   ChevronUp,
   Layout
 } from "lucide-react";
-import { Card } from "../../../components/ui/Card";
+import { Card, EntityAvatar } from "../../../components/ui";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Badge } from "../../../components/ui/Badge";
@@ -128,13 +128,7 @@ export default function LaboratoriesTab({
               {lab.head_employee && (
                 <div className="lab-head-info">
                   <div className="lab-head-info__avatar">
-                    {lab.head_employee.photo_url ? (
-                      <img src={lab.head_employee.photo_url} alt="" />
-                    ) : (
-                      <span className="lab-head-info__initials">
-                        {lab.head_employee.full_name?.charAt(0).toUpperCase()}
-                      </span>
-                    )}
+                    <EntityAvatar src={lab.head_employee.photo_url} alt="" />
                   </div>
                   <div className="lab-head-info__body">
                     <span className="lab-head-info__label">Руководитель</span>

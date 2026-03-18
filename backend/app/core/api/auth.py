@@ -83,6 +83,9 @@ async def register(request: Request, user_in: UserCreate):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
+BLOCKED_ACCOUNT_MESSAGE = "Аккаунт заблокирован. Обратитесь в поддержку."
+
+
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("10/minute")
 async def login(request: Request, payload: LoginRequest):
@@ -90,6 +93,9 @@ async def login(request: Request, payload: LoginRequest):
     if not user or not user.hash_parameter:
         logger.warning("Login failed: user not found or no password")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    if getattr(user, "is_blocked", False):
+        logger.warning("Login failed: account blocked user_id=%s", user.id)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=BLOCKED_ACCOUNT_MESSAGE)
     if not await Orm.verify_password(payload.password, user.hash_parameter):
         logger.warning("Login failed: invalid password for user_id=%s", user.id)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
@@ -130,8 +136,11 @@ _forgot_password_lock = asyncio.Lock()
 @router.post("/forgot-password")
 @limiter.limit("5/minute")
 async def forgot_password(request: Request, payload: ForgotPasswordRequest):
-    """Запрос сброса пароля. Отправляет письмо только если аккаунт есть и email подтверждён. Всегда возвращает один и тот же текст (защита от перебора email). Ограничение: раз в 2 минуты на email."""
+    """Запрос сброса пароля. Отправляет письмо только если аккаунт есть и email подтверждён. Блокированные аккаунты получают отдельное сообщение."""
     user = await Orm.get_user_by_mail(payload.mail)
+    if user and getattr(user, "is_blocked", False):
+        logger.warning("Forgot password: account blocked user_id=%s", user.id)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=BLOCKED_ACCOUNT_MESSAGE)
     if user and user.email_verified:
         mail_key = payload.mail.strip().lower()
         async with _forgot_password_lock:
@@ -168,6 +177,9 @@ async def reset_password(request: Request, payload: ResetPasswordRequest):
     if not user:
         logger.warning("Password reset failed: invalid or expired token")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Недействительная или просроченная ссылка")
+    if getattr(user, "is_blocked", False):
+        logger.warning("Reset password failed: account blocked user_id=%s", user.id)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=BLOCKED_ACCOUNT_MESSAGE)
     logger.info("Password reset completed: user_id=%s", user.id)
     return user_to_read(user)
 

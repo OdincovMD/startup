@@ -139,6 +139,12 @@ async def get_lab_details(public_id: str):
     for lab in laboratories:
         employee_user_ids = {e.user_id for e in (lab.employees or []) if getattr(e, "user_id", None)}
         lab.researchers = [r for r in (lab.researchers or []) if getattr(r, "user_id", None) not in employee_user_ids]
+    representative_email = None
+    if getattr(org, "creator", None) and getattr(org.creator, "mail", None):
+        mail = (org.creator.mail or "").strip()
+        if mail:
+            representative_email = mail
+
     return OrganizationDetails(
         id=org.id,
         public_id=org.public_id,
@@ -154,4 +160,5 @@ async def get_lab_details(public_id: str):
         task_solutions=task_solutions,
         queries=queries,
         vacancies=vacancies,
+        representative_email=representative_email,
     )

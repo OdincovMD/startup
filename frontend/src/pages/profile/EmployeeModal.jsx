@@ -14,7 +14,7 @@ import {
   BookOpen
 } from "lucide-react";
 import WebsiteLink from "../../components/WebsiteLink";
-import { Badge } from "../../components/ui";
+import { Badge, EntityAvatar } from "../../components/ui";
 
 export default function EmployeeModal({
   employeePreview,
@@ -45,15 +45,6 @@ export default function EmployeeModal({
     { label: "OpenAlex", value: employeePreview.hindex_openalex },
   ].filter(item => item.value != null);
 
-  const initials = employeePreview.full_name
-    ? employeePreview.full_name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase()
-    : "?";
-
   const subtitle = [
     employeePreview.academic_degree, 
     (employeePreview.positions || []).join(", ")
@@ -69,17 +60,11 @@ export default function EmployeeModal({
         <div className="employee-modal__header">
           <div className="employee-modal__avatar-section">
             <div className="employee-modal__avatar-container">
-              {employeePreview.photo_url ? (
-                <img
-                  className="employee-modal__avatar"
-                  src={employeePreview.photo_url}
-                  alt={employeePreview.full_name}
-                />
-              ) : (
-                <div className="employee-modal__avatar-fallback">
-                  {initials}
-                </div>
-              )}
+              <EntityAvatar
+                src={employeePreview.photo_url}
+                alt={employeePreview.full_name}
+                className="employee-modal__avatar"
+              />
             </div>
             <div className="employee-modal__title-group">
               <h2 className="employee-modal__name">{employeePreview.full_name}</h2>

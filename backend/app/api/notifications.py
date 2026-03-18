@@ -13,11 +13,16 @@ router = APIRouter(prefix="/notifications", tags=["profile-notifications"])
 
 
 @router.get("")
-async def get_my_notifications(current_user=Depends(get_current_user)):
-    """Список уведомлений текущего пользователя."""
+async def get_my_notifications(
+    current_user=Depends(get_current_user),
+    unread_only: bool = False,
+):
+    """Список уведомлений текущего пользователя. unread_only=true — только непрочитанные."""
     from app.queries.orm import Orm
 
-    notifications = await Orm.get_notifications_for_user(current_user.id)
+    notifications = await Orm.get_notifications_for_user(
+        current_user.id, unread_only=unread_only
+    )
     return [
         {
             "id": n.id,
@@ -47,11 +52,10 @@ async def mark_notification_read(
     """Отметить уведомление прочитанным и удалить (очистка просмотренных)."""
     from app.queries.orm import Orm
 
-    n = await Orm.mark_notification_read(notification_id, current_user.id)
-    if not n:
-        logger.warning("Mark notification read failed: notification_id=%s user_id=%s not found", notification_id, current_user.id)
+    ok = await Orm.mark_notification_read_and_delete(notification_id, current_user.id)
+    if not ok:
+        logger.warning("Mark read and delete failed: notification_id=%s user_id=%s not found", notification_id, current_user.id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Уведомление не найдено")
-    await Orm.delete_notification(notification_id, current_user.id)
     logger.info("Notification marked read and deleted: notification_id=%s user_id=%s", notification_id, current_user.id)
     return {"ok": True}
 

@@ -1,18 +1,15 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import { Beaker, Building2, User, ChevronRight } from "lucide-react";
-import { Card, Badge, Button } from "../ui";
+import { Card, Badge, Button, EntityAvatar } from "../ui";
 
 const DESCRIPTION_MAX = 140;
 
 export default function LabCard({ lab, labImages, onOpen, navigate }) {
-  const [avatarError, setAvatarError] = useState(false);
   const images = labImages ? labImages(lab.image_urls) : [];
   const avatarUrl = images[0];
   const hasLink = !!lab.public_id;
-  const showAvatar = avatarUrl && !avatarError;
   const displayName = lab.name || "Лаборатория";
-  const initial = displayName.charAt(0).toUpperCase();
   const description = lab.description || lab.activities || "";
   const truncatedDesc = description.length > DESCRIPTION_MAX ? `${description.slice(0, DESCRIPTION_MAX)}…` : description;
 
@@ -33,19 +30,7 @@ export default function LabCard({ lab, labImages, onOpen, navigate }) {
       }}
     >
       <div className="modern-entity-card__media">
-        {showAvatar ? (
-          <img
-            src={avatarUrl}
-            alt=""
-            loading="lazy"
-            onError={() => setAvatarError(true)}
-          />
-        ) : (
-          <div className="modern-entity-card__fallback modern-entity-card__fallback--lab" aria-hidden="true">
-            <Beaker size={32} className="modern-entity-card__fallback-icon" />
-            <span className="modern-entity-card__fallback-initial">{initial}</span>
-          </div>
-        )}
+        <EntityAvatar src={avatarUrl} alt="" loading="lazy" />
       </div>
 
       <div className="modern-entity-card__body">

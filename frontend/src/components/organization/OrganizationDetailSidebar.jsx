@@ -47,9 +47,19 @@ export default function OrganizationDetailSidebar({ details }) {
         </div>
 
         <div className="detail-sidebar__actions">
-          <Button variant="primary" size="default">
-            Связаться
-          </Button>
+          {details?.representative_email ? (
+            <a
+              href={`mailto:${details.representative_email}`}
+              className="primary-btn"
+              rel="noopener noreferrer"
+            >
+              Связаться
+            </a>
+          ) : (
+            <Button variant="primary" size="default" disabled title="Контакт недоступен">
+              Связаться
+            </Button>
+          )}
         </div>
       </div>
     </Card>
