@@ -6,6 +6,16 @@ import { Card, Badge, Button } from "../ui";
 const QUERY_STATUS_LABELS = { active: "Открыт", paused: "На паузе", closed: "Закрыт" };
 const DESCRIPTION_MAX = 120;
 
+/** Пытается отформатировать deadline; если это не дата — возвращает как есть. */
+function formatDeadline(value) {
+  if (!value || typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const d = new Date(trimmed);
+  if (Number.isNaN(d.getTime())) return trimmed;
+  return d.toLocaleDateString("ru-RU");
+}
+
 export default function QueryCard({ query, onOpen, navigate }) {
   const hasLink = !!query.public_id;
   const title = query.title || "Запрос";
@@ -104,7 +114,7 @@ export default function QueryCard({ query, onOpen, navigate }) {
               {query.deadline && (
                 <span className="query-card-modern__meta-inline">
                   <CalendarClock size={12} className="query-card-modern__meta-inline-icon" />
-                  {new Date(query.deadline).toLocaleDateString("ru-RU")}
+                  {formatDeadline(query.deadline)}
                 </span>
               )}
               {query.budget && (

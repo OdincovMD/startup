@@ -11,6 +11,9 @@
 | [ENTITIES.md](ENTITIES.md) | Сущности базы данных, связи, роли и профили |
 | [subscription-ranking.md](subscription-ranking.md) | Подписки и ранжирование — продуктовая спецификация |
 | [admin-panel.md](admin-panel.md) | Панель администратора — API, доступ, структура |
+| [api-public.md](api-public.md) | Публичный API — эндпоинты каталогов, профиля, auth |
+| [architecture.md](architecture.md) | Архитектура системы — компоненты, роли, потоки данных |
+| [development.md](development.md) | Руководство разработчика — запуск, БД, ES, переменные |
 
 ---
 
