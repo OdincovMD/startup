@@ -22,6 +22,7 @@ const Applicants = lazy(() => import("./Applicants"));
 const Admin = lazy(() => import("./admin/Admin"));
 const Privacy = lazy(() => import("./Privacy"));
 const About = lazy(() => import("./About"));
+const NotFound = lazy(() => import("./NotFound"));
 
 export default function App() {
   const location = useLocation();
@@ -104,6 +105,7 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/set-password" element={<SetPassword />} />
+            <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </Suspense>
