@@ -105,15 +105,16 @@ async def delete_task_admin(
     task = await Orm.admin_get_task_solution(task_id)
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-    if task.organization_id is not None:
-        ok = await Orm.delete_task_solution(task_id, task.organization_id)
-    elif getattr(task, "creator_user_id", None) is not None:
-        ok = await Orm.delete_task_solution_for_creator(task_id, task.creator_user_id)
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Task has no organization or creator",
-        )
+    lab_ids = [l.id for l in (task.laboratories or [])]
+    org_id = getattr(task, "organization_id", None)
+    ok = await Orm.admin_delete_task_solution(task_id)
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    if lab_ids:
+        try:
+            await reindex_laboratories_by_ids(lab_ids)
+            if org_id:
+                await reindex_organizations_by_ids([org_id])
+        except Exception as e:
+            logger.warning("ES sync failed after task delete: %s", e)
     return {"ok": True}

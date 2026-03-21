@@ -774,16 +774,16 @@ class Orm:
                 return None
             now = datetime.now(timezone.utc)
             if rec.expires_at < now:
-                session.delete(rec)
+                await session.delete(rec)
                 await session.commit()
                 return None
             user = await session.get(models.User, rec.user_id)
             if not user:
-                session.delete(rec)
+                await session.delete(rec)
                 await session.commit()
                 return None
             user.email_verified = True
-            session.delete(rec)
+            await session.delete(rec)
             await session.commit()
             await session.refresh(user)
             stmt_user = (
@@ -831,12 +831,12 @@ class Orm:
                 return None
             now = datetime.now(timezone.utc)
             if rec.expires_at < now:
-                session.delete(rec)
+                await session.delete(rec)
                 await session.commit()
                 return None
             user = await session.get(models.User, rec.user_id)
             if not user:
-                session.delete(rec)
+                await session.delete(rec)
                 await session.commit()
                 return None
             if user.hash_parameter and verify_password(
@@ -845,7 +845,7 @@ class Orm:
                 raise ValueError("Новый пароль должен отличаться от текущего")
             user.hash_parameter = hash_password(new_password)
             user.token_version = getattr(user, "token_version", 0) + 1
-            session.delete(rec)
+            await session.delete(rec)
             await session.commit()
             await session.refresh(user)
             stmt = (
@@ -960,7 +960,7 @@ class Orm:
             n = result.scalars().first()
             if not n:
                 return False
-            session.delete(n)
+            await session.delete(n)
             await session.commit()
             return True
 
@@ -979,7 +979,7 @@ class Orm:
             notifications = result.scalars().all()
             to_delete = [n for n in notifications if (n.data or {}).get("request_id") == request_id]
             for n in to_delete:
-                session.delete(n)
+                await session.delete(n)
             if to_delete:
                 await session.commit()
             return len(to_delete)

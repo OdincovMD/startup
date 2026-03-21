@@ -14,6 +14,11 @@
 | [api-public.md](api-public.md) | Публичный API — эндпоинты каталогов, профиля, auth |
 | [architecture.md](architecture.md) | Архитектура системы — компоненты, роли, потоки данных |
 | [development.md](development.md) | Руководство разработчика — запуск, БД, ES, переменные |
+| **Бизнес** | |
+| [business-one-pager.md](business-one-pager.md) | One-pager: проблема, ICP, ценность, сравнение с альтернативами |
+| [business-pricing.md](business-pricing.md) | Тарифы в языке закупки, биллинг, ROI-тезисы |
+| [business-journeys-faq.md](business-journeys-faq.md) | Сценарии по ролям, FAQ, модерация, глоссарий RU |
+| [business-trust-ops.md](business-trust-ops.md) | Данные, безопасность, поддержка, outline для юристов |
 
 ---
 

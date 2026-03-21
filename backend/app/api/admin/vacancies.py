@@ -105,15 +105,7 @@ async def delete_vacancy_admin(
     vac = await Orm.get_vacancy(vacancy_id)
     if not vac:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacancy not found")
-    if vac.organization_id is not None:
-        ok = await Orm.delete_vacancy(vacancy_id, vac.organization_id)
-    elif vac.creator_user_id is not None:
-        ok = await Orm.delete_vacancy_for_creator(vacancy_id, vac.creator_user_id)
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Vacancy has no organization or creator",
-        )
+    ok = await Orm.admin_delete_vacancy(vacancy_id)
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacancy not found")
     try:

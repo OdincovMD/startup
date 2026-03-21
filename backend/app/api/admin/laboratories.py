@@ -117,19 +117,17 @@ async def delete_laboratory_admin(
     lab = await Orm.get_laboratory_by_id(lab_id)
     if not lab:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Laboratory not found")
-    if lab.organization_id is not None:
-        ok, _, _, _ = await Orm.delete_laboratory(lab_id, lab.organization_id)
-    elif lab.creator_user_id is not None:
-        ok, _, _, _ = await Orm.delete_laboratory_for_creator(lab_id, lab.creator_user_id)
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Laboratory has no organization or creator",
-        )
+    org_id_before = lab.organization_id
+    ok, _, _, fully_deleted = await Orm.admin_delete_laboratory(lab_id)
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Laboratory not found")
     try:
-        await es_delete_laboratory(lab_id)
+        if fully_deleted:
+            await es_delete_laboratory(lab_id)
+        else:
+            await reindex_laboratories_by_ids([lab_id])
+            if org_id_before:
+                await reindex_organizations_by_ids([org_id_before])
     except Exception as e:
-        logger.warning("ES delete failed for lab %s: %s", lab_id, e)
+        logger.warning("ES sync failed for lab %s: %s", lab_id, e)
     return {"ok": True}

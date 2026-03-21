@@ -812,6 +812,38 @@ class Orm:
             return result.scalars().first()
 
     @staticmethod
+    async def _detach_researcher_from_employee_laboratories(
+        session, employee: models.Employee
+    ) -> List[str]:
+        """Снять исследователя с лабораторий сотрудника перед удалением профиля сотрудника."""
+        lab_names: List[str] = []
+        if not employee.user_id:
+            return lab_names
+        stmt_res = select(models.Researcher).where(models.Researcher.user_id == employee.user_id)
+        res_res = await session.execute(stmt_res)
+        researcher = res_res.scalars().first()
+        if not researcher:
+            return lab_names
+        for lab in (employee.laboratories or []):
+            await session.execute(
+                delete(models.researcher_laboratories).where(
+                    models.researcher_laboratories.c.researcher_id == researcher.id,
+                    models.researcher_laboratories.c.laboratory_id == lab.id,
+                )
+            )
+            stmt_req = select(models.LabJoinRequest).where(
+                models.LabJoinRequest.researcher_id == researcher.id,
+                models.LabJoinRequest.laboratory_id == lab.id,
+                models.LabJoinRequest.status == "approved",
+            )
+            req_res = await session.execute(stmt_req)
+            req = req_res.scalars().first()
+            if req:
+                req.status = "removed"
+            lab_names.append(lab.name or "Лаборатория")
+        return lab_names
+
+    @staticmethod
     async def delete_employee(employee_id: int, organization_id: int) -> Tuple[bool, Optional[int], List[str]]:
         async with async_session_factory() as session:
             stmt = (
@@ -826,30 +858,8 @@ class Orm:
             employee = result.scalars().first()
             if not employee:
                 return (False, None, [])
-            lab_names: List[str] = []
+            lab_names = await Orm._detach_researcher_from_employee_laboratories(session, employee)
             user_id_to_notify = employee.user_id
-            if user_id_to_notify:
-                stmt_res = select(models.Researcher).where(models.Researcher.user_id == user_id_to_notify)
-                res_res = await session.execute(stmt_res)
-                researcher = res_res.scalars().first()
-                if researcher:
-                    for lab in (employee.laboratories or []):
-                        await session.execute(
-                            delete(models.researcher_laboratories).where(
-                                models.researcher_laboratories.c.researcher_id == researcher.id,
-                                models.researcher_laboratories.c.laboratory_id == lab.id,
-                            )
-                        )
-                        stmt_req = select(models.LabJoinRequest).where(
-                            models.LabJoinRequest.researcher_id == researcher.id,
-                            models.LabJoinRequest.laboratory_id == lab.id,
-                            models.LabJoinRequest.status == "approved",
-                        )
-                        req_res = await session.execute(stmt_req)
-                        req = req_res.scalars().first()
-                        if req:
-                            req.status = "removed"
-                        lab_names.append(lab.name or "Лаборатория")
             await session.delete(employee)
             try:
                 await session.commit()
@@ -956,30 +966,31 @@ class Orm:
             employee = result.scalars().first()
             if not employee:
                 return (False, None, [])
-            lab_names: List[str] = []
+            lab_names = await Orm._detach_researcher_from_employee_laboratories(session, employee)
             user_id_to_notify = employee.user_id
-            if user_id_to_notify:
-                stmt_res = select(models.Researcher).where(models.Researcher.user_id == user_id_to_notify)
-                res_res = await session.execute(stmt_res)
-                researcher = res_res.scalars().first()
-                if researcher:
-                    for lab in (employee.laboratories or []):
-                        await session.execute(
-                            delete(models.researcher_laboratories).where(
-                                models.researcher_laboratories.c.researcher_id == researcher.id,
-                                models.researcher_laboratories.c.laboratory_id == lab.id,
-                            )
-                        )
-                        stmt_req = select(models.LabJoinRequest).where(
-                            models.LabJoinRequest.researcher_id == researcher.id,
-                            models.LabJoinRequest.laboratory_id == lab.id,
-                            models.LabJoinRequest.status == "approved",
-                        )
-                        req_res = await session.execute(stmt_req)
-                        req = req_res.scalars().first()
-                        if req:
-                            req.status = "removed"
-                        lab_names.append(lab.name or "Лаборатория")
+            await session.delete(employee)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            return (True, user_id_to_notify, lab_names)
+
+    @staticmethod
+    async def admin_delete_employee(employee_id: int) -> Tuple[bool, Optional[int], List[str]]:
+        """Удаление сотрудника по id (панель администратора, в т.ч. «осиротевшие» записи)."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.Employee)
+                .options(selectinload(models.Employee.laboratories))
+                .where(models.Employee.id == employee_id)
+            )
+            result = await session.execute(stmt)
+            employee = result.scalars().first()
+            if not employee:
+                return (False, None, [])
+            lab_names = await Orm._detach_researcher_from_employee_laboratories(session, employee)
+            user_id_to_notify = employee.user_id
             await session.delete(employee)
             try:
                 await session.commit()
@@ -1167,7 +1178,7 @@ class Orm:
             equipment = result.scalars().first()
             if not equipment:
                 return False
-            session.delete(equipment)
+            await session.delete(equipment)
             try:
                 await session.commit()
             except SQLAlchemyError:
@@ -1243,7 +1254,7 @@ class Orm:
             equipment = result.scalars().first()
             if not equipment:
                 return False
-            session.delete(equipment)
+            await session.delete(equipment)
             try:
                 await session.commit()
             except SQLAlchemyError:
@@ -1853,7 +1864,7 @@ class Orm:
             if lab.organization_id is not None:
                 await helpers.unlink_lab_from_org(session, lab)
             else:
-                session.delete(lab)
+                await session.delete(lab)
                 fully_deleted = True
             try:
                 await session.commit()
@@ -1861,6 +1872,49 @@ class Orm:
                 await session.rollback()
                 raise
             return (True, lab_rep_user_id, lab_name, fully_deleted)
+
+    @staticmethod
+    async def delete_laboratory_orphan(laboratory_id: int) -> Tuple[bool, Optional[int], str, bool]:
+        """Полное удаление лаборатории без organization_id и creator_user_id (админ)."""
+        async with async_session_factory() as session:
+            stmt = (
+                select(models.OrganizationLaboratory)
+                .options(
+                    selectinload(models.OrganizationLaboratory.equipment),
+                    selectinload(models.OrganizationLaboratory.employees),
+                    selectinload(models.OrganizationLaboratory.task_solutions),
+                    selectinload(models.OrganizationLaboratory.queries),
+                )
+                .where(models.OrganizationLaboratory.id == laboratory_id)
+            )
+            result = await session.execute(stmt)
+            lab = result.scalars().first()
+            if not lab:
+                return (False, None, "", False)
+            if lab.organization_id is not None or lab.creator_user_id is not None:
+                return (False, None, "", False)
+            lab_name = lab.name or "Лаборатория"
+            lab_rep_user_id = lab.creator_user_id
+            await helpers.close_lab_join_requests_for_lab(session, laboratory_id)
+            await session.delete(lab)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            return (True, lab_rep_user_id, lab_name, True)
+
+    @staticmethod
+    async def admin_delete_laboratory(laboratory_id: int) -> Tuple[bool, Optional[int], str, bool]:
+        """Удаление лаборатории для админки: по фактическим organization_id / creator_user_id или сирота."""
+        lab = await Orm.get_laboratory_by_id(laboratory_id)
+        if not lab:
+            return (False, None, "", False)
+        if lab.organization_id is not None:
+            return await Orm.delete_laboratory(laboratory_id, lab.organization_id)
+        if lab.creator_user_id is not None:
+            return await Orm.delete_laboratory_for_creator(laboratory_id, lab.creator_user_id)
+        return await Orm.delete_laboratory_orphan(laboratory_id)
 
     # =============================
     #   TASK SOLUTIONS (ORG) — native async
@@ -2116,6 +2170,25 @@ class Orm:
             stmt = select(models.OrganizationTaskSolution).where(
                 models.OrganizationTaskSolution.id == task_id,
                 models.OrganizationTaskSolution.creator_user_id == creator_user_id,
+            )
+            result = await session.execute(stmt)
+            task = result.scalars().first()
+            if not task:
+                return False
+            await session.delete(task)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            return True
+
+    @staticmethod
+    async def admin_delete_task_solution(task_id: int) -> bool:
+        """Удаление решения задачи по id (админ, в т.ч. без org/creator)."""
+        async with async_session_factory() as session:
+            stmt = select(models.OrganizationTaskSolution).where(
+                models.OrganizationTaskSolution.id == task_id
             )
             result = await session.execute(stmt)
             task = result.scalars().first()
@@ -2836,6 +2909,23 @@ class Orm:
                 models.OrganizationQuery.id == query_id,
                 models.OrganizationQuery.creator_user_id == creator_user_id,
             )
+            result = await session.execute(stmt)
+            query = result.scalars().first()
+            if not query:
+                return False
+            await session.delete(query)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            return True
+
+    @staticmethod
+    async def admin_delete_organization_query(query_id: int) -> bool:
+        """Удаление запроса по id (админ, в т.ч. без org/creator)."""
+        async with async_session_factory() as session:
+            stmt = select(models.OrganizationQuery).where(models.OrganizationQuery.id == query_id)
             result = await session.execute(stmt)
             query = result.scalars().first()
             if not query:
@@ -4143,6 +4233,25 @@ class Orm:
             stmt = select(models.VacancyOrganization).where(
                 models.VacancyOrganization.id == vacancy_id,
                 models.VacancyOrganization.creator_user_id == creator_user_id,
+            )
+            result = await session.execute(stmt)
+            vacancy = result.scalars().first()
+            if not vacancy:
+                return False
+            await session.delete(vacancy)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            return True
+
+    @staticmethod
+    async def admin_delete_vacancy(vacancy_id: int) -> bool:
+        """Удаление вакансии по id (админ, в т.ч. без org/creator)."""
+        async with async_session_factory() as session:
+            stmt = select(models.VacancyOrganization).where(
+                models.VacancyOrganization.id == vacancy_id
             )
             result = await session.execute(stmt)
             vacancy = result.scalars().first()
@@ -5509,6 +5618,25 @@ class Orm:
             )
             result = await session.execute(stmt)
             return result.scalars().first()
+
+    @staticmethod
+    async def admin_delete_equipment(equipment_id: int) -> bool:
+        """Удаление оборудования по id (админ, в т.ч. без organization_id и creator_user_id)."""
+        async with async_session_factory() as session:
+            stmt = select(models.OrganizationEquipment).where(
+                models.OrganizationEquipment.id == equipment_id
+            )
+            result = await session.execute(stmt)
+            equipment = result.scalars().first()
+            if not equipment:
+                return False
+            await session.delete(equipment)
+            try:
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+            return True
 
     @staticmethod
     async def list_task_solutions_admin(

@@ -118,15 +118,7 @@ async def delete_employee_admin(
     emp = await Orm.admin_get_employee(employee_id)
     if not emp:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
-    if emp.organization_id is not None:
-        ok, _, _ = await Orm.delete_employee(employee_id, emp.organization_id)
-    elif getattr(emp, "creator_user_id", None) is not None:
-        ok, _, _ = await Orm.delete_employee_for_creator(employee_id, emp.creator_user_id)
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Employee has no organization or creator",
-        )
+    ok, _, _ = await Orm.admin_delete_employee(employee_id)
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
     return {"ok": True}

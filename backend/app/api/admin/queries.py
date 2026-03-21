@@ -110,15 +110,7 @@ async def delete_query_admin(
     q = await Orm.get_query_by_id(query_id)
     if not q:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Query not found")
-    if q.organization_id is not None:
-        ok = await Orm.delete_query(query_id, q.organization_id)
-    elif getattr(q, "creator_user_id", None) is not None:
-        ok = await Orm.delete_query_for_creator(query_id, q.creator_user_id)
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Query has no organization or creator",
-        )
+    ok = await Orm.admin_delete_organization_query(query_id)
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Query not found")
     try:
