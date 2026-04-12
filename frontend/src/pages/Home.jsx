@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Building2, FlaskConical, GraduationCap } from "lucide-react";
 import { apiRequest } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import GlobalSearch from "../components/GlobalSearch";
@@ -265,6 +266,59 @@ export default function Home() {
           )}
         </section>
       )}
+
+      <section className="section how-it-works-section">
+        <div className="section-header">
+          <h2>Как работает платформа</h2>
+          <p>Синтезум объединяет ключевых участников научной экосистемы.</p>
+        </div>
+        <div className="hiw-grid">
+          <div className="hiw-card">
+            <div className="hiw-card__icon" aria-hidden="true"><Building2 size={32} /></div>
+            <h3 className="hiw-card__title">Лаборатории и организации</h3>
+            <p className="hiw-card__text">
+              Публикуйте профили лабораторий, открытые позиции и исследовательские запросы.
+              Привлекайте квалифицированных специалистов и управляйте профилем в личном кабинете.
+            </p>
+          </div>
+          <div className="hiw-card">
+            <div className="hiw-card__icon" aria-hidden="true"><FlaskConical size={32} /></div>
+            <h3 className="hiw-card__title">Исследователи</h3>
+            <p className="hiw-card__text">
+              Находите лаборатории, соответствующие вашим научным интересам.
+              Подавайте заявки на вступление в команды и развивайте исследовательскую карьеру.
+            </p>
+          </div>
+          <div className="hiw-card">
+            <div className="hiw-card__icon" aria-hidden="true"><GraduationCap size={32} /></div>
+            <h3 className="hiw-card__title">Студенты</h3>
+            <p className="hiw-card__text">
+              Откликайтесь на вакансии и стажировки в ведущих лабораториях страны.
+              Получите первый опыт в научной среде и найдите свою область исследований.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="section grant-section">
+        <div className="grant-banner">
+          <div className="grant-banner__logo">
+            <img
+              src="/images/fasie.svg"
+              alt="Фонд содействия инновациям"
+              loading="lazy"
+            />
+          </div>
+          <div className="grant-banner__body">
+            <span className="grant-banner__eyebrow">При поддержке</span>
+            <p className="grant-banner__text">
+              Проект реализован при поддержке <strong>Фонда содействия инновациям</strong> в рамках
+              программы «Студенческий стартап» мероприятия «Платформа университетского
+              технологического предпринимательства» федерального проекта «Технологии».
+            </p>
+          </div>
+        </div>
+      </section>
 
       {!auth && (
         <section className="section section-cta">

@@ -24,14 +24,29 @@ export default function About() {
             </p>
           </header>
 
-          <div className="privacy-page__body">
-            <section className="privacy-section">
-              <h2 className="privacy-section__title">Поддержка проекта</h2>
-              <p>
-                Проект реализован при поддержке Фонда содействия инновациям в рамках программы «Студенческий стартап» мероприятия «Платформа университетского технологического предпринимательства» федерального проекта «Технологии».
-              </p>
-            </section>
+          <section className="about-page__grant-section">
+            <h2 className="privacy-section__title">Поддержка проекта</h2>
+            <div className="about-grant-banner">
+              <div className="about-grant-banner__logo">
+                <img
+                  src="/images/fasie.svg"
+                  alt="Фонд содействия инновациям"
+                  loading="lazy"
+                />
+              </div>
+              <div className="about-grant-banner__body">
+                <p className="about-grant-banner__eyebrow">При поддержке</p>
+                <p className="about-grant-banner__name">Фонд содействия инновациям</p>
+                <p className="about-grant-banner__text">
+                  Проект реализован при поддержке <strong>Фонда содействия инновациям</strong> в рамках
+                  программы <strong>«Студенческий стартап»</strong> мероприятия «Платформа университетского
+                  технологического предпринимательства» федерального проекта «Технологии».
+                </p>
+              </div>
+            </div>
+          </section>
 
+          <div className="privacy-page__body">
             <section className="privacy-section">
               <h2 className="privacy-section__title">Контакты</h2>
               <div className="about-page__contacts">

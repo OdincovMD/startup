@@ -76,6 +76,11 @@ async def register(request: Request, user_in: UserCreate):
         token = await Orm.create_verification_token(user.id)
         verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/verify-email?token={token}"
         await asyncio.to_thread(send_verification_email, user.mail, verify_url)
+        try:
+            await Orm.create_subscription(user.id, audience="representative", tier="pro")
+            logger.info("Trial subscription created for user_id=%s", user.id)
+        except Exception as sub_err:
+            logger.warning("Failed to create trial subscription for user_id=%s: %s", user.id, sub_err)
         logger.info("User registered: id=%s role_id=%s", user.id, user_in.role_id)
         return user_to_read(user)
     except ValueError as e:
@@ -405,6 +410,11 @@ async def orcid_complete(request: Request, payload: OrcidCompleteRequest):
     except ValueError as e:
         logger.warning("ORCID complete failed: %s", e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    try:
+        await Orm.create_subscription(user.id, audience="representative", tier="pro")
+        logger.info("Trial subscription created for user_id=%s", user.id)
+    except Exception as sub_err:
+        logger.warning("Failed to create trial subscription for user_id=%s: %s", user.id, sub_err)
     verify_token = await Orm.create_verification_token(user.id)
     verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/verify-email?token={verify_token}"
     await asyncio.to_thread(send_verification_email, user.mail, verify_url)

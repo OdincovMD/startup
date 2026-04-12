@@ -17,6 +17,7 @@ from app.bootstrap import (
     create_tables,
     ensure_storage,
     seed_roles,
+    seed_trial_subscriptions,
     ensure_elasticsearch_indexes,
 )
 from app.middleware import StorageUrlRewriteMiddleware
@@ -62,6 +63,7 @@ async def on_startup():
     setup_logging()
     await create_tables()
     await seed_roles()
+    await seed_trial_subscriptions()
     ensure_storage()
     await ensure_elasticsearch_indexes()
     scheduler.add_job(sync_openalex_data, "cron", hour=3, minute=0)
