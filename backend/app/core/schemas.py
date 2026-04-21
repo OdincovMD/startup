@@ -189,3 +189,60 @@ class NotificationRead(ORMModel, NotificationBase):
     id: int
     created_at: datetime
     read_at: Optional[datetime] = None
+
+
+class FeedbackAttachmentRead(ORMModel):
+    id: int
+    file_url: str
+    file_key: str
+    original_name: str
+    content_type: str
+    created_at: datetime
+
+
+class FeedbackUserSummary(BaseModel):
+    id: int
+    full_name: Optional[str] = None
+    mail: Optional[str] = None
+    role_name: Optional[str] = None
+
+
+class FeedbackCreateResponse(BaseModel):
+    id: int
+    status: str
+    created_at: datetime
+
+
+class FeedbackRead(ORMModel):
+    id: int
+    subject: str
+    description: str
+    steps_to_reproduce: Optional[str] = None
+    current_url: str
+    user_agent: Optional[str] = None
+    viewport_width: Optional[int] = None
+    viewport_height: Optional[int] = None
+    status: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    attachments: list[FeedbackAttachmentRead] = []
+    user: Optional[FeedbackUserSummary] = None
+
+
+class FeedbackListResponse(BaseModel):
+    items: list[FeedbackRead]
+    total: int
+    page: int
+    size: int
+
+
+class FeedbackStatusUpdate(BaseModel):
+    status: str
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        normalized = (v or "").strip().lower()
+        if normalized not in {"new", "done"}:
+            raise ValueError("Status must be 'new' or 'done'")
+        return normalized

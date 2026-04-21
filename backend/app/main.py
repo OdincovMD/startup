@@ -21,7 +21,7 @@ from app.bootstrap import (
     ensure_elasticsearch_indexes,
 )
 from app.middleware import StorageUrlRewriteMiddleware
-from app.api import home, profile, storage, analytics, search
+from app.api import home, profile, storage, analytics, search, feedback
 from app.api.admin import router as admin_router
 from app.core.api import auth, users, roles
 from app.jobs.openalex_sync import sync_openalex_data
@@ -90,4 +90,5 @@ app.include_router(roles.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(storage.router, prefix="/api")
+app.include_router(feedback.router, prefix="/api")
 app.include_router(admin_router, prefix="/api")

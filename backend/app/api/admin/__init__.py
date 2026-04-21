@@ -17,6 +17,7 @@ from .tasks import router as tasks_router
 from .employees import router as employees_router
 from .students import router as students_router
 from .researchers import router as researchers_router
+from .feedback import router as feedback_router
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -35,3 +36,4 @@ router.include_router(tasks_router)
 router.include_router(employees_router)
 router.include_router(students_router)
 router.include_router(researchers_router)
+router.include_router(feedback_router)

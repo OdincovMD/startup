@@ -80,6 +80,7 @@ class User(BaseModel):
         cascade="all, delete-orphan",
     )
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    feedback_reports = relationship("FeedbackReport", back_populates="user")
 
     __table_args__ = (
         Index("idx_users_mail", "email"),
@@ -160,6 +161,57 @@ class AnalyticsEvent(BaseModel):
         Index("idx_analytics_events_user_created", "user_id", "created_at"),
         Index("idx_analytics_events_type_created", "event_type", "created_at"),
     )
+
+
+# =========================
+#       FEEDBACK REPORTS
+# =========================
+
+class FeedbackReport(BaseModel):
+    __tablename__ = "feedback_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    subject = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    steps_to_reproduce = Column(Text, nullable=True)
+    current_url = Column(String(1000), nullable=False)
+    user_agent = Column(Text, nullable=True)
+    viewport_width = Column(Integer, nullable=True)
+    viewport_height = Column(Integer, nullable=True)
+    status = Column(String(20), nullable=False, server_default="new")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    user = relationship("User", back_populates="feedback_reports")
+    attachments = relationship(
+        "FeedbackAttachment",
+        back_populates="report",
+        cascade="all, delete-orphan",
+        order_by="FeedbackAttachment.created_at.asc()",
+    )
+
+    __table_args__ = (
+        Index("idx_feedback_reports_status", "status"),
+        Index("idx_feedback_reports_created_at", "created_at"),
+        Index("idx_feedback_reports_user_id", "user_id"),
+    )
+
+
+class FeedbackAttachment(BaseModel):
+    __tablename__ = "feedback_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    feedback_report_id = Column(Integer, ForeignKey("feedback_reports.id", ondelete="CASCADE"), nullable=False)
+    file_url = Column(String(1000), nullable=False)
+    file_key = Column(String(1000), nullable=False)
+    original_name = Column(String(255), nullable=False)
+    content_type = Column(String(255), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    report = relationship("FeedbackReport", back_populates="attachments")
+
+    __table_args__ = (Index("idx_feedback_attachments_report_id", "feedback_report_id"),)
 
 
 # =========================

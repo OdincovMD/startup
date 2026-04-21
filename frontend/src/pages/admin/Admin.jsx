@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Inbox,
   Loader2,
+  MessageSquareWarning,
 } from "lucide-react";
 import { apiRequest } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
@@ -30,7 +31,7 @@ const TAB_GROUPS = [
   { label: "Контент", tabs: [{ id: "vacancies", label: "Вакансии", icon: Link2 }, { id: "queries", label: "Запросы", icon: BookOpen }, { id: "equipment", label: "Оборудование", icon: Wrench }, { id: "tasks", label: "Решённые задачи", icon: TrendingUp }, { id: "employees", label: "Сотрудники", icon: User }] },
   { label: "Участники", tabs: [{ id: "students", label: "Студенты", icon: GraduationCap }, { id: "researchers", label: "Исследователи", icon: Beaker }, { id: "users", label: "Пользователи", icon: Users }] },
   { label: "Подписки", tabs: [{ id: "subscriptions", label: "Подписки", icon: Coins }] },
-  { label: "Модерация", tabs: [{ id: "join-requests", label: "Заявки", icon: HelpCircle }, { id: "vacancy-responses", label: "Отклики", icon: Mail }] },
+  { label: "Модерация", tabs: [{ id: "join-requests", label: "Заявки", icon: HelpCircle }, { id: "vacancy-responses", label: "Отклики", icon: Mail }, { id: "feedback", label: "Обратная связь", icon: MessageSquareWarning }] },
 ];
 
 const TABS = TAB_GROUPS.flatMap((g) => g.tabs);
@@ -43,6 +44,21 @@ function formatDate(iso) {
       day: "numeric",
       month: "short",
       year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function formatDateTime(iso) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString("ru-RU", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
     return iso;
@@ -113,10 +129,23 @@ export default function Admin() {
   const [vacancyResponsesTotal, setVacancyResponsesTotal] = useState(0);
   const [vacancyResponsesPage, setVacancyResponsesPage] = useState(1);
   const [vacancyResponsesLoading, setVacancyResponsesLoading] = useState(false);
+  const [feedbackItems, setFeedbackItems] = useState([]);
+  const [feedbackTotal, setFeedbackTotal] = useState(0);
+  const [feedbackPage, setFeedbackPage] = useState(1);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackStatusFilter, setFeedbackStatusFilter] = useState("new");
+  const [feedbackDetail, setFeedbackDetail] = useState(null);
+  const [feedbackDetailLoading, setFeedbackDetailLoading] = useState(false);
+  const [feedbackActionLoading, setFeedbackActionLoading] = useState(false);
   const [subEventsOpen, setSubEventsOpen] = useState(null);
   const [subEventsData, setSubEventsData] = useState(null);
 
-  const anySubModalOpen = subApproveModal.open || subRejectModal.open || subExtendModal.open || deleteConfirmModal.open;
+  const anySubModalOpen =
+    subApproveModal.open ||
+    subRejectModal.open ||
+    subExtendModal.open ||
+    deleteConfirmModal.open ||
+    !!feedbackDetail;
   useEditOverlayScrollLock(editDrawer.open || anySubModalOpen);
 
   useEffect(() => {
@@ -126,14 +155,15 @@ export default function Admin() {
         else if (subRejectModal.open) setSubRejectModal({ open: false, req: null, reason: "" });
         else if (subExtendModal.open) setSubExtendModal({ open: false, sub: null, newExpiresAt: "" });
         else if (deleteConfirmModal.open) setDeleteConfirmModal({ open: false, type: null, item: null });
+        else if (feedbackDetail) setFeedbackDetail(null);
         else closeEdit();
       }
     };
-    if (editDrawer.open || subApproveModal.open || subRejectModal.open || subExtendModal.open || deleteConfirmModal.open) {
+    if (editDrawer.open || subApproveModal.open || subRejectModal.open || subExtendModal.open || deleteConfirmModal.open || feedbackDetail) {
       document.addEventListener("keydown", onKey);
       return () => document.removeEventListener("keydown", onKey);
     }
-  }, [editDrawer.open, subApproveModal.open, subRejectModal.open, subExtendModal.open, deleteConfirmModal.open]);
+  }, [editDrawer.open, subApproveModal.open, subRejectModal.open, subExtendModal.open, deleteConfirmModal.open, feedbackDetail]);
 
   useEffect(() => {
     if (tabFromUrl && TABS.some((t) => t.id === tabFromUrl)) {
@@ -150,7 +180,7 @@ export default function Admin() {
 
   const fetchList = useCallback(async () => {
     if (auth?.user?.role_name !== "platform_admin") return;
-    if (["subscriptions", "dashboard", "users", "join-requests", "vacancy-responses"].includes(activeTab)) return;
+    if (["subscriptions", "dashboard", "users", "join-requests", "vacancy-responses", "feedback"].includes(activeTab)) return;
     setLoading(true);
     setError(null);
     try {
@@ -272,6 +302,24 @@ export default function Admin() {
     }
   }, [auth?.user?.role_name, vacancyResponsesPage]);
 
+  const fetchFeedback = useCallback(async () => {
+    if (auth?.user?.role_name !== "platform_admin") return;
+    setFeedbackLoading(true);
+    try {
+      const params = new URLSearchParams({ page: feedbackPage, size: PAGE_SIZE });
+      if (feedbackStatusFilter) params.set("status", feedbackStatusFilter);
+      const data = await apiRequest(`/admin/feedback?${params}`);
+      setFeedbackItems(data.items || []);
+      setFeedbackTotal(data.total ?? 0);
+    } catch (e) {
+      setFeedbackItems([]);
+      setFeedbackTotal(0);
+      setError(e.message);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  }, [auth?.user?.role_name, feedbackPage, feedbackStatusFilter]);
+
   useEffect(() => {
     if (activeTab === "dashboard") fetchDashboardStats();
   }, [activeTab, fetchDashboardStats]);
@@ -287,6 +335,10 @@ export default function Admin() {
   useEffect(() => {
     if (activeTab === "vacancy-responses") fetchVacancyResponses();
   }, [activeTab, fetchVacancyResponses]);
+
+  useEffect(() => {
+    if (activeTab === "feedback") fetchFeedback();
+  }, [activeTab, fetchFeedback]);
 
   const openApproveModal = (req) => {
     const defaultTrial = req.is_trial ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) : "";
@@ -438,6 +490,39 @@ export default function Admin() {
       setError(null);
     } catch (e) {
       setError(e.message);
+    }
+  };
+
+  const openFeedbackDetail = async (feedbackId) => {
+    setFeedbackDetailLoading(true);
+    setFeedbackDetail({ id: feedbackId, subject: "", status: "new", attachments: [] });
+    try {
+      const data = await apiRequest(`/admin/feedback/${feedbackId}`);
+      setFeedbackDetail(data);
+      setError(null);
+    } catch (e) {
+      setFeedbackDetail(null);
+      setError(e.message);
+    } finally {
+      setFeedbackDetailLoading(false);
+    }
+  };
+
+  const handleFeedbackStatusToggle = async () => {
+    if (!feedbackDetail) return;
+    const nextStatus = feedbackDetail.status === "done" ? "new" : "done";
+    setFeedbackActionLoading(true);
+    try {
+      const updated = await apiRequest(`/admin/feedback/${feedbackDetail.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      setFeedbackDetail(updated);
+      await fetchFeedback();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setFeedbackActionLoading(false);
     }
   };
 
@@ -1289,6 +1374,109 @@ export default function Admin() {
           </div>
         )}
 
+        {activeTab === "feedback" && (
+          <div className="admin-page__feedback">
+            <Card variant="solid" padding="lg" className="profile-section-card admin-page__card">
+              <div className="admin-page__card-header">
+                <div>
+                  <h2 className="profile-section-card__title">Обратная связь</h2>
+                  <p className="profile-section-desc">Сообщения пользователей и гостей со скриншотами и контекстом страницы.</p>
+                </div>
+                <div className="admin-page__sub-actions">
+                  <select
+                    className="ui-input admin-page__sub-status-select"
+                    value={feedbackStatusFilter}
+                    onChange={(e) => {
+                      setFeedbackStatusFilter(e.target.value);
+                      setFeedbackPage(1);
+                    }}
+                    aria-label="Фильтр статуса обратной связи"
+                  >
+                    <option value="new">Новые</option>
+                    <option value="done">Обработанные</option>
+                  </select>
+                  <Button variant="ghost" size="small" onClick={fetchFeedback} loading={feedbackLoading} disabled={feedbackLoading}>
+                    Обновить
+                  </Button>
+                </div>
+              </div>
+
+              {feedbackLoading ? (
+                <div className="admin-page__empty-state">
+                  <Loader2 size={28} strokeWidth={1.5} className="admin-page__empty-icon admin-page__empty-icon--spin" aria-hidden />
+                  <p className="admin-page__hint">Загрузка…</p>
+                </div>
+              ) : feedbackItems.length === 0 ? (
+                <div className="admin-page__empty-state">
+                  <Inbox size={32} strokeWidth={1.5} className="admin-page__empty-icon" aria-hidden />
+                  <p className="admin-page__hint">Обращений пока нет</p>
+                </div>
+              ) : (
+                <div className="admin-page__table-wrap">
+                  <table className="admin-page__table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Дата</th>
+                        <th>Тема</th>
+                        <th>Пользователь</th>
+                        <th>URL</th>
+                        <th>Вложения</th>
+                        <th>Статус</th>
+                        <th className="admin-page__table-actions-col"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {feedbackItems.map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.id}</td>
+                          <td>{formatDateTime(item.created_at)}</td>
+                          <td>{item.subject}</td>
+                          <td>
+                            {item.user
+                              ? item.user.full_name || item.user.mail || `#${item.user.id}`
+                              : "Гость"}
+                          </td>
+                          <td>
+                            <a href={item.current_url} target="_blank" rel="noopener noreferrer" className="admin-resume-link">
+                              {item.current_url}
+                            </a>
+                          </td>
+                          <td>{item.attachments?.length || 0}</td>
+                          <td>
+                            <Badge variant={item.status === "done" ? "success" : "draft"}>
+                              {item.status === "done" ? "Обработано" : "Новое"}
+                            </Badge>
+                          </td>
+                          <td className="admin-page__table-actions-col">
+                            <Button variant="ghost" size="small" onClick={() => openFeedbackDetail(item.id)}>
+                              Открыть
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {feedbackTotal > 0 && (
+                <div className="admin-page__pagination">
+                  <span className="admin-page__pagination-info">Показано {feedbackItems.length} из {feedbackTotal}</span>
+                  <div className="admin-page__pagination-btns">
+                    <Button variant="ghost" size="small" disabled={feedbackPage <= 1} onClick={() => setFeedbackPage((p) => p - 1)}>
+                      Назад
+                    </Button>
+                    <Button variant="ghost" size="small" disabled={feedbackPage * PAGE_SIZE >= feedbackTotal} onClick={() => setFeedbackPage((p) => p + 1)}>
+                      Вперёд
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+
         {activeTab === "subscriptions" && (
           <div className="admin-page__subscriptions">
             <div className="admin-page__subs-tabs">
@@ -1864,6 +2052,108 @@ export default function Admin() {
           </Card>
         )}
       </div>
+
+      {feedbackDetail && (
+        <div
+          className="admin-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="feedback-detail-title"
+          onClick={(e) => e.target === e.currentTarget && !feedbackActionLoading && setFeedbackDetail(null)}
+        >
+          <div className="admin-modal admin-modal--wide" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-page__feedback-detail-header">
+              <div>
+                <h3 id="feedback-detail-title">Обращение #{feedbackDetail.id}</h3>
+                <p className="admin-modal-desc">{feedbackDetail.subject}</p>
+              </div>
+              <Badge variant={feedbackDetail.status === "done" ? "success" : "draft"}>
+                {feedbackDetail.status === "done" ? "Обработано" : "Новое"}
+              </Badge>
+            </div>
+
+            {feedbackDetailLoading ? (
+              <div className="admin-page__empty-state">
+                <Loader2 size={28} strokeWidth={1.5} className="admin-page__empty-icon admin-page__empty-icon--spin" aria-hidden />
+                <p className="admin-page__hint">Загрузка…</p>
+              </div>
+            ) : (
+              <div className="admin-page__feedback-detail">
+                <div className="admin-page__feedback-grid">
+                  <div className="admin-page__feedback-block">
+                    <span className="admin-page__feedback-label">Пользователь</span>
+                    <strong>{feedbackDetail.user ? feedbackDetail.user.full_name || feedbackDetail.user.mail || `#${feedbackDetail.user.id}` : "Гость"}</strong>
+                    {feedbackDetail.user?.mail && <span>{feedbackDetail.user.mail}</span>}
+                    {feedbackDetail.user?.role_name && <span>{feedbackDetail.user.role_name}</span>}
+                  </div>
+                  <div className="admin-page__feedback-block">
+                    <span className="admin-page__feedback-label">Дата</span>
+                    <strong>{formatDateTime(feedbackDetail.created_at)}</strong>
+                  </div>
+                  <div className="admin-page__feedback-block">
+                    <span className="admin-page__feedback-label">URL</span>
+                    <a href={feedbackDetail.current_url} target="_blank" rel="noopener noreferrer" className="admin-resume-link">
+                      {feedbackDetail.current_url}
+                    </a>
+                  </div>
+                  <div className="admin-page__feedback-block">
+                    <span className="admin-page__feedback-label">Viewport</span>
+                    <strong>
+                      {feedbackDetail.viewport_width || "—"} × {feedbackDetail.viewport_height || "—"}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="admin-page__feedback-block">
+                  <span className="admin-page__feedback-label">Описание</span>
+                  <p className="admin-page__feedback-text">{feedbackDetail.description}</p>
+                </div>
+
+                <div className="admin-page__feedback-block">
+                  <span className="admin-page__feedback-label">Что делали перед ошибкой</span>
+                  <p className="admin-page__feedback-text">{feedbackDetail.steps_to_reproduce || "Не указано"}</p>
+                </div>
+
+                <div className="admin-page__feedback-block">
+                  <span className="admin-page__feedback-label">User agent</span>
+                  <p className="admin-page__feedback-mono">{feedbackDetail.user_agent || "Не указан"}</p>
+                </div>
+
+                <div className="admin-page__feedback-block">
+                  <span className="admin-page__feedback-label">Скриншоты</span>
+                  {feedbackDetail.attachments?.length ? (
+                    <div className="admin-page__feedback-attachments">
+                      {feedbackDetail.attachments.map((attachment) => (
+                        <a
+                          key={attachment.id}
+                          href={attachment.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="admin-page__feedback-attachment"
+                        >
+                          <img src={attachment.file_url} alt={attachment.original_name} />
+                          <span>{attachment.original_name}</span>
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="admin-page__hint">Скриншоты не приложены</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="admin-modal-actions">
+              <Button variant="primary" onClick={handleFeedbackStatusToggle} loading={feedbackActionLoading} disabled={feedbackDetailLoading}>
+                {feedbackDetail.status === "done" ? "Вернуть в новые" : "Отметить обработанным"}
+              </Button>
+              <Button variant="ghost" onClick={() => setFeedbackDetail(null)} disabled={feedbackActionLoading || feedbackDetailLoading}>
+                Закрыть
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteConfirmModal.open && deleteConfirmModal.item && (
         <div

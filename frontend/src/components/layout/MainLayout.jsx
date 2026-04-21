@@ -6,6 +6,7 @@ import GlobalSearch from "../GlobalSearch";
 import NotificationsDropdown from "../NotificationsDropdown";
 import CookieBanner from "../CookieBanner";
 import ReleaseBanner from "../ReleaseBanner";
+import FeedbackWidget from "../FeedbackWidget";
 
 const navLinkClass = ({ isActive }) =>
   `nav-link${isActive ? " nav-link--active" : ""}`;
@@ -358,6 +359,7 @@ export default function MainLayout() {
         >
           О нас
         </NavLink>
+        <FeedbackWidget className="main-layout__footer-link feedback-footer-trigger" />
         <span className="main-layout__footer-copy">© 2026 Синтезум</span>
       </footer>
 
