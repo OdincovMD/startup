@@ -849,6 +849,7 @@ html {
   color: var(--text-secondary);
   line-height: 1.5;
   font-size: 0.9375rem;
+  white-space: pre-line;
 }
 
 .task-article-links {
@@ -1242,6 +1243,7 @@ html {
   color: var(--text-secondary);
   line-height: 1.5;
   font-size: 0.9375rem;
+  white-space: pre-line;
 }
 
 .vacancy-dashboard-card__footer {
@@ -1424,6 +1426,7 @@ html {
   color: var(--text-secondary);
   line-height: 1.5;
   font-size: 0.9375rem;
+  white-space: pre-line;
 }
 
 .join-request-card__footer {
@@ -10364,6 +10367,7 @@ a.request-card__title:hover {
   line-height: 1.6;
   color: var(--text-secondary);
   max-width: 48rem;
+  white-space: pre-line;
 }
 
 .org-detail-section {
@@ -10608,6 +10612,7 @@ a.request-card__title:hover {
   font-size: 0.9375rem;
   line-height: 1.5;
   color: var(--text-secondary);
+  white-space: pre-line;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;

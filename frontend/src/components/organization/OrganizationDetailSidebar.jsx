@@ -2,11 +2,14 @@ import React from "react";
 import { MapPin, Globe, Beaker, Users, Briefcase } from "lucide-react";
 import { Card, Button } from "../ui";
 import WebsiteLink from "../WebsiteLink";
+import { useAuth } from "../../auth/AuthContext";
 
 export default function OrganizationDetailSidebar({ details }) {
+  const { auth } = useAuth();
   const labsCount = (details?.laboratories || []).length;
   const employeesCount = (details?.employees || []).length;
   const vacanciesCount = (details?.vacancies || []).length;
+  const employeeActionTarget = auth?.token ? "/profile" : "/register";
 
   return (
     <Card variant="elevated" padding="md">
@@ -60,6 +63,10 @@ export default function OrganizationDetailSidebar({ details }) {
               Связаться
             </Button>
           )}
+
+          <Button variant="primary" size="default" to={employeeActionTarget}>
+            Работаю тут
+          </Button>
         </div>
       </div>
     </Card>
