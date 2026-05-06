@@ -80,7 +80,7 @@ export default function Laboratories() {
 
   useEffect(() => {
     setPage(1);
-  }, [search.searchDebounced, organizationId, withoutOrg, minEmployees]);
+  }, [search.searchDebounced, organizationId, withoutOrg, minEmployees, sortBy]);
 
   useEffect(() => {
     if (selectedId) search.hideSuggestions();
@@ -126,26 +126,19 @@ export default function Laboratories() {
     async function loadLaboratories() {
       try {
         setLoading(true);
-        if (!hasFilters) {
-          const data = await apiRequest("/laboratories/");
-          const items = data?.items ?? [];
-          setLaboratories(items);
-          setTotal(data?.total ?? items.length);
-        } else {
-          const params = new URLSearchParams();
-          params.set("page", String(page));
-          params.set("size", String(LABORATORIES_PAGE_SIZE));
-          if (search.searchDebounced) params.set("q", search.searchDebounced);
-          if (organizationId) params.set("organization_id", organizationId);
-          if (withoutOrg) params.set("without_org", "true");
-          const minEmp = minEmployees !== "" ? Number(minEmployees) : null;
-          if (minEmp != null && minEmp > 0) params.set("min_employees", String(minEmp));
-          if (sortBy && sortBy !== "date_desc") params.set("sort_by", sortBy);
-          const data = await apiRequest(`/laboratories/?${params.toString()}`);
-          const items = data?.items || [];
-          setLaboratories(items);
-          setTotal(data?.total ?? items.length);
-        }
+        const params = new URLSearchParams();
+        params.set("page", String(page));
+        params.set("size", String(LABORATORIES_PAGE_SIZE));
+        if (search.searchDebounced) params.set("q", search.searchDebounced);
+        if (organizationId) params.set("organization_id", organizationId);
+        if (withoutOrg) params.set("without_org", "true");
+        const minEmp = minEmployees !== "" ? Number(minEmployees) : null;
+        if (minEmp != null && minEmp > 0) params.set("min_employees", String(minEmp));
+        if (sortBy) params.set("sort_by", sortBy);
+        const data = await apiRequest(`/laboratories/?${params.toString()}`);
+        const items = data?.items || [];
+        setLaboratories(items);
+        setTotal(data?.total ?? items.length);
       } catch (e) {
         setError(e.message);
       } finally {
