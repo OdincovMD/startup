@@ -122,7 +122,7 @@ docker compose up -d postgres elasticsearch minio
 | `JWT_SECRET` | Секрет для JWT |
 | `ENV` | development \| production |
 | `ORCID_CLIENT_ID`, `ORCID_CLIENT_SECRET` | ORCID OAuth |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | Почта (верификация, сброс пароля) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USE_TLS`, `SMTP_USE_SSL`, `SMTP_USER`, `SMTP_PASSWORD` | Почта (верификация, сброс пароля) |
 | `FRONTEND_URL` | Базовый URL фронта для писем и редиректов |
 | `CORS_ORIGINS` | Разрешённые CORS-источники (через запятую) |
 

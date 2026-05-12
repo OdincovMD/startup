@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
     SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     MAIL_FROM: str = ""

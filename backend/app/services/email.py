@@ -8,7 +8,8 @@ import logging
 import smtplib
 from pathlib import Path
 
-from email.mime.text import MIMEText
+from email.message import EmailMessage
+from email.utils import formataddr
 
 from app.config import settings
 
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent / "email_templates"
 _template_cache: dict[str, str] = {}
+_SMTP_TIMEOUT_SEC = 15
 
 
 def _load_template(name: str) -> str:
@@ -94,17 +96,42 @@ def send_email(to: str, subject: str, body_html: str) -> None:
     if not settings.SMTP_HOST:
         logger.warning("SMTP not configured, skipping email to %s", to)
         return
-    msg = MIMEText(body_html, "html", "utf-8")
+
+    from_addr = settings.MAIL_FROM or settings.SMTP_USER
+    if not from_addr:
+        logger.warning("MAIL_FROM and SMTP_USER are empty, skipping email to %s", to)
+        return
+
+    msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = f"{settings.MAIL_FROM_NAME} <{settings.MAIL_FROM}>"
+    msg["From"] = formataddr((settings.MAIL_FROM_NAME, from_addr))
     msg["To"] = to
+    msg.set_content("Ваш почтовый клиент не поддерживает HTML-версию письма.")
+    msg.add_alternative(body_html, subtype="html")
+
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as smtp:
-            if settings.SMTP_USE_TLS:
-                smtp.starttls()
-            if settings.SMTP_USER and settings.SMTP_PASSWORD:
-                smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            smtp.sendmail(settings.MAIL_FROM, [to], msg.as_string())
+        if settings.SMTP_USE_SSL:
+            with smtplib.SMTP_SSL(
+                settings.SMTP_HOST,
+                settings.SMTP_PORT,
+                timeout=_SMTP_TIMEOUT_SEC,
+            ) as smtp:
+                if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                    smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                smtp.send_message(msg, from_addr=from_addr, to_addrs=[to])
+        else:
+            with smtplib.SMTP(
+                settings.SMTP_HOST,
+                settings.SMTP_PORT,
+                timeout=_SMTP_TIMEOUT_SEC,
+            ) as smtp:
+                smtp.ehlo()
+                if settings.SMTP_USE_TLS:
+                    smtp.starttls()
+                    smtp.ehlo()
+                if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                    smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                smtp.send_message(msg, from_addr=from_addr, to_addrs=[to])
         logger.info("Email sent to %s subject=%s", to, subject)
     except Exception as e:
         logger.exception("Failed to send email to %s: %s", to, e)

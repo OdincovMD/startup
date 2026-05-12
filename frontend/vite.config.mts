@@ -8,7 +8,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    allowedHosts: ["api.pi-hardbox.ru"],
+    allowedHosts: ["sintezum.ru"],
     hmr: {
       clientPort: 80,
       path: "/",
