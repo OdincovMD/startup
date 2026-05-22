@@ -17565,6 +17565,106 @@ a.request-card__title:hover {
   gap: 0.75rem;
 }
 
+.about-page__story-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.about-page__story-item,
+.about-page__service-intro,
+.about-page__timeline-item {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.about-page__story-icon,
+.about-page__timeline-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.9rem;
+  background: linear-gradient(135deg, var(--accent-bg) 0%, transparent 100%);
+  color: var(--accent);
+}
+
+.about-page__story-body {
+  min-width: 0;
+}
+
+.about-page__story-title,
+.about-page__subheading {
+  margin: 0 0 0.625rem;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--text-primary-alt);
+}
+
+.about-page__story-body p,
+.about-page__timeline-text,
+.about-page__service-note {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.about-page__story-body p + p,
+.about-page__service-note {
+  margin-top: 0.875rem;
+}
+
+.about-page__story-body ul,
+.about-page__service-list {
+  margin: 0;
+  padding-left: 1.35rem;
+}
+
+.about-page__story-body ul {
+  margin-top: 0.125rem;
+}
+
+.about-page__story-body li,
+.about-page__service-list li {
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.about-page__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.about-page__timeline-item {
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--border-light);
+  border-radius: 1rem;
+  background: var(--card-bg-glass);
+}
+
+.about-page__timeline-body {
+  min-width: 0;
+}
+
+.about-page__timeline-period {
+  margin: 0 0 0.25rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--text-primary-alt);
+}
+
+.about-page__subheading {
+  margin-top: 1.5rem;
+}
+
 .about-page__contact-row {
   display: flex;
   align-items: center;
@@ -17586,6 +17686,26 @@ a.request-card__title:hover {
 
 .about-page__contact-row a:hover {
   text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .about-page__story-item,
+  .about-page__service-intro,
+  .about-page__timeline-item {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .about-page__story-icon,
+  .about-page__timeline-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.8rem;
+  }
+
+  .about-page__timeline-item {
+    padding: 0.95rem 1rem;
+  }
 }
 
 /* ----- 404 Not Found (научный юмор, стиль портала) ----- */

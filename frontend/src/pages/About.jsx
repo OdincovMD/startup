@@ -1,6 +1,65 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Building2, Mail, MapPin, Phone } from "lucide-react";
+import {
+  ArrowLeft,
+  Building2,
+  CalendarRange,
+  Compass,
+  Mail,
+  MapPin,
+  Megaphone,
+  MessageCircle,
+  Network,
+  Phone,
+  Search,
+  Send,
+} from "lucide-react";
+
+const PROJECT_BLOCKS = [
+  {
+    icon: Network,
+    title: "Проблема, которую решаем",
+    items: [
+      "слабые горизонтальные связи между НИИ и предприятиями;",
+      "отсутствие прозрачных инструментов для пути: студент → практика → трудоустройство.",
+    ],
+  },
+  {
+    icon: Search,
+    title: "О продукте",
+    text: "Результатом работы стала облачная платформа с каталогом организаций, интерактивной картой НИИ Троицка и формой поиска партнёров.",
+  },
+  {
+    icon: Compass,
+    title: "Текущий этап",
+    items: [
+      "пройден первый этап гранта «Студенческий стартап»;",
+      "ведётся тестирование MVP модели.",
+    ],
+  },
+];
+
+const ROADMAP = [
+  {
+    period: "Июнь-июль 2026",
+    text: "разработка финальной версии.",
+  },
+  {
+    period: "Август-сентябрь 2026",
+    text: "тестирование, исправление ошибок.",
+  },
+  {
+    period: "Октябрь 2026",
+    text: "закрытие гранта.",
+  },
+];
+
+const SERVICE_ITEMS = [
+  "ведение Telegram, ВК, Дзен, Max;",
+  "создание научно-популярного и технического контента;",
+  "дизайн карточек, инфографики;",
+  "участие и организация в очных мероприятиях.",
+];
 
 export default function About() {
   return (
@@ -20,7 +79,8 @@ export default function About() {
             </div>
             <h1 className="privacy-page__title">О нас</h1>
             <p className="privacy-page__lead">
-              Платформа научного найма Синтезум — связь между учёными, лабораториями и организациями.
+              Синтезум помогает выстраивать связи между наукой, образованием и технологическим бизнесом через
+              цифровую платформу и понятный путь от практики до трудоустройства.
             </p>
           </header>
 
@@ -48,6 +108,76 @@ export default function About() {
 
           <div className="privacy-page__body">
             <section className="privacy-section">
+              <h2 className="privacy-section__title">О проекте</h2>
+              <div className="about-page__story-list">
+                {PROJECT_BLOCKS.map(({ icon: Icon, title, text, items }) => (
+                  <div key={title} className="about-page__story-item">
+                    <div className="about-page__story-icon" aria-hidden>
+                      <Icon size={22} />
+                    </div>
+                    <div className="about-page__story-body">
+                      <h3 className="about-page__story-title">{title}</h3>
+                      {text ? <p>{text}</p> : null}
+                      {items ? (
+                        <ul>
+                          {items.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="privacy-section">
+              <h2 className="privacy-section__title">Дорожная карта</h2>
+              <div className="about-page__timeline" aria-label="Дорожная карта проекта">
+                {ROADMAP.map(({ period, text }) => (
+                  <div key={period} className="about-page__timeline-item">
+                    <div className="about-page__timeline-icon" aria-hidden>
+                      <CalendarRange size={18} />
+                    </div>
+                    <div className="about-page__timeline-body">
+                      <p className="about-page__timeline-period">{period}</p>
+                      <p className="about-page__timeline-text">{text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="privacy-section">
+              <h2 className="privacy-section__title">Дополнительные услуги</h2>
+              <div className="about-page__service-intro">
+                <div className="about-page__story-icon" aria-hidden>
+                  <Megaphone size={22} />
+                </div>
+                <div className="about-page__story-body">
+                  <h3 className="about-page__story-title">Научный SMM-менеджмент</h3>
+                  <p>
+                    Помогаем наукоёмким и технологическим организациям выстраивать цифровое присутствие и усиливать
+                    экспертный бренд. Комбинируем техническую точность, понятный язык и визуальный стиль, который
+                    уважает специфику отрасли.
+                  </p>
+                  <p>
+                    Формируем контент, который объясняет сложное, привлекает клиентов и повышает доверие к бренду.
+                  </p>
+                </div>
+              </div>
+              <h3 className="about-page__subheading">Что входит</h3>
+              <ul className="about-page__service-list">
+                {SERVICE_ITEMS.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+              <p className="about-page__service-note">
+                Объём, формат работ и цена обсуждаются индивидуально.
+              </p>
+            </section>
+
+            <section className="privacy-section">
               <h2 className="privacy-section__title">Контакты</h2>
               <div className="about-page__contacts">
                 <p className="about-page__contact-row">
@@ -61,6 +191,18 @@ export default function About() {
                 <p className="about-page__contact-row">
                   <Mail size={18} aria-hidden className="about-page__contact-icon" />
                   <a href="mailto:info@sintezum.ru" className="privacy-page__link">info@sintezum.ru</a>
+                </p>
+                <p className="about-page__contact-row">
+                  <Send size={18} aria-hidden className="about-page__contact-icon" />
+                  <a href="https://t.me/sergiomash" className="privacy-page__link" target="_blank" rel="noreferrer">
+                    Telegram: @sergiomash
+                  </a>
+                </p>
+                <p className="about-page__contact-row">
+                  <MessageCircle size={18} aria-hidden className="about-page__contact-icon" />
+                  <a href="https://vk.me/smm_sergeimir" className="privacy-page__link" target="_blank" rel="noreferrer">
+                    ВКонтакте: vk.me/smm_sergeimir
+                  </a>
                 </p>
               </div>
             </section>
