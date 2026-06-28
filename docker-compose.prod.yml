@@ -16,8 +16,8 @@ services:
         condition: service_healthy
     volumes:
       - ./nginx/nginx.prod.conf.template:/etc/nginx/nginx.conf.template:ro
-      - letsencrypt:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
+      - ./letsencrypt:/etc/letsencrypt
+      - ./certbot_www:/var/www/certbot
     restart: unless-stopped
     networks:
       - app-network
@@ -129,8 +129,8 @@ services:
     profiles:
       - certbot
     volumes:
-      - letsencrypt:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
+      - ./letsencrypt:/etc/letsencrypt
+      - ./certbot_www:/var/www/certbot
     entrypoint: certbot
 
 networks:
@@ -141,5 +141,3 @@ volumes:
   postgres_data:
   elasticsearch_data:
   minio_data:
-  letsencrypt:
-  certbot_www:
