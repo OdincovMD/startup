@@ -1,0 +1,143 @@
+services:
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: sintezum_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./nginx/nginx.prod.conf.template:/etc/nginx/nginx.conf.template:ro
+      - letsencrypt:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: sintezum_frontend
+    expose:
+      - "80"
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sintezum_backend
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASS}@postgres:5432/${DB_NAME}
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - S3_ENDPOINT=http://minio:9000
+      - S3_PUBLIC_BASE_URL=https://sintezum.ru/labportal
+      - FRONTEND_URL=https://sintezum.ru
+      - CORS_ORIGINS=https://sintezum.ru,https://www.sintezum.ru
+      - ENV=production
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: sintezum_postgres
+    restart: unless-stopped
+    shm_size: 128mb
+    env_file:
+      - .env
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: sintezum_elasticsearch
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    expose:
+      - "9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+      - ./elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q 'green\\|yellow'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: sintezum_minio
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: server /data --console-address ":9001"
+    expose:
+      - "9000"
+      - "9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - app-network
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: sintezum_certbot
+    profiles:
+      - certbot
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: certbot
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  elasticsearch_data:
+  minio_data:
+  letsencrypt:
+  certbot_www:

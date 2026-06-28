@@ -63,7 +63,8 @@ async def on_startup():
     setup_logging()
     await create_tables()
     await seed_roles()
-    await seed_trial_subscriptions()
+    if settings.ENV.lower() == "development":
+        await seed_trial_subscriptions()
     ensure_storage()
     await ensure_elasticsearch_indexes()
     scheduler.add_job(sync_openalex_data, "cron", hour=3, minute=0)

@@ -26,6 +26,22 @@ docker compose up --build
 
 Приложение доступно по адресу `http://localhost` (если `NGINX_PORT=80`) или `http://localhost:${NGINX_PORT}`.
 
+## Production
+
+Для production-контура используйте отдельный compose-файл:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Перед запуском скопируйте [`.env.production.example`](./.env.production.example) в `.env` и заполните секреты.
+
+Production-сборка:
+- фронтенд собирается как статическая статика через `frontend/Dockerfile.prod`
+- наружу публикуются только `80` и `443`
+- PostgreSQL, Elasticsearch и MinIO остаются внутри docker-сети
+- `seed_trial_subscriptions()` отключён на production-запуске
+
 ---
 
 ## Переменные окружения
