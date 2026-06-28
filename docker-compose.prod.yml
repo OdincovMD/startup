@@ -4,6 +4,8 @@ services:
       context: ./nginx
       dockerfile: Dockerfile
     container_name: sintezum_nginx
+    env_file:
+      - .env
     ports:
       - "80:80"
       - "443:443"
