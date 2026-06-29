@@ -59,4 +59,5 @@ Production-сборка:
 | [docs/api-public.md](docs/api-public.md) | Публичный API |
 | [docs/ENTITIES.md](docs/ENTITIES.md) | Модель данных |
 | [docs/admin-panel.md](docs/admin-panel.md) | Панель администратора |
+| [docs/production-ops.md](docs/production-ops.md) | Бэкапы, сертификаты и cron на production |
 | [docs/README.md](docs/README.md) | Полный указатель, включая **бизнес-документы** |
